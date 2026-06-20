@@ -40,6 +40,7 @@ jobs:
             ./customer_frontend/ root@$SERVER_IP:/opt/auto-renew/customer_frontend/
           
           rsync -avz --delete \
+            --exclude='.env' \
             --exclude='*.log' \
             ./deploy/ root@$SERVER_IP:/opt/auto-renew/deploy/
 
