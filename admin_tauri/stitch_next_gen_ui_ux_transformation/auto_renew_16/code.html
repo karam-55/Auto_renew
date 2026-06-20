@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&family=IBM+Plex+Sans+Arabic:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .primary-glow-hover:hover {
+            box-shadow: 0 0 20px rgba(0, 74, 198, 0.2);
+        }
+        body {
+            background-color: #faf8ff;
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            overflow-x: hidden;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 53, 148, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#eaddff",
+                      "surface-container-high": "#e7e7f2",
+                      "on-background": "#191b23",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-dim": "#d9d9e4",
+                      "glass-border": "rgba(255, 255, 255, 0.4)",
+                      "on-tertiary-fixed": "#3a0b00",
+                      "on-tertiary-container": "#ffb9a4",
+                      "bg-main": "#fcfcff",
+                      "surface-variant": "#e2e2ec",
+                      "on-secondary-fixed-variant": "#5a00c6",
+                      "secondary-container": "#8b4bfc",
+                      "outline": "#737685",
+                      "inverse-primary": "#b4c5ff",
+                      "surface-container-highest": "#e2e2ec",
+                      "surface-bright": "#faf8ff",
+                      "tertiary-fixed-dim": "#ffb59e",
+                      "outline-variant": "#c3c6d6",
+                      "primary-fixed-dim": "#b4c5ff",
+                      "on-tertiary": "#ffffff",
+                      "on-primary-fixed": "#00174b",
+                      "primary-glow": "rgba(0, 74, 198, 0.5)",
+                      "tertiary-fixed": "#ffdbd0",
+                      "on-error": "#ffffff",
+                      "primary-fixed": "#dbe1ff",
+                      "on-surface": "#191b23",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#f3f3fd",
+                      "secondary-fixed-dim": "#d2bbff",
+                      "error-container": "#ffdad6",
+                      "on-secondary-fixed": "#25005a",
+                      "primary": "#003594",
+                      "primary-container": "#004ac6",
+                      "on-primary": "#ffffff",
+                      "on-primary-container": "#b8c8ff",
+                      "on-secondary": "#ffffff",
+                      "background": "#faf8ff",
+                      "surface": "#faf8ff",
+                      "surface-container": "#ededf8",
+                      "tertiary-container": "#9c2e02",
+                      "surface-tint": "#1b55d0",
+                      "on-error-container": "#93000a",
+                      "glass-bg": "rgba(255, 255, 255, 0.7)",
+                      "on-tertiary-fixed-variant": "#842500",
+                      "secondary-light": "#ede9fe",
+                      "on-primary-fixed-variant": "#003ea8",
+                      "inverse-on-surface": "#f0f0fb",
+                      "on-secondary-container": "#fffbff",
+                      "tertiary": "#751f00",
+                      "on-surface-variant": "#434654",
+                      "secondary": "#712ae2",
+                      "inverse-surface": "#2e3038"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "card-padding": "24px",
+                      "gutter": "20px",
+                      "sidebar-offset": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Be Vietnam Pro"],
+                      "headline-md": ["Be Vietnam Pro"],
+                      "label-mono": ["JetBrains Mono"],
+                      "body-lg": ["IBM Plex Sans Arabic"],
+                      "body-md": ["IBM Plex Sans Arabic"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                      "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-48px)] mx-auto rounded-xl mt-sidebar-offset bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="A professional business headshot of a middle-aged Arabic male executive with a kind smile, wearing a modern dark navy suit. The portrait is set against a clean, bright studio background with soft bokeh. The lighting is sophisticated and professional, perfectly capturing a high-tech corporate leadership vibe consistent with the clean light-mode UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXqtGN_d0alubt9ie-kfVwHIenjhUjlFMskfvhBUfwjAZTeh_Nit0C1Mhz56Be8rx6wdKZm9fZj-wcPI3y4v5Vf-F4w3yilJ2xIb9yWaDFjk8WHB_Z3d7gcFecfy7Sj9ulMNy8GquWDTV02u-S34dUFltykzHFNevktWC-yB4gWsdTvS0AbzpjZVatRp78k8oGD74-XHBmYaCFsAjPX1KjK4aUuueXMqkKSXj1KAQ998UuP9xmYfLwodraGUPgS9cjOsmNER1bOXk"/>
+</div>
+<div class="flex gap-2">
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant">notifications</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-container-high transition-colors text-primary border-b-2 border-primary">settings</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant">help</button>
+</div>
+</div>
+<div class="flex-1 px-8">
+<div class="relative max-w-md">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pr-10 pl-4 text-body-md focus:ring-2 focus:ring-primary/20 transition-all" placeholder="بحث في الإعدادات..." type="text"/>
+</div>
+</div>
+<div class="flex items-center">
+<span class="text-headline-md font-headline-md font-bold text-primary">نظام إدارة السيارات</span>
+</div>
+</header>
+<div class="flex px-container-margin gap-gutter mt-6">
+<!-- SideNavBar (Settings Explorer) -->
+<aside class="w-72 sticky top-24 h-[calc(100vh-120px)] flex flex-col gap-4">
+<nav class="flex flex-col h-full bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] rounded-2xl py-card-padding">
+<div class="px-6 mb-6">
+<h2 class="text-headline-md font-headline-md text-primary">أوتو برو</h2>
+<p class="text-body-md text-on-surface-variant">الإدارة المتقدمة</p>
+</div>
+<div class="flex flex-col gap-2 px-3">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary p-3 rounded-xl transition-all duration-300 hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">storefront</span>
+<span class="text-body-md">إعدادات المتجر</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+<span class="text-body-md">الصلاحيات والأدوار</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary p-3 rounded-xl transition-all duration-300 hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">payments</span>
+<span class="text-body-md">الضرائب والمالية</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary p-3 rounded-xl transition-all duration-300 hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">palette</span>
+<span class="text-body-md">تخصيص الواجهة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary p-3 rounded-xl transition-all duration-300 hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">notifications_active</span>
+<span class="text-body-md">التنبيهات</span>
+</a>
+</div>
+<div class="mt-auto px-3">
+<button class="w-full flex flex-row-reverse items-center justify-start text-error p-3 rounded-xl hover:bg-error-container/10 transition-all">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="text-body-md">تسجيل الخروج</span>
+</button>
+</div>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 pb-24">
+<div class="flex flex-col gap-gutter">
+<!-- Section Header -->
+<div class="flex justify-between items-end">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">الصلاحيات والأدوار</h1>
+<p class="text-body-lg text-on-surface-variant mt-1">إدارة وصول المستخدمين وتحديد مستويات التحكم في النظام.</p>
+</div>
+<button class="bg-primary text-on-primary px-6 py-3 rounded-xl flex items-center gap-2 font-body-md shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
+<span class="material-symbols-outlined">add</span>
+                        إضافة دور جديد
+                    </button>
+</div>
+<!-- Bento Grid Layout for Roles & Permissions -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Role Card 1 -->
+<div class="col-span-12 lg:col-span-4 glass-card p-6 rounded-2xl border-t-4 border-t-primary shadow-sm relative overflow-hidden group hover:translate-y-[-8px] transition-all duration-300">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl">engineering</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<div class="bg-primary/10 p-3 rounded-full">
+<span class="material-symbols-outlined text-primary">engineering</span>
+</div>
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-label-mono text-outline">نشط</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface">مدير النظام</h3>
+<p class="text-body-md text-on-surface-variant mt-2">صلاحيات كاملة للتحكم في جميع جوانب المنصة والإعدادات.</p>
+<div class="mt-6 flex flex-wrap gap-2">
+<span class="text-label-mono px-2 py-1 bg-primary-container/20 text-on-primary-fixed-variant rounded">إدارة المستخدمين</span>
+<span class="text-label-mono px-2 py-1 bg-primary-container/20 text-on-primary-fixed-variant rounded">التقارير المالية</span>
+<span class="text-label-mono px-2 py-1 bg-primary-container/20 text-on-primary-fixed-variant rounded">+12 صلاحية</span>
+</div>
+</div>
+<!-- Role Card 2 -->
+<div class="col-span-12 lg:col-span-4 glass-card p-6 rounded-2xl border-t-4 border-t-secondary shadow-sm relative overflow-hidden group hover:translate-y-[-8px] transition-all duration-300">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl">person</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<div class="bg-secondary/10 p-3 rounded-full">
+<span class="material-symbols-outlined text-secondary">person</span>
+</div>
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-label-mono text-outline">نشط</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface">مشرف الأسطول</h3>
+<p class="text-body-md text-on-surface-variant mt-2">إدارة السيارات، التكليفات، وجداول الصيانة الدورية.</p>
+<div class="mt-6 flex flex-wrap gap-2">
+<span class="text-label-mono px-2 py-1 bg-secondary-fixed text-on-secondary-fixed-variant rounded">تعديل السيارات</span>
+<span class="text-label-mono px-2 py-1 bg-secondary-fixed text-on-secondary-fixed-variant rounded">طلبات الصيانة</span>
+<span class="text-label-mono px-2 py-1 bg-secondary-fixed text-on-secondary-fixed-variant rounded">+5 صلاحيات</span>
+</div>
+</div>
+<!-- Role Card 3 -->
+<div class="col-span-12 lg:col-span-4 glass-card p-6 rounded-2xl border-t-4 border-t-tertiary shadow-sm relative overflow-hidden group hover:translate-y-[-8px] transition-all duration-300">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl">description</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<div class="bg-tertiary/10 p-3 rounded-full">
+<span class="material-symbols-outlined text-tertiary">description</span>
+</div>
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-label-mono text-outline">محدود</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface">محاسب</h3>
+<p class="text-body-md text-on-surface-variant mt-2">عرض التقارير المالية، الفواتير، وإدارة الضرائب فقط.</p>
+<div class="mt-6 flex flex-wrap gap-2">
+<span class="text-label-mono px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded">الفواتير</span>
+<span class="text-label-mono px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded">الضرائب</span>
+<span class="text-label-mono px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded">+2 صلاحية</span>
+</div>
+</div>
+<!-- Detailed Permissions Table (Glass Style) -->
+<div class="col-span-12 glass-card rounded-2xl overflow-hidden shadow-xl border border-glass-border">
+<div class="p-6 border-b border-glass-border flex justify-between items-center bg-white/20">
+<h3 class="text-headline-md font-bold text-on-surface">جدول تفصيل الصلاحيات</h3>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-outline">filter_list</span></button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-outline">download</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="p-4 font-body-lg text-on-surface-variant">الميزة / الوحدة</th>
+<th class="p-4 font-body-lg text-on-surface-variant">المدير</th>
+<th class="p-4 font-body-lg text-on-surface-variant">المشرف</th>
+<th class="p-4 font-body-lg text-on-surface-variant">السائق</th>
+<th class="p-4 font-body-lg text-on-surface-variant">المحاسب</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-glass-border">
+<tr class="hover:bg-primary/5 transition-all duration-200 group">
+<td class="p-4 font-body-md text-on-surface flex items-center gap-3">
+<div class="w-1 h-6 bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            إدارة أسطول المركبات
+                                        </td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">visibility</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+</tr>
+<tr class="hover:bg-primary/5 transition-all duration-200 group">
+<td class="p-4 font-body-md text-on-surface flex items-center gap-3">
+<div class="w-1 h-6 bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            تعديل بيانات النظام
+                                        </td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+</tr>
+<tr class="hover:bg-primary/5 transition-all duration-200 group">
+<td class="p-4 font-body-md text-on-surface flex items-center gap-3">
+<div class="w-1 h-6 bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            التقارير المالية والضرائب
+                                        </td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+</tr>
+<tr class="hover:bg-primary/5 transition-all duration-200 group">
+<td class="p-4 font-body-md text-on-surface flex items-center gap-3">
+<div class="w-1 h-6 bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            حذف السجلات
+                                        </td>
+<td class="p-4 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+<td class="p-4 text-outline-variant"><span class="material-symbols-outlined">block</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Interface Customization Mini-Panel -->
+<div class="col-span-12 lg:col-span-6 glass-card p-6 rounded-2xl shadow-sm">
+<div class="flex items-center gap-4 mb-6">
+<div class="bg-secondary/10 p-3 rounded-full text-secondary">
+<span class="material-symbols-outlined">palette</span>
+</div>
+<h3 class="text-headline-md font-bold text-on-surface">تخصيص واجهة النظام</h3>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-body-lg text-on-surface">الوضع الليلي التلقائي</p>
+<p class="text-body-md text-on-surface-variant">تفعيل الوضع المظلم حسب توقيت الجهاز</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="font-body-lg text-on-surface">كثافة البيانات</p>
+<p class="text-body-md text-on-surface-variant">عرض المزيد من المعلومات في مساحة أقل</p>
+</div>
+<select class="bg-surface-container-low border-glass-border rounded-lg text-body-md px-4 py-2 focus:ring-primary focus:border-primary">
+<option>مريح</option>
+<option selected="">متوسط</option>
+<option>مكثف</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Store & Tax Quick Look -->
+<div class="col-span-12 lg:col-span-6 glass-card p-6 rounded-2xl shadow-sm border-l-4 border-l-tertiary">
+<div class="flex items-center gap-4 mb-6">
+<div class="bg-tertiary/10 p-3 rounded-full text-tertiary">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<h3 class="text-headline-md font-bold text-on-surface">إعدادات المتجر والضرائب</h3>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 bg-surface-container-low rounded-xl">
+<p class="text-body-md text-on-surface-variant">ضريبة القيمة المضافة</p>
+<p class="text-headline-md font-bold text-primary">15%</p>
+</div>
+<div class="p-4 bg-surface-container-low rounded-xl">
+<p class="text-body-md text-on-surface-variant">العملة الافتراضية</p>
+<p class="text-headline-md font-bold text-primary">SAR</p>
+</div>
+<div class="p-4 bg-surface-container-low rounded-xl col-span-2">
+<p class="text-body-md text-on-surface-variant">عنوان المركز الرئيسي</p>
+<p class="text-body-md text-on-surface">الرياض، حي المروج، طريق الملك فهد</p>
+</div>
+</div>
+<button class="w-full mt-6 py-2 text-primary font-bold border border-primary/20 rounded-xl hover:bg-primary/5 transition-colors">إدارة التفاصيل المالية</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Floating Smart Action Button (FAB) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center group animate-bounce-slow transition-transform hover:scale-110 active:scale-90 z-50">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">auto_fix_high</span>
+<div class="absolute -top-12 left-0 bg-inverse-surface text-inverse-on-surface px-4 py-2 rounded-lg text-body-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            إعداد ذكي تلقائي
+        </div>
+</button>
+<style>
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-slow {
+            animation: bounce-slow 3s infinite ease-in-out;
+        }
+    </style>
+<script>
+        // Micro-interaction for table rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                row.classList.toggle('bg-primary/10');
+            });
+        });
+
+        // Simulating loading effect on page load
+        window.addEventListener('load', () => {
+            const main = document.querySelector('main');
+            main.style.opacity = '0';
+            main.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                main.style.transition = 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+                main.style.opacity = '1';
+                main.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body></html>

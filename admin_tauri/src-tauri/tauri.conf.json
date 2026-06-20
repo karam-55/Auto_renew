@@ -1,0 +1,54 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "category": "Business",
+    "copyright": "",
+    "targets": "all",
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "externalBin": [],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    },
+    "longDescription": "AUTO_Renew Admin Desktop Application - Garage Management System",
+    "shortDescription": "AUTO_Renew Admin",
+    "publisher": "AUTO_Renew"
+  },
+  "productName": "AUTO_Renew Admin",
+  "version": "0.1.0",
+  "identifier": "com.autorenew.admin",
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 900,
+        "resizable": true,
+        "title": "AUTO_Renew Admin",
+        "width": 1400,
+        "minWidth": 1024,
+        "minHeight": 768,
+        "center": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "dangerousDisableAssetCspModification": false,
+      "capabilities": []
+    }
+  },
+  "plugins": {}
+}

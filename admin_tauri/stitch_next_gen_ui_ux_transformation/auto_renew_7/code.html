@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>أوتو برو | لوحة التحكم</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Arabic & Latin -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;500;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#faf8ff",
+                    "outline-variant": "#c3c6d6",
+                    "surface-dim": "#d9d9e4",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-bright": "#faf8ff",
+                    "outline": "#737685",
+                    "glass-bg": "rgba(255, 255, 255, 0.7)",
+                    "surface-container-high": "#e7e7f2",
+                    "tertiary-container": "#9c2e02",
+                    "on-surface": "#191b23",
+                    "surface-tint": "#1b55d0",
+                    "error": "#ba1a1a",
+                    "secondary": "#712ae2",
+                    "primary-container": "#004ac6",
+                    "error-container": "#ffdad6",
+                    "on-surface-variant": "#434654",
+                    "primary-fixed": "#dbe1ff",
+                    "surface-container-highest": "#e2e2ec",
+                    "tertiary-fixed": "#ffdbd0",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary-fixed-variant": "#842500",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "tertiary-fixed-dim": "#ffb59e",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#b8c8ff",
+                    "secondary-container": "#8b4bfc",
+                    "bg-main": "#fcfcff",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-on-surface": "#f0f0fb",
+                    "on-error": "#ffffff",
+                    "secondary-fixed": "#eaddff",
+                    "secondary-fixed-dim": "#d2bbff",
+                    "primary-glow": "rgba(0, 74, 198, 0.5)",
+                    "inverse-surface": "#2e3038",
+                    "glass-border": "rgba(255, 255, 255, 0.4)",
+                    "surface-variant": "#e2e2ec",
+                    "on-background": "#191b23",
+                    "on-tertiary-container": "#ffb9a4",
+                    "on-secondary-container": "#fffbff",
+                    "surface-container": "#ededf8",
+                    "primary": "#003594",
+                    "surface": "#faf8ff",
+                    "on-tertiary-fixed": "#3a0b00",
+                    "surface-container-low": "#f3f3fd",
+                    "secondary-light": "#ede9fe",
+                    "on-primary": "#ffffff",
+                    "inverse-primary": "#b4c5ff",
+                    "on-secondary-fixed": "#25005a",
+                    "on-secondary-fixed-variant": "#5a00c6",
+                    "tertiary": "#751f00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "card-padding": "24px",
+                    "gutter": "20px",
+                    "sidebar-offset": "16px",
+                    "container-margin": "24px"
+            },
+            "fontFamily": {
+                    "body-lg": ["IBM Plex Sans Arabic"],
+                    "headline-md": ["Be Vietnam Pro"],
+                    "body-md": ["IBM Plex Sans Arabic"],
+                    "headline-lg": ["Be Vietnam Pro"],
+                    "label-mono": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background: radial-gradient(circle at top right, #f3f3fd 0%, #faf8ff 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .primary-gradient {
+            background: linear-gradient(135deg, #1b55d0 0%, #003594 100%);
+        }
+
+        /* Khurafi Motion Effects */
+        @keyframes pageEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .page-enter {
+            animation: pageEnter 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stagger-entry {
+            opacity: 0;
+            animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* Hover Lift with Glow */
+        .hover-lift:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px -10px rgba(27, 85, 208, 0.15);
+            border-color: rgba(27, 85, 208, 0.4);
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Ambient Float */
+        @keyframes ambientFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float {
+            animation: ambientFloat 4s ease-in-out infinite;
+        }
+
+        /* Shimmer Effect */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .shimmer-placeholder {
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0) 0%, 
+                rgba(27, 85, 208, 0.05) 50%, 
+                rgba(255, 255, 255, 0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(27, 85, 208, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(27, 85, 208, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(27, 85, 208, 0); }
+        }
+        .animate-glow {
+            animation: pulse-glow 2s infinite;
+        }
+
+        /* Prefers Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            .page-enter, .stagger-entry, .hover-lift, .animate-float, .shimmer-placeholder, .animate-glow {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset bg-glass-bg/70 backdrop-blur-xl rounded-2xl border-l border-glass-border shadow-2xl z-50 py-card-padding gap-gutter overflow-hidden stagger-entry" style="animation-delay: 0.1s;">
+<div class="px-6 flex flex-col items-center gap-2 mb-4">
+<div class="w-12 h-12 rounded-xl primary-gradient flex items-center justify-center text-white shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-3xl">directions_car</span>
+</div>
+<div class="text-center">
+<h1 class="text-headline-md font-headline-md text-primary tracking-tight">أوتو برو</h1>
+<p class="text-body-md text-on-surface-variant opacity-70">الإدارة المتقدمة</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-3">
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full px-4 py-3 gap-4 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-body-lg">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary hover:bg-surface-container-low px-4 py-3 gap-4 rounded-xl transition-all duration-500 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-[-4px] transition-transform duration-500">directions_car</span>
+<span class="text-body-lg">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary hover:bg-surface-container-low px-4 py-3 gap-4 rounded-xl transition-all duration-500 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-[-4px] transition-transform duration-500">build</span>
+<span class="text-body-lg">الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary hover:bg-surface-container-low px-4 py-3 gap-4 rounded-xl transition-all duration-500 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-[-4px] transition-transform duration-500">inventory_2</span>
+<span class="text-body-lg">المخزن</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary hover:bg-surface-container-low px-4 py-3 gap-4 rounded-xl transition-all duration-500 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-[-4px] transition-transform duration-500">analytics</span>
+<span class="text-body-lg">التقارير</span>
+</a>
+</nav>
+<div class="px-6 pt-6 border-t border-glass-border">
+<button class="w-full primary-gradient text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.05] active:scale-95 transition-all duration-500 shadow-lg">
+<span class="material-symbols-outlined">add_circle</span>
+                إضافة سيارة
+            </button>
+</div>
+<div class="mt-auto px-3">
+<a class="flex flex-row-reverse items-center justify-start text-error px-4 py-3 gap-4 rounded-xl hover:bg-error-container/20 transition-all duration-500 group" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-body-lg">تسجيل الخروج</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="md:mr-72 p-sidebar-offset md:p-container-margin min-h-screen page-enter">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-full glass-panel rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] mb-gutter stagger-entry" style="animation-delay: 0.15s;">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYRr31CGAMsT_uUxpX3mDQYroc-1U4YMHiufLkb8_xTPvsUEM6vlCu8He-0_jKpsxFzU2EpLbdV9P6nslkpGAe60KZQQj1pXPlzI0lAP_ylPYQ9FBl2SVftQcrdpZj6n_LMnttYx8EINXEEDYlrXVBK9uhOImY5vpqXSR4UJ29jougFPylKn8ONNRqO3q0Iufb4W0TsO4Z-dLyJJ7LW_UEAe8TWBMjqL5NZLIiv1nXopr8GCn4azyRXhso8-mUcnCyeIrrwNv6jOo"/>
+</div>
+<div class="text-right hidden sm:block">
+<h4 class="text-body-md font-bold text-on-surface">أحمد العتيبي</h4>
+<p class="text-[12px] text-on-surface-variant leading-none">مدير النظام</p>
+</div>
+</div>
+<div class="flex-1 flex justify-center max-w-md">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-primary/20 transition-all duration-500 text-body-md" placeholder="البحث عن سيارة، عميل، أو فاتورة..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant hover:bg-primary-container/10 hover:text-primary transition-all duration-500">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant hover:bg-primary-container/10 hover:text-primary transition-all duration-500">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="relative w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant hover:bg-primary-container/10 hover:text-primary transition-all duration-500">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 left-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+</div>
+</header>
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter mb-gutter">
+<!-- KPI 1 -->
+<div class="glass-panel hover-lift rounded-2xl p-card-padding border-t-[3px] border-primary shadow-lg group stagger-entry" style="animation-delay: 0.2s;">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-transform duration-500 group-hover:rotate-12">
+<span class="material-symbols-outlined text-3xl">payments</span>
+</div>
+<span class="text-label-mono text-green-600 bg-green-50 px-2 py-1 rounded-lg flex items-center gap-1">
+                        12%+ <span class="material-symbols-outlined text-[16px]">trending_up</span>
+</span>
+</div>
+<h3 class="text-body-md text-on-surface-variant mb-1">إجمالي الدخل</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-lg font-headline-lg text-primary tracking-tight">45,280</span>
+<span class="text-body-md text-outline font-bold">ر.س</span>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="glass-panel hover-lift rounded-2xl p-card-padding border-t-[3px] border-secondary shadow-lg group stagger-entry" style="animation-delay: 0.25s;">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary transition-transform duration-500 group-hover:rotate-12">
+<span class="material-symbols-outlined text-3xl">calendar_month</span>
+</div>
+<span class="text-label-mono text-secondary bg-secondary-light px-2 py-1 rounded-lg">النشطة</span>
+</div>
+<h3 class="text-body-md text-on-surface-variant mb-1">الحجوزات النشطة</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-lg font-headline-lg text-secondary tracking-tight">124</span>
+<span class="text-body-md text-outline">حجز</span>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="glass-panel hover-lift rounded-2xl p-card-padding border-t-[3px] border-tertiary-container shadow-lg group stagger-entry" style="animation-delay: 0.3s;">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-2xl bg-tertiary-container/10 flex items-center justify-center text-tertiary-container transition-transform duration-500 group-hover:rotate-12">
+<span class="material-symbols-outlined text-3xl">home_repair_service</span>
+</div>
+<span class="text-label-mono text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded-lg">الورشة</span>
+</div>
+<h3 class="text-body-md text-on-surface-variant mb-1">السيارات في الورشة</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-lg font-headline-lg text-tertiary-container tracking-tight">18</span>
+<span class="text-body-md text-outline">مركبة</span>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="glass-panel hover-lift rounded-2xl p-card-padding border-t-[3px] border-error shadow-lg group stagger-entry" style="animation-delay: 0.35s;">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-2xl bg-error/10 flex items-center justify-center text-error transition-transform duration-500 group-hover:rotate-12">
+<span class="material-symbols-outlined text-3xl">warning</span>
+</div>
+<span class="text-label-mono text-error bg-error-container/30 px-2 py-1 rounded-lg">تنبيه</span>
+</div>
+<h3 class="text-body-md text-on-surface-variant mb-1">المخزون المنخفض</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-lg font-headline-lg text-error tracking-tight">5</span>
+<span class="text-body-md text-outline">قطع</span>
+</div>
+</div>
+</div>
+<!-- Charts & Quick Actions Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-gutter">
+<!-- Weekly Income Chart Card -->
+<div class="lg:col-span-2 glass-panel rounded-3xl p-card-padding stagger-entry" style="animation-delay: 0.4s;">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h2 class="text-headline-md font-headline-md text-on-surface">تحليل الدخل الأسبوعي</h2>
+<p class="text-body-md text-on-surface-variant opacity-70">أداء المبيعات لآخر 7 أيام</p>
+</div>
+<select class="bg-surface-container-low border-none rounded-lg text-body-md px-4 py-2 focus:ring-primary/20 transition-all duration-500">
+<option>آخر 7 أيام</option>
+<option>آخر 30 يوم</option>
+</select>
+</div>
+<div class="relative h-64 w-full rounded-2xl overflow-hidden border border-dashed border-primary/20 shimmer-placeholder">
+<!-- Chart Visual Placeholder -->
+<div class="absolute inset-0 flex items-center justify-center text-primary/30">
+<span class="material-symbols-outlined text-6xl">monitoring</span>
+</div>
+</div>
+<div class="flex justify-around mt-6 pt-6 border-t border-glass-border">
+<div class="text-center group cursor-default">
+<p class="text-body-md text-outline group-hover:text-primary transition-colors">أعلى دخل</p>
+<p class="text-body-lg font-bold text-primary">8,420 ر.س</p>
+</div>
+<div class="text-center group cursor-default">
+<p class="text-body-md text-outline group-hover:text-primary transition-colors">المتوسط اليومي</p>
+<p class="text-body-lg font-bold text-on-surface">6,100 ر.س</p>
+</div>
+<div class="text-center group cursor-default">
+<p class="text-body-md text-outline group-hover:text-green-600 transition-colors">النمو</p>
+<p class="text-body-lg font-bold text-green-600">+14%</p>
+</div>
+</div>
+</div>
+<!-- Quick Actions -->
+<div class="glass-panel rounded-3xl p-card-padding stagger-entry" style="animation-delay: 0.45s;">
+<h2 class="text-headline-md font-headline-md text-on-surface mb-6">إجراءات سريعة</h2>
+<div class="grid grid-cols-1 gap-4">
+<button class="flex flex-row-reverse items-center justify-between p-4 rounded-2xl bg-primary-container/10 border border-primary/20 hover:bg-primary-container/20 transition-all duration-500 group">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined">add_task</span>
+</div>
+<span class="text-body-lg font-bold text-primary">حجز جديد</span>
+</div>
+<span class="material-symbols-outlined text-primary group-hover:translate-x-[-8px] transition-transform duration-500">chevron_left</span>
+</button>
+<button class="flex flex-row-reverse items-center justify-between p-4 rounded-2xl bg-secondary-container/10 border border-secondary/20 hover:bg-secondary-container/20 transition-all duration-500 group">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<span class="text-body-lg font-bold text-secondary">فاتورة سريعة</span>
+</div>
+<span class="material-symbols-outlined text-secondary group-hover:translate-x-[-8px] transition-transform duration-500">chevron_left</span>
+</button>
+<button class="flex flex-row-reverse items-center justify-between p-4 rounded-2xl bg-tertiary-container/10 border border-tertiary-container/20 hover:bg-tertiary-container/20 transition-all duration-500 group">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-container text-white flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined">person_add</span>
+</div>
+<span class="text-body-lg font-bold text-tertiary-container">إضافة عميل</span>
+</div>
+<span class="material-symbols-outlined text-tertiary-container group-hover:translate-x-[-8px] transition-transform duration-500">chevron_left</span>
+</button>
+<div class="mt-4 p-4 rounded-2xl bg-surface-container-high/50 border border-dashed border-outline-variant flex flex-col items-center justify-center gap-2 text-center stagger-entry" style="animation-delay: 0.6s;">
+<p class="text-body-md text-on-surface-variant">هل تحتاج للمساعدة؟</p>
+<button class="text-primary font-bold hover:underline transition-all duration-500 hover:scale-105">تحدث مع الدعم الفني</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Latest Bookings Table -->
+<section class="glass-panel rounded-3xl overflow-hidden stagger-entry" style="animation-delay: 0.5s;">
+<div class="px-card-padding py-6 flex justify-between items-center border-b border-glass-border bg-white/30">
+<h2 class="text-headline-md font-headline-md text-on-surface">آخر الحجوزات</h2>
+<button class="text-primary font-bold hover:underline flex items-center gap-1 transition-all duration-500 hover:gap-2">
+                    عرض الكل
+                    <span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider">العميل</th>
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider">السيارة</th>
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider">نوع الخدمة</th>
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider">التاريخ</th>
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider">الحالة</th>
+<th class="px-6 py-4 text-body-md font-bold text-outline uppercase tracking-wider text-left">الإجراء</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-glass-border">
+<tr class="hover:bg-primary-container/5 transition-all duration-500 group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-row-reverse items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[12px] transition-transform duration-500 group-hover:scale-110">مح</div>
+<div class="text-body-md font-medium text-on-surface">محمد عبدالله</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant">تويوتا كامري 2023</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-[13px] font-medium">صيانة دورية</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant font-label-mono">2023-10-24</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="text-green-700 bg-green-100/50 px-3 py-1 rounded-full text-[13px] font-bold">مكتمل</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-left">
+<button class="text-on-surface-variant hover:text-primary transition-all duration-500 hover:rotate-90">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-all duration-500 group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-row-reverse items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary/20 text-secondary flex items-center justify-center font-bold text-[12px] transition-transform duration-500 group-hover:scale-110">سا</div>
+<div class="text-body-md font-medium text-on-surface">سارة الحربي</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant">مرسيدس G-Class</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-[13px] font-medium">تلميع ساطع</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant font-label-mono">2023-10-25</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="text-primary bg-primary-container/20 px-3 py-1 rounded-full text-[13px] font-bold">قيد التنفيذ</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-left">
+<button class="text-on-surface-variant hover:text-primary transition-all duration-500 hover:rotate-90">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-all duration-500 group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-row-reverse items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/20 text-tertiary-container flex items-center justify-center font-bold text-[12px] transition-transform duration-500 group-hover:scale-110">خا</div>
+<div class="text-body-md font-medium text-on-surface">خالد الشمري</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant">فورد تيريتوري</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="bg-surface-container-high px-3 py-1 rounded-full text-[13px] font-medium">تغيير زيت</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-body-md text-on-surface-variant font-label-mono">2023-10-25</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="text-secondary bg-secondary-container/20 px-3 py-1 rounded-full text-[13px] font-bold">بانتظار القطع</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-left">
+<button class="text-on-surface-variant hover:text-primary transition-all duration-500 hover:rotate-90">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<!-- Smart FAB (Floating Action Button) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 primary-gradient text-white rounded-full flex items-center justify-center shadow-2xl animate-glow animate-float hover:scale-110 active:scale-95 transition-all duration-500 z-50 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-500">add</span>
+<div class="absolute right-20 bg-primary text-white px-4 py-2 rounded-xl text-body-md font-bold whitespace-nowrap opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 pointer-events-none shadow-xl border border-white/20">
+            إضافة سيارة سريعة
+        </div>
+</button>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Stagger children effect
+        const staggeredElements = document.querySelectorAll('.stagger-entry');
+        staggeredElements.forEach((el, index) => {
+            el.style.animationDelay = `${0.1 + (index * 0.08)}s`;
+        });
+
+        // Interactive card movement effect
+        const cards = document.querySelectorAll('.glass-panel');
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotateX = (y - centerY) / 20;
+                const rotateY = (centerX - x) / 20;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.02)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+        });
+    });
+</script>
+</body></html>

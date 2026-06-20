@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إدارة العملاء - أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #faf8ff;
+            overflow-x: hidden;
+            font-family: 'IBM+Plex+Sans+Arabic', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .primary-gradient {
+            background: linear-gradient(135deg, #003594 0%, #712ae2 100%);
+        }
+
+        .glow-hover:hover {
+            box-shadow: 0 0 20px rgba(113, 42, 226, 0.4);
+            transform: translateY(-4px);
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 53, 148, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0); }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(115, 118, 133, 0.2);
+            border-radius: 10px;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "outline-variant": "#c3c6d6",
+                "on-secondary-container": "#fffbff",
+                "on-surface": "#191b23",
+                "inverse-surface": "#2e3038",
+                "tertiary-container": "#9c2e02",
+                "primary-container": "#004ac6",
+                "on-primary-container": "#b8c8ff",
+                "surface-container-lowest": "#ffffff",
+                "error-container": "#ffdad6",
+                "surface-tint": "#1b55d0",
+                "tertiary-fixed-dim": "#ffb59e",
+                "on-secondary-fixed": "#25005a",
+                "primary-fixed-dim": "#b4c5ff",
+                "surface-bright": "#faf8ff",
+                "surface-container-highest": "#e2e2ec",
+                "on-error": "#ffffff",
+                "on-tertiary-fixed-variant": "#842500",
+                "surface-variant": "#e2e2ec",
+                "tertiary-fixed": "#ffdbd0",
+                "on-tertiary-fixed": "#3a0b00",
+                "on-tertiary-container": "#ffb9a4",
+                "inverse-on-surface": "#f0f0fb",
+                "tertiary": "#751f00",
+                "on-secondary": "#ffffff",
+                "secondary": "#712ae2",
+                "surface-container-high": "#e7e7f2",
+                "on-background": "#191b23",
+                "background": "#faf8ff",
+                "bg-main": "#fcfcff",
+                "on-primary-fixed": "#00174b",
+                "on-tertiary": "#ffffff",
+                "on-secondary-fixed-variant": "#5a00c6",
+                "on-primary": "#ffffff",
+                "error": "#ba1a1a",
+                "glass-border": "rgba(255, 255, 255, 0.4)",
+                "secondary-fixed": "#eaddff",
+                "glass-bg": "rgba(255, 255, 255, 0.7)",
+                "surface": "#faf8ff",
+                "primary-glow": "rgba(0, 74, 198, 0.5)",
+                "surface-dim": "#d9d9e4",
+                "primary": "#003594",
+                "primary-fixed": "#dbe1ff",
+                "outline": "#737685",
+                "on-error-container": "#93000a",
+                "on-primary-fixed-variant": "#003ea8",
+                "surface-container-low": "#f3f3fd",
+                "surface-container": "#ededf8",
+                "secondary-light": "#ede9fe",
+                "on-surface-variant": "#434654",
+                "inverse-primary": "#b4c5ff",
+                "secondary-fixed-dim": "#d2bbff",
+                "secondary-container": "#8b4bfc"
+              },
+              "spacing": {
+                "gutter": "20px",
+                "container-margin": "24px",
+                "sidebar-offset": "16px",
+                "card-padding": "24px"
+              },
+              "fontFamily": {
+                "headline-md": ["Be Vietnam Pro"],
+                "label-mono": ["JetBrains Mono"],
+                "body-lg": ["IBM Plex Sans Arabic"],
+                "body-md": ["IBM Plex Sans Arabic"],
+                "headline-lg": ["Be Vietnam Pro"]
+              }
+            }
+          }
+        }
+    </script>
+</head>
+<body class="bg-surface">
+<!-- Background Decoration Shaders -->
+
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset bg-glass-bg/70 backdrop-blur-xl border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] rounded-2xl z-50 py-card-padding gap-gutter overflow-hidden">
+<div class="px-6 flex items-center gap-4 mb-8">
+<div class="w-12 h-12 primary-gradient rounded-xl flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-white text-2xl">directions_car</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-primary leading-none">أوتو برو</h1>
+<p class="font-body-md text-body-md text-outline">الإدارة المتقدمة</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 px-2 flex-grow">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:bg-white/40 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">dashboard</span>
+<span class="font-body-md text-body-md">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3" style="font-variation-settings: 'FILL' 1;">groups</span>
+<span class="font-body-md text-body-md">العملاء</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:bg-white/40 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">directions_car</span>
+<span class="font-body-md text-body-md">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:bg-white/40 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">build</span>
+<span class="font-body-md text-body-md">الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:bg-white/40 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">analytics</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+</div>
+<div class="px-4 mt-auto">
+<button class="w-full primary-gradient text-white py-3 px-4 rounded-xl font-body-md flex items-center justify-center gap-2 glow-hover shadow-lg transition-all duration-300">
+<span class="material-symbols-outlined">add</span>
+<span>عميل جديد</span>
+</button>
+<div class="mt-6 pt-6 border-t border-glass-border">
+<button class="flex flex-row-reverse items-center justify-start text-error w-full p-3 hover:bg-error-container/20 rounded-xl transition-all">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="font-body-md text-body-md">تسجيل الخروج</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-48px)] md:w-[calc(100%-320px)] md:mr-72 mx-auto bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-xl mt-4">
+<div class="flex items-center gap-4">
+<div class="hidden md:flex relative group">
+<input class="bg-white/50 border-none rounded-full py-2 pr-10 pl-4 w-64 focus:ring-2 focus:ring-primary/50 transition-all font-body-md text-body-md" placeholder="بحث عن عميل، رقم هاتف..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-full hover:bg-primary-container/10 text-on-surface-variant transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-primary-container/10 text-on-surface-variant transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant/30 mx-1"></div>
+<div class="flex items-center gap-3 pr-2">
+<div class="text-left">
+<p class="font-body-md text-sm font-bold text-on-surface">أحمد العتيبي</p>
+<p class="text-[10px] text-outline">مدير النظام</p>
+</div>
+<img class="w-10 h-10 rounded-full border-2 border-primary-container object-cover" data-alt="Professional portrait of a high-ranking male fleet manager in a clean, modern corporate office. The setting is bright and spacious with a sophisticated light-mode theme. He wears a tailored navy suit, reflecting a regal and authoritative aesthetic consistent with a luxury brand. The background features subtle glass elements and soft blue and purple lighting accents, creating a high-tech and professional mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuASZHY8hzK4_COkFBPQ493YVz4NBn25mX7T188zhLmgFOMTSIxySKwjzHGfD5b7F3vulLaRDF1ZWB3KwDhwo6L0RdJNgWE3GTrjNh4tkwHfJxhF2wbv5spVt97539mIAajEiYBWsfvMTjTrUPBnfGjnkL7s5ms7GHnBU7VP9rrbZsPr8_6k2aAUPpwRCMMeciFcSrb-l6311RjLW-QrbV_uOajdYb1LnsC32X3Ss9ny2UQ0Kn8Buc8DLx_6lwTs002xLnvEy6CFICg"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="md:mr-72 p-container-margin transition-all duration-300">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary mb-2">إدارة مجتمع العملاء</h2>
+<p class="font-body-lg text-body-lg text-outline">نظرة شاملة على قاعدة عملائك المخلصين وأدائهم</p>
+</div>
+<div class="flex gap-3">
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4 shadow-sm border border-white/40">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">person_add</span>
+</div>
+<div>
+<p class="text-xs text-outline">عملاء جدد (اليوم)</p>
+<p class="font-headline-md text-primary leading-tight">12+</p>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4 shadow-sm border border-white/40">
+<div class="w-10 h-10 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">stars</span>
+</div>
+<div>
+<p class="text-xs text-outline">نسبة الولاء</p>
+<p class="font-headline-md text-secondary leading-tight">94%</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Customer Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-gutter">
+<!-- Customer Card 1 -->
+<div class="glass-panel group p-card-padding rounded-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 primary-gradient"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="flex gap-4">
+<img class="w-14 h-14 rounded-2xl object-cover shadow-md border-2 border-white" data-alt="Headshot of a satisfied customer, a middle-aged Arab gentleman, smiling gently against a blurred luxury showroom background. The lighting is soft and golden, integrating with the royal blue and purple UI theme. He is dressed in professional attire, symbolizing a high-value client. The overall style is clean, modern, and high-quality, fitting the glassmorphism aesthetic of the fleet management system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDMpm8xPYlInZTZsRvcEAN9FpOCoMxGHVrB5CTX33zhYNOm8tKj7Lysb6P9myLANnZQ9J19lGaH5PTxTTbejpUc9EFS7ga9nUi9H7E8-xyZwq8oAqJlcs7AqD5_CYfs_Q9-jNZCOgpHKfXf5QtE3R1dv3-vx5wecejy9vj7wdZ8V1rGpvIzjDxo5-S7LeIc5D1FAsdCVXjgsENnxDxRfj8v_zLu6MagLyxlfNBZrPzca0gomZyFDBrcEWgQXpk5m7m9i1C-kUbYpU"/>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">خالد بن محمد</h3>
+<p class="font-body-md text-body-md text-outline">050XXXXX89</p>
+</div>
+</div>
+<span class="px-3 py-1 rounded-full bg-primary-container/10 text-primary text-xs font-bold border border-primary/20">بلاتيني</span>
+</div>
+<div class="space-y-4 mb-6">
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">directions_car</span>
+<span class="font-body-md text-on-surface-variant">مرسيدس S-Class 2023</span>
+</div>
+<span class="text-xs font-label-mono text-outline">B-2345-RD</span>
+</div>
+<div class="flex flex-col gap-2">
+<span class="text-xs text-outline px-1">آخر صيانة</span>
+<div class="flex items-center justify-between p-3 rounded-xl bg-white/40 border border-white/60">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface font-medium">تغيير زيوت وفلاتر</span>
+<span class="text-[10px] text-outline">منذ 12 يوم - فرع الرياض الرئيسي</span>
+</div>
+<span class="material-symbols-outlined text-secondary">history</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-grow py-2 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition-all font-body-md">الملف الكامل</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-secondary-container/20 text-secondary hover:bg-secondary hover:text-white transition-all">
+<span class="material-symbols-outlined">chat</span>
+</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-primary-container/10 text-primary hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined">call</span>
+</button>
+</div>
+</div>
+<!-- Customer Card 2 -->
+<div class="glass-panel group p-card-padding rounded-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 primary-gradient"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="flex gap-4">
+<img class="w-14 h-14 rounded-2xl object-cover shadow-md border-2 border-white" data-alt="Portrait of a young professional woman, a regular customer of a premium automotive service. She has a confident and friendly expression, set against a modern architectural backdrop with glass and steel. The lighting features a cool blue tint, matching the luxury fleet management dashboard's royal palette. Her attire is business-casual, suggesting a sophisticated lifestyle. High-resolution digital art style with soft bokeh effects." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiloUHmI2XfsXeAd6UCSaoDvaACvbuKBFQokbugtezGdviL2_LX8VRMWCArL9Jckb47M1xNEh0iQSuRE9CByo81ntayDVi-bL-_nLrFpZHIw8jdyhc2wLVUTdVZmORIgW8FAcOYa_qJ3ysCXmy5V-X-5AtPA-SSEjQFpoFkcKZWuJQ15x6yROa2IiX1-OEPraIQnKnAdyFIBFqzUc2DsqcRo9fjQTt2iLBoMNvEM8L8HKfIM-YIOPDNSBMk3z4CSK32IO1xJDzrwk"/>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">سارة القحطاني</h3>
+<p class="font-body-md text-body-md text-outline">055XXXXX12</p>
+</div>
+</div>
+<span class="px-3 py-1 rounded-full bg-secondary-container/10 text-secondary text-xs font-bold border border-secondary/20">ذهبي</span>
+</div>
+<div class="space-y-4 mb-6">
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">directions_car</span>
+<span class="font-body-md text-on-surface-variant">تيسلا Model 3 2022</span>
+</div>
+<span class="text-xs font-label-mono text-outline">A-1192-SS</span>
+</div>
+<div class="flex flex-col gap-2">
+<span class="text-xs text-outline px-1">آخر صيانة</span>
+<div class="flex items-center justify-between p-3 rounded-xl bg-white/40 border border-white/60">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface font-medium">فحص البطارية وأنظمة القيادة</span>
+<span class="text-[10px] text-outline">منذ 45 يوم - فرع جدة</span>
+</div>
+<span class="material-symbols-outlined text-secondary">history</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-grow py-2 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition-all font-body-md">الملف الكامل</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-secondary-container/20 text-secondary hover:bg-secondary hover:text-white transition-all">
+<span class="material-symbols-outlined">chat</span>
+</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-primary-container/10 text-primary hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined">call</span>
+</button>
+</div>
+</div>
+<!-- Customer Card 3 -->
+<div class="glass-panel group p-card-padding rounded-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 primary-gradient"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="flex gap-4">
+<img class="w-14 h-14 rounded-2xl object-cover shadow-md border-2 border-white" data-alt="Close-up portrait of an elderly Arab businessman with a dignified expression, appearing as a long-term loyal customer. He is set in a prestigious VIP lounge with soft ambient lighting and frosted glass dividers. The aesthetic follows a high-end royal blue and purple theme. He wears a traditional white thobe, perfectly captured in a sharp, professional photography style that emphasizes trust and legacy within the brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbHWGrajxx0pSLJhNofx40BwsdV3g5n3fgWhwYynOMQHhRDL50CCCfq8tBbb8Lu5FVz8QPsP7Q8Q_B_9hjZqu1tHhEcRQ1erkVT_F9gqg8fOKRi0XxAHZPVhZAetj2wOlCiJrkP5qRJPwmAv7fbvwqDaPFO57dcgMGrbB3xQYhTpahEFclaJ3xDWEbcOn90k6bqWP0jKulFtydF9rJMbPCgotcplpuEEuho_zrZM_k-vFhWPY8k-Hqyctheq6nJEUKNq-9J-i_1-o"/>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">د. عبدالله الشمري</h3>
+<p class="font-body-md text-body-md text-outline">054XXXXX34</p>
+</div>
+</div>
+<span class="px-3 py-1 rounded-full bg-outline-variant text-on-surface-variant text-xs font-bold border border-outline/20">فضي</span>
+</div>
+<div class="space-y-4 mb-6">
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">directions_car</span>
+<span class="font-body-md text-on-surface-variant">رينج روفر 2021</span>
+</div>
+<span class="text-xs font-label-mono text-outline">S-9900-XX</span>
+</div>
+<div class="flex flex-col gap-2">
+<span class="text-xs text-outline px-1">آخر صيانة</span>
+<div class="flex items-center justify-between p-3 rounded-xl bg-white/40 border border-white/60">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface font-medium">صيانة دورية 60 ألف كم</span>
+<span class="text-[10px] text-outline">منذ 3 أشهر - فرع الدمام</span>
+</div>
+<span class="material-symbols-outlined text-secondary">history</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-grow py-2 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition-all font-body-md">الملف الكامل</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-secondary-container/20 text-secondary hover:bg-secondary hover:text-white transition-all">
+<span class="material-symbols-outlined">chat</span>
+</button>
+<button class="w-12 h-10 flex items-center justify-center rounded-xl bg-primary-container/10 text-primary hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined">call</span>
+</button>
+</div>
+</div>
+<!-- New Customer Placeholder -->
+<div class="border-2 border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center p-card-padding group hover:border-primary hover:bg-primary/5 transition-all duration-300 cursor-pointer min-h-[350px]">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-outline group-hover:bg-primary-container/20 group-hover:text-primary transition-all mb-4">
+<span class="material-symbols-outlined text-4xl">person_add</span>
+</div>
+<h3 class="font-headline-md text-on-surface-variant group-hover:text-primary transition-all">إضافة عميل جديد</h3>
+<p class="text-outline font-body-md">قم بتوسيع قاعدة عملائك الآن</p>
+</div>
+</div>
+<!-- Floating Smart Action Button -->
+<button class="fixed bottom-8 left-8 w-16 h-16 primary-gradient text-white rounded-full flex items-center justify-center shadow-2xl pulse-animation glow-hover z-50 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-500">add</span>
+<div class="absolute right-full mr-4 bg-glass-bg backdrop-blur-md px-4 py-2 rounded-xl text-primary font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                إضافة سريعة
+            </div>
+</button>
+</main>
+<!-- Bottom Navigation for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-glass-bg/90 backdrop-blur-xl border-t border-glass-border flex items-center justify-around px-4 z-50">
+<button class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined">groups</span>
+<span class="text-[10px] font-bold">العملاء</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">directions_car</span>
+<span class="text-[10px]">السيارات</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[10px]">صيانة</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px]">بروفايل</span>
+</button>
+</nav>
+<script>
+        // Simple Micro-interaction for cards
+        document.querySelectorAll('.glass-panel').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if(icon) icon.style.transform = 'scale(1.2) rotate(-5deg)';
+            });
+            card.addEventListener('mouseleave', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if(icon) icon.style.transform = 'scale(1) rotate(0deg)';
+            });
+        });
+    </script>
+</body></html>

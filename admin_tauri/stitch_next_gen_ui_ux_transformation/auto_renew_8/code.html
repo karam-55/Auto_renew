@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;500;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --primary-glow: rgba(0, 74, 198, 0.5);
+        }
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: #faf8ff;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #003594 0%, #712ae2 100%);
+        }
+        
+        /* Khurafi Transitions */
+        .step-transition {
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        /* Exit animation (Slide Left + Fade) */
+        .step-exit {
+            opacity: 0 !important;
+            transform: translateX(-40px) !important;
+            pointer-events: none;
+            position: absolute;
+            width: 100%;
+        }
+        
+        /* Enter animation (Slide from Right + Fade) */
+        .step-enter {
+            opacity: 0 !important;
+            transform: translateX(40px) !important;
+        }
+
+        /* Active Step (Neutral) */
+        .step-active {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+        }
+
+        /* Stepper Pop & Glow */
+        @keyframes stepper-pop {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(0, 53, 148, 0.6); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); box-shadow: 0 0 0 12px rgba(0, 53, 148, 0); }
+        }
+        .stepper-active-pop {
+            animation: stepper-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Hover lift & Active scale */
+        .btn-khurafi {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+        }
+        .btn-khurafi:hover:not(:disabled) {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -5px rgba(0, 53, 148, 0.3);
+        }
+        .btn-khurafi:active:not(:disabled) {
+            transform: translateY(0) scale(0.95);
+        }
+
+        .pulse-animation {
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 53, 148, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0); }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-tab-indicator {
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#003594",
+                        "secondary": "#712ae2",
+                        "glass-bg": "rgba(255, 255, 255, 0.7)",
+                        "glass-border": "rgba(255, 255, 255, 0.4)",
+                        "primary-glow": "rgba(0, 74, 198, 0.5)",
+                        "surface": "#faf8ff",
+                        "on-surface": "#191b23",
+                        "on-surface-variant": "#434654",
+                        "primary-container": "#004ac6",
+                        "on-primary-container": "#b8c8ff",
+                        "outline-variant": "#c3c6d6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "secondary-fixed": "#eaddff",
+                        "tertiary-fixed": "#ffdbd0",
+                        "tertiary": "#751f00",
+                        "tertiary-container": "#9c2e02",
+                        "primary-fixed": "#dbe1ff"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "card-padding": "24px",
+                        "sidebar-offset": "16px",
+                        "gutter": "20px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "label-mono": ["JetBrains Mono"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-[#faf8ff] text-on-surface">
+<div class="flex min-h-screen relative p-container-margin gap-gutter">
+<!-- Main Content Area -->
+<main class="flex-grow flex flex-col gap-6 mr-0 lg:mr-4">
+<!-- Top Bar / Header -->
+<header class="glass-panel rounded-xl px-card-padding h-16 flex flex-row-reverse justify-between items-center shadow-lg">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full glass-panel flex items-center justify-center hover:bg-white/50 transition-all">
+<span class="material-symbols-outlined text-primary">arrow_forward</span>
+</button>
+<h1 class="font-headline-md text-xl md:text-2xl text-primary font-bold">إضافة حجز جديد</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex flex-col text-left items-end">
+<span class="text-xs text-on-surface-variant font-medium">الخطوة الحالية</span>
+<span class="text-sm font-bold text-primary" id="step-label">اختيار العميل</span>
+</div>
+<div class="w-10 h-10 rounded-full primary-gradient flex items-center justify-center text-white font-bold stepper-active-pop" id="step-counter">1</div>
+</div>
+</header>
+<!-- Wizard Container -->
+<div class="flex-grow glass-panel rounded-2xl p-card-padding shadow-2xl relative overflow-hidden flex flex-col">
+<form class="flex-grow flex flex-col relative" id="booking-wizard">
+<!-- Step 1: Customer Selection -->
+<div class="step-transition w-full flex flex-col gap-8 step-active" id="step-1">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-bold text-primary">معلومات العميل</h2>
+<p class="text-on-surface-variant">اختر عميلاً مسجلاً بالفعل أو أضف عميلاً جديداً للأمانة.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="flex flex-col gap-4">
+<label class="text-sm font-bold px-2">ابحث عن عميل</label>
+<div class="relative">
+<input class="w-full h-14 bg-white/50 border border-glass-border rounded-xl px-12 text-lg" placeholder="رقم الهاتف، الاسم، أو الهوية..." type="text"/>
+<span class="material-symbols-outlined absolute right-4 top-4 text-outline">search</span>
+</div>
+<div class="flex flex-col gap-2 max-h-64 overflow-y-auto">
+<div class="glass-panel p-4 rounded-xl flex justify-between items-center hover:border-primary cursor-pointer transition-all border-r-4 border-r-primary">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full primary-fixed-dim flex items-center justify-center text-primary font-bold">أ م</div>
+<div class="flex flex-col">
+<span class="font-bold">أحمد محمد علي</span>
+<span class="text-xs text-on-surface-variant">050XXXXX99</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary">check_circle</span>
+</div>
+<div class="glass-panel p-4 rounded-xl flex justify-between items-center hover:border-primary cursor-pointer transition-all">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-outline font-bold">س ف</div>
+<div class="flex flex-col">
+<span class="font-bold">سارة فهد</span>
+<span class="text-xs text-on-surface-variant">055XXXXX12</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4 p-card-padding rounded-2xl border-2 border-dashed border-outline-variant bg-white/10">
+<h3 class="font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">person_add</span>
+                                إضافة عميل سريع
+                            </h3>
+<div class="grid grid-cols-1 gap-4">
+<input class="h-12 bg-white/60 border border-glass-border rounded-lg px-4" placeholder="الاسم الكامل" type="text"/>
+<input class="h-12 bg-white/60 border border-glass-border rounded-lg px-4" placeholder="رقم الجوال" type="tel"/>
+<button class="h-12 rounded-lg bg-secondary text-white font-bold btn-khurafi" type="button">تسجيل العميل</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Step 2: Vehicle Details -->
+<div class="step-transition w-full hidden step-enter flex flex-col gap-8" id="step-2">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-bold text-primary">بيانات المركبة</h2>
+<p class="text-on-surface-variant">يرجى إدخال تفاصيل السيارة المراد صيانتها.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold">رقم اللوحة</label>
+<input class="h-14 bg-white/50 border border-glass-border rounded-xl px-4 text-center font-bold text-xl uppercase tracking-widest" placeholder="أ ب ج 1234" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold">رقم الهيكل (VIN)</label>
+<input class="h-14 bg-white/50 border border-glass-border rounded-xl px-4 font-mono" placeholder="17 حرفاً ورقم" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold">الماركة والموديل</label>
+<select class="h-14 bg-white/50 border border-glass-border rounded-xl px-4 appearance-none">
+<option>تويوتا كامري 2023</option>
+<option>هيونداي إلنترا 2022</option>
+<option>مرسيدس S-Class 2024</option>
+</select>
+</div>
+</div>
+<div class="p-8 glass-panel rounded-2xl flex flex-col items-center justify-center gap-4 text-center">
+<div class="w-64 h-40 rounded-xl overflow-hidden shadow-inner border border-glass-border">
+<img alt="Vehicle Placeholder" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxTiy5TCOlWqdqJNj70S1gDRSkW0qBPOf2kANKXwjzO0oca0yn1o_ZZnUr9rxQT-LY77ZnURXrQEXgPCyjCsH-r702Z64ttx-f0fcIWsIOLhKh0iJo5IQHojpQLbtEoe2fqOiL-TQcAz89vagTPw7pI1xCpOJC2HjQVE2ud2l6aAy0zkGiR-DqpwoUFOxjGHeO4LbSp-r04b87PCiQnUmmubYGtnrW-Br24HrG8qkVBGV_5MVX4kfXaWV4MBRML0QKAFlCwIrDWDI"/>
+</div>
+<button class="text-primary font-bold flex items-center gap-2 hover:underline" type="button">
+<span class="material-symbols-outlined">photo_camera</span>
+                            التقاط صورة للمركبة
+                        </button>
+</div>
+</div>
+<!-- Step 3: Service Selection -->
+<div class="step-transition w-full hidden step-enter flex flex-col gap-8" id="step-3">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-bold text-primary">اختر الخدمات</h2>
+<p class="text-on-surface-variant">حدد نوع الصيانة أو الخدمة المطلوبة.</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="glass-panel p-6 rounded-2xl flex flex-col items-center gap-4 hover:border-primary border-t-4 border-t-primary cursor-pointer transition-all hover:-translate-y-2 group">
+<div class="w-16 h-16 rounded-full bg-primary-fixed-dim flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">oil_barrel</span>
+</div>
+<span class="font-bold">تغيير زيت</span>
+<input class="w-6 h-6 rounded border-glass-border text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<div class="glass-panel p-6 rounded-2xl flex flex-col items-center gap-4 hover:border-primary border-t-4 border-t-secondary cursor-pointer transition-all hover:-translate-y-2 group">
+<div class="w-16 h-16 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">settings_input_component</span>
+</div>
+<span class="font-bold">فحص مكابح</span>
+<input class="w-6 h-6 rounded border-glass-border text-secondary focus:ring-secondary" type="checkbox"/>
+</div>
+<div class="glass-panel p-6 rounded-2xl flex flex-col items-center gap-4 hover:border-primary border-t-4 border-t-tertiary-container cursor-pointer transition-all hover:-translate-y-2 group">
+<div class="w-16 h-16 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">ac_unit</span>
+</div>
+<span class="font-bold">تكييف</span>
+<input class="w-6 h-6 rounded border-glass-border text-tertiary focus:ring-tertiary" type="checkbox"/>
+</div>
+<div class="glass-panel p-6 rounded-2xl flex flex-col items-center gap-4 hover:border-primary border-t-4 border-t-primary-container cursor-pointer transition-all hover:-translate-y-2 group">
+<div class="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center text-primary-container group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">tire_repair</span>
+</div>
+<span class="font-bold">وزن أذرعة</span>
+<input class="w-6 h-6 rounded border-glass-border text-primary-container focus:ring-primary-container" type="checkbox"/>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary">info</span>
+<span class="text-sm font-medium">تم اختيار 0 خدمات | المجموع التقديري: 0.00 ر.س</span>
+</div>
+<button class="text-primary font-bold text-sm underline" type="button">إضافة خدمة مخصصة</button>
+</div>
+</div>
+<!-- Step 4: Time & Summary -->
+<div class="step-transition w-full hidden step-enter flex flex-col gap-8" id="step-4">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-bold text-primary">الموعد والملخص</h2>
+<p class="text-on-surface-variant">تأكيد تفاصيل الحجز واختيار الوقت المناسب.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="flex flex-col gap-4">
+<h3 class="font-bold">اختر موعداً</h3>
+<div class="grid grid-cols-3 gap-2">
+<button class="h-12 rounded-lg border border-glass-border hover:bg-primary hover:text-white transition-all text-sm font-bold" type="button">09:00 ص</button>
+<button class="h-12 rounded-lg border border-glass-border hover:bg-primary hover:text-white transition-all text-sm font-bold" type="button">10:30 ص</button>
+<button class="h-12 rounded-lg bg-primary text-white text-sm font-bold shadow-lg" type="button">12:00 م</button>
+<button class="h-12 rounded-lg border border-glass-border hover:bg-primary hover:text-white transition-all text-sm font-bold" type="button">02:00 م</button>
+<button class="h-12 rounded-lg border border-glass-border hover:bg-primary hover:text-white transition-all text-sm font-bold" type="button">04:30 م</button>
+<button class="h-12 rounded-lg border border-glass-border hover:bg-primary hover:text-white transition-all text-sm font-bold" type="button">06:00 م</button>
+</div>
+<div class="flex flex-col gap-2 mt-4">
+<label class="text-xs font-bold text-on-surface-variant">ملاحظات إضافية</label>
+<textarea class="h-24 bg-white/50 border border-glass-border rounded-xl p-4" placeholder="أي ملاحظات فنية أخرى..."></textarea>
+</div>
+</div>
+<div class="glass-panel p-6 rounded-2xl border-r-4 border-r-primary flex flex-col gap-4 bg-primary/5">
+<h3 class="font-bold border-b border-glass-border pb-2">ملخص الحجز</h3>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">العميل:</span>
+<span class="font-bold">أحمد محمد علي</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">المركبة:</span>
+<span class="font-bold">تويوتا كامري - أ ب ج 1234</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">الخدمات:</span>
+<span class="font-bold">تغيير زيت، فحص مكابح</span>
+</div>
+<div class="mt-4 pt-4 border-t border-glass-border flex justify-between items-center">
+<span class="text-lg font-bold">الإجمالي المتوقع:</span>
+<span class="text-2xl font-bold text-primary">450.00 ر.س</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Actions Footer -->
+<div class="mt-auto pt-8 border-t border-glass-border flex justify-between items-center bg-white/20 backdrop-blur-sm -mx-card-padding px-card-padding -mb-card-padding py-6 sticky bottom-0">
+<button class="h-14 px-8 rounded-xl font-bold text-on-surface-variant opacity-50 cursor-not-allowed btn-khurafi" id="prev-btn" type="button">السابق</button>
+<button class="h-14 px-12 rounded-xl primary-gradient text-white font-bold shadow-lg btn-khurafi" id="next-btn" type="button">التالي</button>
+</div>
+</form>
+</div>
+</main>
+<!-- Right Side Progress Indicator -->
+<aside class="hidden lg:flex flex-col gap-6 w-16 items-center py-sidebar-offset">
+<div class="glass-panel w-full rounded-full flex flex-col items-center py-8 gap-10 shadow-xl border-l border-l-primary/30">
+<div class="relative group cursor-pointer">
+<div class="w-10 h-10 rounded-full primary-gradient flex items-center justify-center text-white z-10 relative active-tab-indicator stepper-active-pop" id="dot-1">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<div class="absolute right-14 top-2 bg-primary text-white px-3 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">العميل</div>
+</div>
+<div class="w-[3px] h-12 bg-slate-200 relative overflow-hidden rounded-full">
+<div class="absolute top-0 left-0 w-full h-0 bg-primary transition-all duration-700 ease-out" id="line-1"></div>
+</div>
+<div class="relative group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-white border-2 border-outline-variant flex items-center justify-center text-outline-variant z-10 relative" id="dot-2">
+<span class="material-symbols-outlined text-sm">directions_car</span>
+</div>
+<div class="absolute right-14 top-2 bg-primary text-white px-3 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">المركبة</div>
+</div>
+<div class="w-[3px] h-12 bg-slate-200 relative overflow-hidden rounded-full">
+<div class="absolute top-0 left-0 w-full h-0 bg-primary transition-all duration-700 ease-out" id="line-2"></div>
+</div>
+<div class="relative group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-white border-2 border-outline-variant flex items-center justify-center text-outline-variant z-10 relative" id="dot-3">
+<span class="material-symbols-outlined text-sm">build</span>
+</div>
+<div class="absolute right-14 top-2 bg-primary text-white px-3 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">الخدمات</div>
+</div>
+<div class="w-[3px] h-12 bg-slate-200 relative overflow-hidden rounded-full">
+<div class="absolute top-0 left-0 w-full h-0 bg-primary transition-all duration-700 ease-out" id="line-3"></div>
+</div>
+<div class="relative group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-white border-2 border-outline-variant flex items-center justify-center text-outline-variant z-10 relative" id="dot-4">
+<span class="material-symbols-outlined text-sm">event</span>
+</div>
+<div class="absolute right-14 top-2 bg-primary text-white px-3 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">الموعد</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Smart Action Button (FAB) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 rounded-full primary-gradient text-white flex items-center justify-center shadow-2xl pulse-animation btn-khurafi z-50">
+<span class="material-symbols-outlined text-3xl">support_agent</span>
+</button>
+<script>
+    let currentStep = 1;
+    const totalSteps = 4;
+    const labels = ["اختيار العميل", "بيانات المركبة", "اختيار الخدمات", "الموعد والملخص"];
+
+    const nextBtn = document.getElementById('next-btn');
+    const prevBtn = document.getElementById('prev-btn');
+    const stepCounter = document.getElementById('step-counter');
+    const stepLabel = document.getElementById('step-label');
+
+    function updateUI(direction) {
+        // Update labels
+        stepCounter.innerText = currentStep;
+        stepLabel.innerText = labels[currentStep - 1];
+
+        // Animate Step Content
+        for (let i = 1; i <= totalSteps; i++) {
+            const stepEl = document.getElementById(`step-${i}`);
+            if (i === currentStep) {
+                // Prepare enter state
+                stepEl.classList.remove('hidden');
+                stepEl.classList.add('step-enter');
+                
+                // Trigger reflow
+                stepEl.offsetHeight;
+
+                // Move to active
+                stepEl.classList.remove('step-enter', 'step-exit');
+                stepEl.classList.add('step-active');
+            } else if (stepEl.classList.contains('step-active')) {
+                // Exit current active
+                stepEl.classList.remove('step-active');
+                stepEl.classList.add('step-exit');
+                
+                // Hide after animation
+                setTimeout(() => {
+                    if (i !== currentStep) {
+                        stepEl.classList.add('hidden');
+                        stepEl.classList.remove('step-exit');
+                    }
+                }, 600);
+            } else {
+                stepEl.classList.add('hidden');
+                stepEl.classList.remove('step-active', 'step-enter', 'step-exit');
+            }
+        }
+
+        // Stepper Pop Animation on change
+        stepCounter.classList.remove('stepper-active-pop');
+        void stepCounter.offsetWidth; // Trigger reflow
+        stepCounter.classList.add('stepper-active-pop');
+
+        // Update Progress dots & Connector Lines
+        for (let i = 1; i <= totalSteps; i++) {
+            const dot = document.getElementById(`dot-${i}`);
+            const line = document.getElementById(`line-${i}`);
+            
+            if (i === currentStep) {
+                dot.classList.add('primary-gradient', 'text-white', 'active-tab-indicator', 'stepper-active-pop');
+                dot.classList.remove('bg-white', 'border-2', 'border-outline-variant', 'text-outline-variant');
+            } else if (i < currentStep) {
+                dot.classList.add('primary-gradient', 'text-white');
+                dot.classList.remove('bg-white', 'border-2', 'border-outline-variant', 'text-outline-variant', 'active-tab-indicator', 'stepper-active-pop');
+            } else {
+                dot.classList.remove('primary-gradient', 'text-white', 'active-tab-indicator', 'stepper-active-pop');
+                dot.classList.add('bg-white', 'border-2', 'border-outline-variant', 'text-outline-variant');
+            }
+
+            if (line) {
+                if (i < currentStep) {
+                    line.style.height = '100%';
+                } else {
+                    line.style.height = '0%';
+                }
+            }
+        }
+
+        // Update Buttons state
+        if (currentStep === 1) {
+            prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            prevBtn.disabled = true;
+        } else {
+            prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            prevBtn.disabled = false;
+        }
+
+        if (currentStep === totalSteps) {
+            nextBtn.innerText = "تأكيد الحجز";
+            nextBtn.classList.add('pulse-animation');
+        } else {
+            nextBtn.innerText = "التالي";
+            nextBtn.classList.remove('pulse-animation');
+        }
+    }
+
+    nextBtn.addEventListener('click', () => {
+        if (currentStep < totalSteps) {
+            currentStep++;
+            updateUI('next');
+        } else {
+            alert("تم إرسال طلب الحجز بنجاح!");
+        }
+    });
+
+    prevBtn.addEventListener('click', () => {
+        if (currentStep > 1) {
+            currentStep--;
+            updateUI('prev');
+        }
+    });
+
+    // Handle clicks on Sidebar Dots
+    for (let i = 1; i <= totalSteps; i++) {
+        const dot = document.getElementById(`dot-${i}`);
+        if (dot) {
+            dot.parentElement.addEventListener('click', () => {
+                const direction = i > currentStep ? 'next' : 'prev';
+                currentStep = i;
+                updateUI(direction);
+            });
+        }
+    }
+
+    // Checkbox toggle logic
+    document.querySelectorAll('.group').forEach(card => {
+        card.addEventListener('click', () => {
+            const cb = card.querySelector('input[type="checkbox"]');
+            if (cb) cb.checked = !cb.checked;
+            card.classList.toggle('border-primary');
+        });
+    });
+</script>
+</body></html>

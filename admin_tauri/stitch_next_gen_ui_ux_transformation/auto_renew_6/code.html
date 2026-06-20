@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>تفاصيل الفاتورة - أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.4);
+        }
+        body {
+            background-color: #faf8ff;
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #003594 0%, #004ac6 100%);
+        }
+        .primary-glow {
+            box-shadow: 0 0 20px rgba(0, 74, 198, 0.3);
+        }
+        .neon-blue-glow:hover {
+            box-shadow: 0 0 25px rgba(27, 85, 208, 0.5);
+            transform: translateY(-4px);
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 53, 148, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 53, 148, 0); }
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .glass-panel { border: 1px solid #eee; backdrop-filter: none; background: white; }
+            .sidebar-shell, .top-nav-shell { display: none !important; }
+            .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#3a0b00",
+                        "surface-container-high": "#e7e7f2",
+                        "surface-container-low": "#f3f3fd",
+                        "surface-bright": "#faf8ff",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "secondary-fixed": "#eaddff",
+                        "secondary-container": "#8b4bfc",
+                        "on-secondary-container": "#fffbff",
+                        "primary-container": "#004ac6",
+                        "inverse-primary": "#b4c5ff",
+                        "glass-bg": "rgba(255, 255, 255, 0.7)",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "background": "#faf8ff",
+                        "on-primary-container": "#b8c8ff",
+                        "on-background": "#191b23",
+                        "surface-container-lowest": "#ffffff",
+                        "outline": "#737685",
+                        "on-tertiary-fixed-variant": "#842500",
+                        "primary": "#003594",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "secondary": "#712ae2",
+                        "surface": "#faf8ff",
+                        "surface-container": "#ededf8",
+                        "on-primary-fixed": "#00174b",
+                        "inverse-surface": "#2e3038",
+                        "on-error-container": "#93000a",
+                        "tertiary": "#751f00",
+                        "surface-variant": "#e2e2ec",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d9d9e4",
+                        "surface-tint": "#1b55d0",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c3c6d6",
+                        "bg-main": "#fcfcff",
+                        "primary-glow": "rgba(0, 74, 198, 0.5)",
+                        "primary-fixed": "#dbe1ff",
+                        "surface-container-highest": "#e2e2ec",
+                        "glass-border": "rgba(255, 255, 255, 0.4)",
+                        "on-surface": "#191b23",
+                        "inverse-on-surface": "#f0f0fb",
+                        "secondary-light": "#ede9fe",
+                        "tertiary-container": "#9c2e02",
+                        "on-secondary-fixed-variant": "#5a00c6",
+                        "on-secondary-fixed": "#25005a",
+                        "on-tertiary-container": "#ffb9a4",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59e",
+                        "tertiary-fixed": "#ffdbd0",
+                        "secondary-fixed-dim": "#d2bbff",
+                        "on-surface-variant": "#434654"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "card-padding": "24px",
+                        "sidebar-offset": "16px",
+                        "gutter": "20px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "label-mono": ["JetBrains Mono"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface">
+<!-- WebGL Background Overlay -->
+
+<!-- SideNavBar (Shared Component) -->
+<aside class="sidebar-shell no-print glass-panel rounded-2xl h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset z-50 flex flex-col py-card-padding gap-gutter shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] border-l border-glass-border">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl primary-gradient flex items-center justify-center text-white">
+<span class="material-symbols-outlined">directions_car</span>
+</div>
+<div>
+<h2 class="font-headline-md text-primary text-headline-md leading-none">أوتو برو</h2>
+<p class="text-xs text-on-surface-variant">الإدارة المتقدمة</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all p-3 rounded-xl group hover:bg-white/50" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="font-body-md text-body-md">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 transition-all" href="#">
+<span class="material-symbols-outlined ml-3">inventory_2</span>
+<span class="font-body-md text-body-md">الفواتير</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all p-3 rounded-xl group hover:bg-white/50" href="#">
+<span class="material-symbols-outlined ml-3">directions_car</span>
+<span class="font-body-md text-body-md">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all p-3 rounded-xl group hover:bg-white/50" href="#">
+<span class="material-symbols-outlined ml-3">build</span>
+<span class="font-body-md text-body-md">الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all p-3 rounded-xl group hover:bg-white/50" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full primary-gradient text-white p-4 rounded-2xl flex items-center justify-center gap-2 primary-glow hover:translate-y-[-2px] transition-all">
+<span class="material-symbols-outlined">add</span>
+<span class="font-body-md">إضافة سيارة</span>
+</button>
+<button class="w-full mt-4 flex flex-row-reverse items-center justify-start text-error p-3 hover:bg-error-container/20 rounded-xl transition-all">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="font-body-md">تسجيل الخروج</span>
+</button>
+</div>
+</aside>
+<!-- TopNavBar (Shared Component) -->
+<header class="top-nav-shell no-print sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-312px)] mr-[288px] glass-panel rounded-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+<div class="flex items-center gap-4">
+<div class="relative">
+<input class="bg-surface-container-low border-none rounded-full px-10 py-2 focus:ring-2 ring-primary text-sm w-64" placeholder="بحث..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-white/50 transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-white/50 transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-left">
+<p class="text-sm font-bold text-on-surface">أحمد المسؤول</p>
+<p class="text-[10px] text-on-surface-variant">مدير النظام</p>
+</div>
+<img class="w-10 h-10 rounded-full border-2 border-primary/20" data-alt="A professional portrait of a Middle Eastern male administrator in a clean modern office, soft lighting, professional corporate photography style, high resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBq5NeAez7XBqc7cgu3BmNABQiTjs1vJ0frVzOatWTpEIb5rT1tDBsZH3g8cQ_nuxUWZZ7GlswC5TOY6qFuFcJY7wMzWjKNwkHmiS-JV69l5gcKJS7vqdskShquPVlG8WmgSYb5Vy4UblFmw2fo9_MMWE7ljqKtoRTv0F3RjjpyTeGRVuYzNP8MiuwcHL84wGPy-behgPLs3oTBH8w0-O_tELSKmbzXbcIoqJDBLaSyk2utiqljZ1_IgECm9NpLm9So1vXWheQoDbs"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="main-content relative z-10 w-[calc(100%-312px)] mr-[288px] mt-gutter px-container-margin pb-container-margin transition-all duration-500">
+<!-- Header Actions -->
+<div class="no-print flex justify-between items-center mb-8">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary">تفاصيل الفاتورة</h1>
+<p class="text-on-surface-variant font-body-md">عرض وطباعة فاتورة الصيانة الرقمية</p>
+</div>
+<div class="flex gap-4">
+<button class="neon-blue-glow flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl transition-all font-bold" onclick="window.print()">
+<span class="material-symbols-outlined">print</span>
+                    طباعة الفاتورة
+                </button>
+<button class="flex items-center gap-2 bg-white text-primary border border-primary px-6 py-3 rounded-2xl hover:bg-primary-container/10 transition-all font-bold">
+<span class="material-symbols-outlined">share</span>
+                    مشاركة
+                </button>
+</div>
+</div>
+<!-- Invoice Container -->
+<div class="glass-panel rounded-3xl p-10 shadow-2xl overflow-hidden relative border border-white/50">
+<!-- Glass Decoration -->
+<div class="absolute -top-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-24 -right-24 w-64 h-64 bg-secondary/5 rounded-full blur-3xl"></div>
+<!-- Invoice Header -->
+<div class="flex justify-between items-start border-b border-outline-variant/30 pb-8 mb-10">
+<div class="flex gap-6">
+<div class="w-20 h-20 primary-gradient rounded-2xl flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">directions_car</span>
+</div>
+<div>
+<h2 class="font-headline-lg text-primary leading-tight">أوتو برو للخدمات</h2>
+<p class="text-on-surface-variant">شارع الملك فهد، الرياض، المملكة العربية السعودية</p>
+<p class="text-on-surface-variant">الرقم الضريبي: 300012345600003</p>
+</div>
+</div>
+<div class="text-left">
+<div class="bg-success-container/20 text-primary-glow px-4 py-1 rounded-full text-sm font-bold inline-block mb-3 border border-primary/20 bg-primary/5">
+<span class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                            فاتورة مدفوعة
+                        </span>
+</div>
+<h3 class="font-headline-md text-on-surface uppercase mb-1">#INV-2024-0892</h3>
+<p class="text-on-surface-variant">التاريخ: 24 مايو 2024</p>
+</div>
+</div>
+<!-- Client & Vehicle Info -->
+<div class="grid grid-cols-2 gap-12 mb-10">
+<div class="bg-surface-container-lowest/50 p-6 rounded-2xl border border-glass-border">
+<p class="text-xs text-on-surface-variant uppercase font-bold mb-3 tracking-widest">إلى العميل</p>
+<h4 class="font-headline-md text-primary mb-1">شركة النقل السريع</h4>
+<p class="text-on-surface-variant">المنطقة الصناعية، مبنى 45</p>
+<p class="text-on-surface-variant">هاتف: +966 50 123 4567</p>
+</div>
+<div class="bg-surface-container-lowest/50 p-6 rounded-2xl border border-glass-border">
+<p class="text-xs text-on-surface-variant uppercase font-bold mb-3 tracking-widest">معلومات المركبة</p>
+<h4 class="font-headline-md text-primary mb-1">تويوتا لاند كروزر 2023</h4>
+<p class="text-on-surface-variant">لوحة رقم: <span class="font-mono">أ ب ج 1234</span></p>
+<p class="text-on-surface-variant">رقم الهيكل: <span class="font-mono">VIN9876543210</span></p>
+</div>
+</div>
+<!-- Invoice Items Table -->
+<div class="mb-10 overflow-hidden rounded-2xl border border-glass-border">
+<table class="w-full text-right border-collapse">
+<thead class="bg-primary/5">
+<tr>
+<th class="p-4 font-bold text-primary border-b border-glass-border">الوصف</th>
+<th class="p-4 font-bold text-primary border-b border-glass-border text-center">الكمية</th>
+<th class="p-4 font-bold text-primary border-b border-glass-border">سعر الوحدة</th>
+<th class="p-4 font-bold text-primary border-b border-glass-border text-left">الإجمالي</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-glass-border">
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="p-4">
+<div class="font-bold">تغيير زيت المحرك (سنتيتيك)</div>
+<div class="text-xs text-on-surface-variant">صيانة دورية 10,000 كم</div>
+</td>
+<td class="p-4 text-center">1</td>
+<td class="p-4">450.00 ر.س</td>
+<td class="p-4 text-left font-bold">450.00 ر.س</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="p-4">
+<div class="font-bold">طقم فحمات فرامل أمامية</div>
+<div class="text-xs text-on-surface-variant">قطع غيار أصلية - تويوتا</div>
+</td>
+<td class="p-4 text-center">2</td>
+<td class="p-4">320.00 ر.س</td>
+<td class="p-4 text-left font-bold">640.00 ر.س</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="p-4">
+<div class="font-bold">أجور فحص وبرمجة كمبيوتر</div>
+<div class="text-xs text-on-surface-variant">فحص شامل للأنظمة الإلكترونية</div>
+</td>
+<td class="p-4 text-center">1</td>
+<td class="p-4">250.00 ر.س</td>
+<td class="p-4 text-left font-bold">250.00 ر.س</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="p-4">
+<div class="font-bold">فلتر هواء مكيف</div>
+<div class="text-xs text-on-surface-variant">تنقية عالية الكفاءة</div>
+</td>
+<td class="p-4 text-center">1</td>
+<td class="p-4">120.00 ر.س</td>
+<td class="p-4 text-left font-bold">120.00 ر.س</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Section: Totals & QR Code -->
+<div class="grid grid-cols-12 gap-8 items-end">
+<div class="col-span-8">
+<div class="p-6 bg-surface-container-low/50 rounded-2xl border border-glass-border">
+<h4 class="font-bold mb-3 text-primary">ملاحظات إضافية:</h4>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            تم فحص ضغط الإطارات ومستوى سائل التبريد مجاناً. يرجى مراجعة المركز بعد 5,000 كم للفحص القادم. جميع قطع الغيار مشمولة بضمان لمدة 6 أشهر من تاريخ الفاتورة.
+                        </p>
+</div>
+</div>
+<div class="col-span-4">
+<div class="space-y-3">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span>المجموع الفرعي:</span>
+<span class="font-mono">1,460.00 ر.س</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant">
+<span>ضريبة القيمة المضافة (15%):</span>
+<span class="font-mono">219.00 ر.س</span>
+</div>
+<div class="pt-3 border-t border-outline-variant flex justify-between items-center">
+<span class="font-headline-md text-primary">الإجمالي النهائي:</span>
+<span class="font-headline-md text-primary font-mono">1,679.00 ر.س</span>
+</div>
+</div>
+</div>
+</div>
+<!-- QR Code & Auth -->
+<div class="mt-12 pt-8 border-t border-glass-border flex justify-between items-center">
+<div class="flex items-center gap-6">
+<div class="bg-white p-2 rounded-xl shadow-md border border-glass-border">
+<img class="w-24 h-24" data-alt="A clean, minimalist QR code generated for a digital receipt, high-tech aesthetic, isolated on a white background with a subtle blue border glow." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAur6WaptOefx6P5XyuZvCrolhZiRo7DKeRaDXt8wWOOI4SlGcqbD7YAJt8Qq6T6emVPLGctuEYdrgRxSastXJLT01CijkNb0gBX7o9KAtm04KkpUzlZ_dzDto4lpzst7Yw1ok_TRHhRZXYjXeMsaQu38zDKjwNjft_e9Dsyxon0gIoavftC-4DQDt76cxhGFK0lU6_MsjKISiVSAKD6hWZ3-Xw50qiT1XJ9wK1wX5JnNXpNJdeuuB-rCJcc_rFr3QLKwk7mzpjZlw"/>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">امسح للتحقق</p>
+<p class="text-xs text-on-surface-variant">هذه فاتورة إلكترونية معتمدة <br/> من قبل هيئة الزكاة والضريبة والجمارك</p>
+</div>
+</div>
+<div class="text-left">
+<div class="mb-4">
+<p class="text-xs text-on-surface-variant mb-4 uppercase tracking-widest">توقيع المسؤول</p>
+<img class="h-12 w-40 opacity-80" data-alt="A digital calligraphy signature of a manager in dark blue ink, elegant Arabic script style, transparent background look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvzjNoqPZ9O8PxZX5Ot79FDXi5r6gEByx1C_UnSyDvt0nN-nCrUpoDtIzv4Xy-cDkXHPb_a8Cr0Z7mo0HrfR-Gmyh1LptEpRpDTAL26zDFIHwWMob8vv7OQCeC7VSur8bytj2NzxlzlkM6tifPm3MX_b9c5KlUZgnQpDOfxhZscSW_1HXohm_M2OD5prLt7YipAWNzvThKWSELgbSaJCNYxGGFVmqLEiRwNhP8AhnyZQMq-jFd1HknEkEdFQTR2xozYAn5Ae732mg"/>
+</div>
+<p class="font-bold text-on-surface">إدارة الصيانة</p>
+</div>
+</div>
+</div>
+<!-- Float FAB for Smart Action (Shared Component Logic) -->
+<button class="no-print fixed bottom-8 left-8 w-16 h-16 primary-gradient text-white rounded-full flex items-center justify-center shadow-2xl pulse-animation hover:scale-110 transition-transform z-50">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</button>
+</main>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('.hover\\:translate-y-\\[-2px\\]').forEach(button => {
+            button.addEventListener('mousedown', () => button.style.transform = 'scale(0.95)');
+            button.addEventListener('mouseup', () => button.style.transform = 'scale(1)');
+        });
+
+        // Add a subtle scroll reveal effect for invoice elements
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100');
+                    entry.target.classList.remove('opacity-0', 'translate-y-10');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.glass-panel > div').forEach(el => {
+            el.classList.add('transition-all', 'duration-700', 'opacity-0', 'translate-y-10');
+            observer.observe(el);
+        });
+    </script>
+</body></html>

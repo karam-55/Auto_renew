@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>أوتو برو | التقارير والتحليلات</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;700&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&amp;family=IBM+Plex+Sans+Arabic:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- External Shared Components Hierarchy & Theme Logic -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#eaddff",
+                    "surface-container-high": "#e7e7f2",
+                    "on-background": "#191b23",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#d9d9e4",
+                    "glass-border": "rgba(255, 255, 255, 0.4)",
+                    "on-tertiary-fixed": "#3a0b00",
+                    "on-tertiary-container": "#ffb9a4",
+                    "bg-main": "#fcfcff",
+                    "surface-variant": "#e2e2ec",
+                    "on-secondary-fixed-variant": "#5a00c6",
+                    "secondary-container": "#8b4bfc",
+                    "outline": "#737685",
+                    "inverse-primary": "#b4c5ff",
+                    "surface-container-highest": "#e2e2ec",
+                    "surface-bright": "#faf8ff",
+                    "tertiary-fixed-dim": "#ffb59e",
+                    "outline-variant": "#c3c6d6",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-fixed": "#00174b",
+                    "primary-glow": "rgba(0, 74, 198, 0.5)",
+                    "tertiary-fixed": "#ffdbd0",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#dbe1ff",
+                    "on-surface": "#191b23",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f3f3fd",
+                    "secondary-fixed-dim": "#d2bbff",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed": "#25005a",
+                    "primary": "#003594",
+                    "primary-container": "#004ac6",
+                    "on-primary": "#ffffff",
+                    "on-primary-container": "#b8c8ff",
+                    "on-secondary": "#ffffff",
+                    "background": "#faf8ff",
+                    "surface": "#faf8ff",
+                    "surface-container": "#ededf8",
+                    "tertiary-container": "#9c2e02",
+                    "surface-tint": "#1b55d0",
+                    "on-error-container": "#93000a",
+                    "glass-bg": "rgba(255, 255, 255, 0.7)",
+                    "on-tertiary-fixed-variant": "#842500",
+                    "secondary-light": "#ede9fe",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "inverse-on-surface": "#f0f0fb",
+                    "on-secondary-container": "#fffbff",
+                    "tertiary": "#751f00",
+                    "on-surface-variant": "#434654",
+                    "secondary": "#712ae2",
+                    "inverse-surface": "#2e3038"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-margin": "24px",
+                    "card-padding": "24px",
+                    "gutter": "20px",
+                    "sidebar-offset": "16px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Be Vietnam Pro"],
+                    "headline-md": ["Be Vietnam Pro"],
+                    "label-mono": ["JetBrains Mono"],
+                    "body-lg": ["IBM Plex Sans Arabic"],
+                    "body-md": ["IBM Plex Sans Arabic"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: #faf8ff;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 74, 198, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(113, 42, 226, 0.05) 0px, transparent 50%);
+            min-height: 100vh;
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        .primary-gradient {
+            background: linear-gradient(135deg, #003594 0%, #712ae2 100%);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .active-glow {
+            box-shadow: 0 0 15px rgba(0, 74, 198, 0.3);
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .animate-pulse-soft {
+            animation: pulse-soft 3s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 53, 148, 0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- WebGL Background Element (Atmospheric) -->
+
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex flex-col h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset bg-glass-bg/70 backdrop-blur-xl border-l border-glass-border shadow-2xl rounded-2xl z-50 py-card-padding gap-gutter">
+<div class="px-6 mb-8 flex flex-col items-end">
+<div class="flex items-center gap-3 flex-row-reverse">
+<div class="w-10 h-10 primary-gradient rounded-xl flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined">directions_car</span>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md text-primary leading-tight">أوتو برو</h1>
+<p class="text-body-md text-outline">الإدارة المتقدمة</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 px-2 flex-grow">
+<!-- Labels from JSON: ["لوحة القيادة", "الأسطول", "الصيانة", "المخزن", "التقارير"] -->
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="font-body-md text-body-md">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">directions_car</span>
+<span class="font-body-md text-body-md">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">build</span>
+<span class="font-body-md text-body-md">الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">inventory_2</span>
+<span class="font-body-md text-body-md">المخزن</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+</div>
+<div class="px-4 mt-auto">
+<button class="w-full primary-gradient text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-primary-glow/50 transition-all">
+<span class="material-symbols-outlined">add</span>
+                إضافة سيارة
+            </button>
+<div class="mt-6 pt-6 border-t border-glass-border">
+<a class="flex flex-row-reverse items-center justify-start text-error p-3 rounded-xl hover:bg-error-container/10 transition-all" href="#">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="font-body-md text-body-md">تسجيل الخروج</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- TopNavBar (Shared Component) -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-340px)] mr-80 ml-container-margin bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-xl mx-auto">
+<div class="flex items-center gap-6 flex-row-reverse">
+<div class="flex items-center gap-2">
+<h2 class="text-headline-md font-headline-md font-bold text-primary">التقارير والتحليلات</h2>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<input class="bg-surface-container-low border-none rounded-full pr-10 pl-4 py-2 w-64 focus:ring-2 focus:ring-primary/20 transition-all text-right" placeholder="بحث سريع..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+<div class="flex items-center gap-2 border-r border-glass-border pr-4">
+<button class="p-2 text-on-surface-variant hover:bg-primary-container/10 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-primary-container/10 rounded-full transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 p-0.5">
+<img class="w-full h-full rounded-full object-cover" data-alt="A professional male business manager with a friendly expression, wearing a sleek modern navy suit, set against a soft blurred luxury office background with warm ambient lighting. The style is high-end corporate photography, emphasizing professional authority and modern tech-savvy leadership." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQREgQ7h5HIcuHseEgBzoTqO2_Jr1qB1jC-m-PUAcauTqy1qD1NpybMg9b0tYEhLAwe5tFnJ5QTATtoH7tZ6hs0eQvzFQLPDDagm_0UDVhzkxTyRfbtYELNFs0oBCKmG8T6qgAm8EAisHF_uN-gBp-ZItOF4nvz9OlhJJXw1svHdZ-haLAd-WCX-zykOG-LsdjcrL904envff03dxB1tBqQ_p1P5U4A7B8IjbW7iZSNyHP3GxRHoRx5oceDfgaKLKww1x-lWJI5-U"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="mr-80 ml-container-margin mt-8 pb-12 transition-all duration-500">
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter mb-8">
+<div class="glass-card rounded-2xl p-card-padding relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full primary-gradient"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-2xl bg-primary-container/10 text-primary">
+<span class="material-symbols-outlined text-3xl">payments</span>
+</div>
+<span class="text-xs font-bold text-success text-green-600 bg-green-100 px-2 py-1 rounded-full">+12.5%</span>
+</div>
+<h3 class="text-outline text-body-md mb-1">إجمالي الإيرادات</h3>
+<div class="text-headline-md font-bold text-on-surface">142,500 <span class="text-sm font-normal">ر.س</span></div>
+</div>
+<div class="glass-card rounded-2xl p-card-padding relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-secondary"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-2xl bg-secondary-container/10 text-secondary">
+<span class="material-symbols-outlined text-3xl">engineering</span>
+</div>
+<span class="text-xs font-bold text-primary bg-primary-fixed px-2 py-1 rounded-full">مستقر</span>
+</div>
+<h3 class="text-outline text-body-md mb-1">كفاءة الفريق</h3>
+<div class="text-headline-md font-bold text-on-surface">94%</div>
+</div>
+<div class="glass-card rounded-2xl p-card-padding relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-tertiary"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-2xl bg-tertiary-fixed/30 text-tertiary">
+<span class="material-symbols-outlined text-3xl">inventory_2</span>
+</div>
+<span class="text-xs font-bold text-error bg-error-container px-2 py-1 rounded-full">-3%</span>
+</div>
+<h3 class="text-outline text-body-md mb-1">قطع الغيار المستهلكة</h3>
+<div class="text-headline-md font-bold text-on-surface">1,280 <span class="text-sm font-normal">قطعة</span></div>
+</div>
+<div class="glass-card rounded-2xl p-card-padding relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-surface-tint"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-2xl bg-primary-fixed/50 text-surface-tint">
+<span class="material-symbols-outlined text-3xl">timer</span>
+</div>
+<span class="text-xs font-bold text-success text-green-600 bg-green-100 px-2 py-1 rounded-full">-15m</span>
+</div>
+<h3 class="text-outline text-body-md mb-1">متوسط وقت الإصلاح</h3>
+<div class="text-headline-md font-bold text-on-surface">3.4 <span class="text-sm font-normal">ساعة</span></div>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Revenue Growth Chart -->
+<div class="lg:col-span-2 glass-card rounded-2xl p-card-padding">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-headline-sm font-bold text-on-surface">نمو المبيعات والإيرادات</h3>
+<p class="text-outline text-body-md">تحليل الأداء المالي خلال الـ 12 شهراً الماضية</p>
+</div>
+<select class="bg-surface-container-low border-none rounded-lg text-sm pr-10 focus:ring-primary/20">
+<option>سنوي</option>
+<option>شهري</option>
+</select>
+</div>
+<div class="h-[350px] relative">
+<canvas id="revenueChart"></canvas>
+</div>
+</div>
+<!-- Mechanic Performance -->
+<div class="glass-card rounded-2xl p-card-padding">
+<div class="mb-6">
+<h3 class="text-headline-sm font-bold text-on-surface">أداء الفنيين</h3>
+<p class="text-outline text-body-md">توزيع المهام ومعدل الإنجاز</p>
+</div>
+<div class="h-[250px] mb-8 relative">
+<canvas id="mechanicPerformanceChart"></canvas>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center text-xs font-bold">أ</div>
+<span class="font-bold">أحمد المنصور</span>
+</div>
+<span class="text-primary font-bold">98%</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-white flex items-center justify-center text-xs font-bold">خ</div>
+<span class="font-bold">خالد العتيبي</span>
+</div>
+<span class="text-primary font-bold">92%</span>
+</div>
+</div>
+</div>
+<!-- Service Distribution -->
+<div class="glass-card rounded-2xl p-card-padding">
+<div class="mb-6">
+<h3 class="text-headline-sm font-bold text-on-surface">توزيع الخدمات</h3>
+<p class="text-outline text-body-md">الأقسام الأكثر طلباً في المركز</p>
+</div>
+<div class="h-[300px] relative">
+<canvas id="serviceDistributionChart"></canvas>
+</div>
+</div>
+<!-- Maintenance Trends -->
+<div class="lg:col-span-2 glass-card rounded-2xl p-card-padding overflow-hidden relative">
+<div class="flex justify-between items-center mb-6 relative z-10">
+<div>
+<h3 class="text-headline-sm font-bold text-on-surface">أحدث التقارير التفصيلية</h3>
+<p class="text-outline text-body-md">آخر 5 عمليات صيانة مكتملة</p>
+</div>
+<button class="text-primary font-bold hover:underline">عرض الكل</button>
+</div>
+<table class="w-full text-right relative z-10">
+<thead>
+<tr class="text-outline border-b border-glass-border">
+<th class="pb-4 font-normal">رقم المركبة</th>
+<th class="pb-4 font-normal">نوع الخدمة</th>
+<th class="pb-4 font-normal">الفني المسؤول</th>
+<th class="pb-4 font-normal">الحالة</th>
+<th class="pb-4 font-normal">التكلفة</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-glass-border/30">
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer">
+<td class="py-4 font-bold">ل ك د 2930</td>
+<td class="py-4">صيانة دورية</td>
+<td class="py-4">م. سمير القحطاني</td>
+<td class="py-4"><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">مكتمل</span></td>
+<td class="py-4 font-label-mono">1,250 SR</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer">
+<td class="py-4 font-bold">أ ب ج 4455</td>
+<td class="py-4">إصلاح محرك</td>
+<td class="py-4">م. يوسف الحربي</td>
+<td class="py-4"><span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">قيد التنفيذ</span></td>
+<td class="py-4 font-label-mono">4,800 SR</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer">
+<td class="py-4 font-bold">ر س و 1122</td>
+<td class="py-4">كهرباء سيارات</td>
+<td class="py-4">م. فهد الرشيدي</td>
+<td class="py-4"><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">مكتمل</span></td>
+<td class="py-4 font-label-mono">850 SR</td>
+</tr>
+</tbody>
+</table>
+<div class="absolute -bottom-10 -left-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
+</div>
+</div>
+</main>
+<!-- FAB: Smart Action Button -->
+<button class="fixed bottom-8 left-8 w-16 h-16 primary-gradient rounded-full flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-95 transition-all z-50 animate-pulse-soft">
+<span class="material-symbols-outlined text-3xl">magic_button</span>
+</button>
+<script>
+        // Chart.js Default Configurations
+        Chart.defaults.font.family = 'IBM Plex Sans Arabic';
+        Chart.defaults.color = '#737685';
+
+        // 1. Revenue Growth Chart
+        const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctxRevenue, {
+            type: 'line',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو'],
+                datasets: [{
+                    label: 'الإيرادات المستهدفة',
+                    data: [30000, 35000, 42000, 38000, 45000, 50000, 55000],
+                    borderColor: '#004ac6',
+                    backgroundColor: 'rgba(0, 74, 198, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#004ac6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // 2. Mechanic Performance (Polar Area)
+        const ctxMechanic = document.getElementById('mechanicPerformanceChart').getContext('2d');
+        new Chart(ctxMechanic, {
+            type: 'polarArea',
+            data: {
+                labels: ['أحمد', 'خالد', 'سعد', 'ياسر'],
+                datasets: [{
+                    data: [85, 72, 90, 65],
+                    backgroundColor: [
+                        'rgba(0, 74, 198, 0.6)',
+                        'rgba(113, 42, 226, 0.6)',
+                        'rgba(117, 31, 0, 0.6)',
+                        'rgba(27, 85, 208, 0.6)'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { r: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { display: false } } }
+            }
+        });
+
+        // 3. Service Distribution (Doughnut)
+        const ctxService = document.getElementById('serviceDistributionChart').getContext('2d');
+        new Chart(ctxService, {
+            type: 'doughnut',
+            data: {
+                labels: ['ميكانيكا', 'كهرباء', 'زيوت', 'إطارات'],
+                datasets: [{
+                    data: [45, 25, 20, 10],
+                    backgroundColor: ['#003594', '#712ae2', '#751f00', '#1b55d0'],
+                    hoverOffset: 20,
+                    borderRadius: 10,
+                    spacing: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 20 } }
+                }
+            }
+        });
+
+        // Micro-interaction for cards
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if (icon) icon.style.transform = 'scale(1.2) rotate(5deg)';
+            });
+            card.addEventListener('mouseleave', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if (icon) icon.style.transform = 'scale(1) rotate(0deg)';
+            });
+        });
+    </script>
+</body></html>

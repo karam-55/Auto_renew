@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إدارة العملاء - أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#eaddff",
+                        "surface-container-high": "#e7e7f2",
+                        "on-background": "#191b23",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d9d9e4",
+                        "glass-border": "rgba(255, 255, 255, 0.4)",
+                        "on-tertiary-fixed": "#3a0b00",
+                        "on-tertiary-container": "#ffb9a4",
+                        "bg-main": "#fcfcff",
+                        "surface-variant": "#e2e2ec",
+                        "on-secondary-fixed-variant": "#5a00c6",
+                        "secondary-container": "#8b4bfc",
+                        "outline": "#737685",
+                        "inverse-primary": "#b4c5ff",
+                        "surface-container-highest": "#e2e2ec",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb59e",
+                        "outline-variant": "#c3c6d6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "primary-glow": "rgba(0, 74, 198, 0.5)",
+                        "tertiary-fixed": "#ffdbd0",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#dbe1ff",
+                        "on-surface": "#191b23",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f3f3fd",
+                        "secondary-fixed-dim": "#d2bbff",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#25005a",
+                        "primary": "#003594",
+                        "primary-container": "#004ac6",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#b8c8ff",
+                        "on-secondary": "#ffffff",
+                        "background": "#faf8ff",
+                        "surface": "#faf8ff",
+                        "surface-container": "#ededf8",
+                        "tertiary-container": "#9c2e02",
+                        "surface-tint": "#1b55d0",
+                        "on-error-container": "#93000a",
+                        "glass-bg": "rgba(255, 255, 255, 0.7)",
+                        "on-tertiary-fixed-variant": "#842500",
+                        "secondary-light": "#ede9fe",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "inverse-on-surface": "#f0f0fb",
+                        "on-secondary-container": "#fffbff",
+                        "tertiary": "#751f00",
+                        "on-surface-variant": "#434654",
+                        "secondary": "#712ae2",
+                        "inverse-surface": "#2e3038"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "card-padding": "24px",
+                        "gutter": "20px",
+                        "sidebar-offset": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "label-mono": ["JetBrains Mono"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #faf8ff;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 75, 252, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(0, 74, 198, 0.1) 0px, transparent 50%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        .primary-gradient-border {
+            border-top: 3px solid transparent;
+            background-image: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)), linear-gradient(to left, #003594, #712ae2);
+            background-origin: border-box;
+            background-clip: content-box, border-box;
+        }
+
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .pulse-glow {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 74, 198, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0); }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 53, 148, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- WebGL Background Overlay -->
+
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset glass-card rounded-2xl py-card-padding gap-gutter z-50 border-l border-glass-border shadow-2xl">
+<div class="flex flex-row-reverse items-center gap-3 px-6 mb-8">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-lg overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A minimalist tech logo for an automotive management system, featuring sleek abstract metallic lines that form a stylized car shape, set against a deep blue gradient background with high-end lens flare effects and a professional corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6HKzKNbWWMlV_VlXPTU14gvZCYM3IuU6IZ4c4j6MWubx5BQuIV_ep4NPD3UoNoXIE-StdVnzike7Gv0odABxDOw9balIaOeXHEFBIpLfVKrZ-4sxwX_2wa6LdjLvU2e4JO7EUhAxyonwdOkQli9hU1Krm6Wa9xWkH-xFV6Qo-QQNaK3LOmB7jkHS2HeU3mtgMgRza-UQzlevrXztZcqYzYtnNK8lMtUVh-sAsVadHSS1nSsTscHBjEebRmYwoUc4bMX8H269zm2U"/>
+</div>
+<div class="text-right">
+<h1 class="font-headline-md text-headline-md text-primary">أوتو برو</h1>
+<p class="text-xs text-on-surface-variant">الإدارة المتقدمة</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 px-4">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-colors p-3 rounded-xl hover:bg-primary-container/5 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">dashboard</span>
+<span>لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 stagger-1" href="#">
+<span class="material-symbols-outlined ml-3">group</span>
+<span>العملاء</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-colors p-3 rounded-xl hover:bg-primary-container/5 group stagger-2" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">directions_car</span>
+<span>الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-colors p-3 rounded-xl hover:bg-primary-container/5 group stagger-3" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">build</span>
+<span>الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-colors p-3 rounded-xl hover:bg-primary-container/5 group" href="#">
+<span class="material-symbols-outlined ml-3 group-hover:scale-110 transition-transform">analytics</span>
+<span>التقارير</span>
+</a>
+</nav>
+<div class="mt-auto px-4">
+<button class="w-full py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">person_add</span>
+<span>إضافة عميل</span>
+</button>
+</div>
+<div class="px-4 mt-4">
+<a class="flex flex-row-reverse items-center justify-start text-error p-3 rounded-xl hover:bg-error-container/10 transition-colors" href="#">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span>تسجيل الخروج</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:mr-72 p-container-margin pt-sidebar-offset pb-32">
+<!-- TopNavBar -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-full glass-card rounded-xl shadow-lg mb-8">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="relative">
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">notifications</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">settings</span>
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 p-0.5">
+<img class="w-full h-full rounded-full object-cover" data-alt="A professional headshot of a Middle Eastern male administrator in business attire, looking confident and friendly. The portrait is high-quality with soft professional studio lighting, a neutral gray background, and a sharp focus on the facial features to reflect a premium corporate profile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsBT_WOC_NHTwZAtuIqoRc6FPjSXQuD_C3dZKw17zsf83gC_Vc04T1SdAzS-GAETHH13BMmGlBwywzUPUBm78ic50pzrSKPcTH-Ct1O8PcwwIb9kA-V8gK4dSzKu9mGhaNLIehDyw9bVayPf6cbRF0qUADt3tkObvwQPqGp25nNp-HjJLWVotZZ28ffKvpHdlBxD26YfXrC6WXaFWQZX0rj7P0ttJ8988gMnVyQ2QbAzjyBmyNzxPVoey-XsilaFSngaJ6pNuA3Dw"/>
+</div>
+</div>
+<div class="flex-1 max-w-md mx-8">
+<div class="relative flex items-center">
+<input class="w-full pr-12 pl-4 py-2 bg-surface-container-low border-none rounded-full text-body-md focus:ring-2 focus:ring-primary/20 transition-all text-right" placeholder="البحث عن عميل، رقم هاتف، أو لوحة سيارة..." type="text"/>
+<span class="material-symbols-outlined absolute right-4 text-on-surface-variant">search</span>
+</div>
+</div>
+<div class="hidden lg:block">
+<h2 class="font-headline-md text-headline-md text-primary font-bold">إدارة العملاء</h2>
+</div>
+</header>
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-8">
+<div class="glass-card primary-gradient-border p-card-padding rounded-xl flex flex-col items-center justify-center text-center hover:translate-y-[-8px] transition-all group">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3 group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">groups</span>
+</div>
+<div class="text-on-surface-variant text-sm mb-1">إجمالي العملاء</div>
+<div class="font-headline-md text-headline-md text-primary">1,284</div>
+<div class="text-xs text-success mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +12% الشهر الحالي
+                </div>
+</div>
+<div class="glass-card primary-gradient-border p-card-padding rounded-xl flex flex-col items-center justify-center text-center hover:translate-y-[-8px] transition-all group">
+<div class="w-14 h-14 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary mb-3 group-hover:bg-secondary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div class="text-on-surface-variant text-sm mb-1">برنامج الولاء (نشط)</div>
+<div class="font-headline-md text-headline-md text-secondary">856</div>
+<div class="text-xs text-on-surface-variant mt-2">67% من قاعدة العملاء</div>
+</div>
+<div class="glass-card primary-gradient-border p-card-padding rounded-xl flex flex-col items-center justify-center text-center hover:translate-y-[-8px] transition-all group border-t-3 border-error">
+<div class="w-14 h-14 rounded-full bg-error/10 flex items-center justify-center text-error mb-3 group-hover:bg-error group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">account_balance_wallet</span>
+</div>
+<div class="text-on-surface-variant text-sm mb-1">إجمالي المديونيات</div>
+<div class="font-headline-md text-headline-md text-error">42,500 <span class="text-xs font-normal">ر.س</span></div>
+<div class="text-xs text-error mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">priority_high</span> يحتاج متابعة
+                </div>
+</div>
+<div class="glass-card primary-gradient-border p-card-padding rounded-xl flex flex-col items-center justify-center text-center hover:translate-y-[-8px] transition-all group">
+<div class="w-14 h-14 rounded-full bg-tertiary-container/10 flex items-center justify-center text-tertiary-container mb-3 group-hover:bg-tertiary-container group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">event_available</span>
+</div>
+<div class="text-on-surface-variant text-sm mb-1">حجوزات اليوم</div>
+<div class="font-headline-md text-headline-md text-tertiary-container">24</div>
+<div class="text-xs text-on-surface-variant mt-2">18 مكتملة حتى الآن</div>
+</div>
+</div>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Table Section (Left 2/3) -->
+<div class="lg:col-span-2 flex flex-col gap-gutter">
+<div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+<div class="p-card-padding border-b border-glass-border flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
+<span class="material-symbols-outlined">list_alt</span>
+                            قائمة العملاء النشطين
+                        </h3>
+<div class="flex gap-2">
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary/10 transition-colors text-primary">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary/10 transition-colors text-primary">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="bg-surface-container/50 text-on-surface-variant">
+<th class="p-4 font-bold text-sm">العميل</th>
+<th class="p-4 font-bold text-sm text-center">السيارات</th>
+<th class="p-4 font-bold text-sm text-center">سجل الحجوزات</th>
+<th class="p-4 font-bold text-sm text-center">نظام الولاء</th>
+<th class="p-4 font-bold text-sm text-center">المديونية</th>
+<th class="p-4 font-bold text-sm text-center">إجراءات</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-glass-border hover:bg-primary/5 transition-all group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold shadow-inner">أ ع</div>
+<div>
+<div class="font-bold text-on-surface">أحمد العتيبي</div>
+<div class="text-xs text-on-surface-variant">+966 50 XXX XXXX</div>
+</div>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold">2 سيارة</span>
+</td>
+<td class="p-4 text-center">
+<div class="text-sm">12 حجز</div>
+<div class="text-[10px] text-on-surface-variant">آخر حجز: 12-10-2023</div>
+</td>
+<td class="p-4 text-center">
+<div class="flex flex-col items-center gap-1">
+<div class="w-16 bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 75%"></div>
+</div>
+<span class="text-xs font-bold text-secondary">750 نقطة</span>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="text-error font-bold text-sm">1,200 ر.س</span>
+</td>
+<td class="p-4 text-center">
+<button class="p-2 rounded-full hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="border-b border-glass-border hover:bg-primary/5 transition-all">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold shadow-inner">س م</div>
+<div>
+<div class="font-bold text-on-surface">سارة محمد</div>
+<div class="text-xs text-on-surface-variant">+966 55 XXX XXXX</div>
+</div>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold">1 سيارة</span>
+</td>
+<td class="p-4 text-center">
+<div class="text-sm">5 حجز</div>
+<div class="text-[10px] text-on-surface-variant">آخر حجز: 25-11-2023</div>
+</td>
+<td class="p-4 text-center">
+<div class="flex flex-col items-center gap-1">
+<div class="w-16 bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 30%"></div>
+</div>
+<span class="text-xs font-bold text-secondary">300 نقطة</span>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="text-on-surface-variant text-sm">-</span>
+</td>
+<td class="p-4 text-center">
+<button class="p-2 rounded-full hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="border-b border-glass-border hover:bg-primary/5 transition-all">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold shadow-inner">ف ش</div>
+<div>
+<div class="font-bold text-on-surface">فهد الشمري</div>
+<div class="text-xs text-on-surface-variant">+966 54 XXX XXXX</div>
+</div>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold">3 سيارة</span>
+</td>
+<td class="p-4 text-center">
+<div class="text-sm">28 حجز</div>
+<div class="text-[10px] text-on-surface-variant">آخر حجز: 01-12-2023</div>
+</td>
+<td class="p-4 text-center">
+<div class="flex flex-col items-center gap-1">
+<div class="w-16 bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 95%"></div>
+</div>
+<span class="text-xs font-bold text-secondary">2,450 نقطة</span>
+</div>
+</td>
+<td class="p-4 text-center">
+<span class="text-error font-bold text-sm">350 ر.س</span>
+</td>
+<td class="p-4 text-center">
+<button class="p-2 rounded-full hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Loyalty Program Insights -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="glass-card p-card-padding rounded-2xl relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-32 h-32 bg-secondary/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+<h4 class="font-headline-sm text-headline-sm text-secondary mb-4">كبار العملاء (VIP)</h4>
+<div class="flex items-center gap-4 mb-4">
+<div class="flex -space-x-3 space-x-reverse">
+<div class="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-surface-container"><img class="w-full h-full object-cover" data-alt="Close-up portrait of an elegant business person, photorealistic style, wearing luxury eyewear, with a bokeh background of a high-tech modern office." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6qH_WIEVd3HV67FNeU8xSOcttam9g2AfI0fvu83L8ezwJlFVw12cwOiW5a8bCBD-HBl9pmSfTXkoaUy25Oso6cNkQGh03ax6ndbJ-9-WlPs32BkiQ7ZNBNeznGyjYQpiejQCMTB35rACiVhpJ-rbWC8B1TZFNjQqOAWfxbiSHPiCa3E2G3sTrbVYuR1DZ_gXBRCRmgzILX-L2ZaGRnlBUGbM-YqCZ4uxs1cDcQgfY3YApIbuTjoocN4IhDP4lu9-dUPckc3lakvM"/></div>
+<div class="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-surface-container"><img class="w-full h-full object-cover" data-alt="A portrait of a cheerful female professional, 4k resolution, cinematic lighting, dressed in modern smart-casual attire, smiling warmly against a minimalist bright architectural background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDCVuft-k486vnn3_f15Ea_tGI97Bsytstqm0BOOUC-OJBQHAXTAHhx_eKCd4pXTqSZizRYZYJ8AL_UQVn6q3EMmRuYNxeSSubqssz181XChFQ1QAg5eH8_tCbPsLgupOq9lW7VFxUDsLxADW2tHK008YiDCsOv9qpktkJ2ujcx2WFNxItUk4tHf2umcVTBaWzdneqlcFXw5dIs9IJqSYsN1OJ4MxBdIje3e_X7rGSDbymW-2WxvbNuKg3fxdnyGwNEvLimX7u1hk"/></div>
+<div class="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-surface-container"><img class="w-full h-full object-cover" data-alt="A high-detail corporate headshot of an executive man, short beard, smiling, wearing a light gray linen shirt, warm natural sunlight, urban penthouse background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkRU4rxhSX_Bod51C0WSZRZ-wR4sU0Rge1Psfxte0pCBdVDqNMRk5TH_nj450u_V6d6WhehHczlFiWKJwUu7O9ECm4xcbrzGJ7XZbpyOiq1F80vMiFXbLpTQVQwfKrFEIh_honbp2BbmNRWwT2eXPhNJcaIrOAQdvEFtYyAi2eWkC70R5UP8DpfmINxaeN_D00EM5El8dexduMbMipoFZo1uVu5c--jKcTdlXUC2J0AO_y4jpGKOUC74Ez74MhIboAsXBDKQoovbI"/></div>
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-xs font-bold border-2 border-white">+12</div>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant">العملاء الذين تجاوزت نقاط ولائهم 2000 نقطة الشهر الماضي.</p>
+</div>
+<div class="glass-card p-card-padding rounded-2xl relative overflow-hidden group border-r-4 border-primary">
+<h4 class="font-headline-sm text-headline-sm text-primary mb-2">أعلى حجز اليوم</h4>
+<div class="flex justify-between items-center mt-4">
+<div>
+<div class="font-bold">فهد الشمري</div>
+<div class="text-xs text-on-surface-variant">صيانة دورية - لكزس LS 2022</div>
+</div>
+<div class="text-right">
+<div class="text-xl font-bold text-primary">1,850 ر.س</div>
+<span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">مؤكد</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Details Section (Right 1/3) -->
+<div class="flex flex-col gap-gutter">
+<!-- Loyalty Tier Card -->
+<div class="glass-card p-card-padding rounded-2xl bg-gradient-to-br from-primary to-secondary relative overflow-hidden text-on-primary shadow-2xl h-fit">
+<div class="absolute -right-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h4 class="text-xs opacity-80 mb-1">المستوى الحالي</h4>
+<div class="text-2xl font-bold">البلاتينيوم</div>
+</div>
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between text-xs">
+<span>التقدم للمستوى القادم</span>
+<span>75%</span>
+</div>
+<div class="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+<div class="bg-white h-full" style="width: 75%"></div>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-white/10 p-3 rounded-xl border border-white/20">
+<span class="material-symbols-outlined text-secondary-fixed">workspace_premium</span>
+<div class="text-xs">تحصل على خصم 15% على جميع خدمات غسيل السيارات</div>
+</div>
+</div>
+</div>
+<!-- Debt Analysis -->
+<div class="glass-card p-card-padding rounded-2xl">
+<h4 class="font-bold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-error">analytics</span>
+                        تحليل المديونيات المتأخرة
+                    </h4>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 bg-error/10 text-error rounded-xl flex items-center justify-center font-bold">30</div>
+<div class="flex-1">
+<div class="text-sm font-bold">متأخرة لأكثر من شهر</div>
+<div class="text-xs text-on-surface-variant">12 عميل - إجمالي 15,400 ر.س</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 bg-warning/10 text-tertiary-container rounded-xl flex items-center justify-center font-bold">15</div>
+<div class="flex-1">
+<div class="text-sm font-bold">متأخرة لأكثر من أسبوعين</div>
+<div class="text-xs text-on-surface-variant">8 عملاء - إجمالي 8,200 ر.س</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 border border-primary/20 text-primary rounded-xl text-sm font-bold hover:bg-primary/5 transition-all">
+                        تصدير كشف المديونيات
+                    </button>
+</div>
+<!-- Recent Activity -->
+<div class="glass-card p-card-padding rounded-2xl flex-1">
+<h4 class="font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                        أحدث نشاطات العملاء
+                    </h4>
+<div class="space-y-6 relative before:absolute before:right-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-glass-border">
+<div class="relative pr-8">
+<div class="absolute right-0 top-1 w-4 h-4 bg-primary rounded-full ring-4 ring-primary/20"></div>
+<div class="text-xs text-on-surface-variant mb-1">منذ 5 دقائق</div>
+<div class="text-sm">قام <span class="font-bold">أحمد العتيبي</span> بإضافة سيارة جديدة (تويوتا كامري)</div>
+</div>
+<div class="relative pr-8">
+<div class="absolute right-0 top-1 w-4 h-4 bg-secondary rounded-full ring-4 ring-secondary/20"></div>
+<div class="text-xs text-on-surface-variant mb-1">منذ ساعة</div>
+<div class="text-sm">تمت إضافة <span class="font-bold">50 نقطة</span> ولاء للعميل <span class="font-bold">سارة محمد</span></div>
+</div>
+<div class="relative pr-8">
+<div class="absolute right-0 top-1 w-4 h-4 bg-error rounded-full ring-4 ring-error/20"></div>
+<div class="text-xs text-on-surface-variant mb-1">منذ 3 ساعات</div>
+<div class="text-sm">سداد جزئي لمبلغ <span class="font-bold">500 ر.س</span> من العميل <span class="font-bold">فهد الشمري</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Smart Action Button (FAB) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center pulse-glow z-50 hover:scale-110 active:scale-95 transition-all group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">add</span>
+</button>
+<!-- Navigation Shell Mobile (BottomNavBar) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-card border-t-0 flex flex-row-reverse justify-around items-center px-4 z-50 shadow-[0_-8px_32px_0_rgba(31,38,135,0.07)]">
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">الرئيسية</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="text-[10px] font-bold">العملاء</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">directions_car</span>
+<span class="text-[10px]">الأسطول</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[10px]">الصيانة</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions and hover effects
+        document.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'scale(1.01)';
+                row.style.borderRight = '4px solid #003594';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'scale(1)';
+                row.style.borderRight = 'none';
+            });
+        });
+
+        // Search bar focus effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('shadow-primary-glow');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('shadow-primary-glow');
+        });
+    </script>
+</body></html>

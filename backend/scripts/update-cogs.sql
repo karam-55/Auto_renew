@@ -1,0 +1,10 @@
+UPDATE "Account" SET "accountType" = 'COGS' WHERE "nameEn" ILIKE '%Cost of Goods Sold%';
+UPDATE "Account" SET "accountType" = 'COGS' WHERE "nameAr" ILIKE '%تكلفة البضاعة المباعة%';
+UPDATE "Account" SET "category" = 'COGS' WHERE "accountType" = 'COGS';
+UPDATE "Account" SET "category" = 'CURRENT_ASSET' WHERE "accountType" = 'ASSET' AND "code" LIKE '11%';
+UPDATE "Account" SET "category" = 'FIXED_ASSET' WHERE "accountType" = 'ASSET' AND "code" LIKE '12%';
+UPDATE "Account" SET "category" = 'CURRENT_LIABILITY' WHERE "accountType" = 'LIABILITY' AND "code" LIKE '21%';
+UPDATE "Account" SET "category" = 'LONG_TERM_LIABILITY' WHERE "accountType" = 'LIABILITY' AND "code" NOT LIKE '21%';
+UPDATE "Account" SET "category" = 'EQUITY' WHERE "accountType" = 'EQUITY';
+UPDATE "Account" SET "category" = 'REVENUE' WHERE "accountType" = 'REVENUE';
+UPDATE "Account" SET "category" = 'OPERATING_EXPENSE' WHERE "accountType" = 'EXPENSE';

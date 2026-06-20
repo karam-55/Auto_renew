@@ -1,0 +1,4 @@
+"TestName","Method","Endpoint","Success","StatusCode","Duration","ErrorMessage"
+"Health Check","GET","/health","True","200","0",""
+"Admin Login","POST","/auth/login","True","200","0",""
+"Socket.io Port","TCP","localhost:8080","True","200","0",""

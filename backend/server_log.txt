@@ -1,0 +1,936 @@
+[INFO] 05:43:04 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+=== INTERFACE HTTP VEHICLE CONTROLLER CONSTRUCTOR CALLED ===
+=== VehicleController CONSTRUCTOR CALLED ===
+Firebase FCM is not enabled
+Firebase FCM is not enabled
+Firebase FCM is not enabled
+Firebase FCM is not enabled
+=== SETTING UP ROUTES ===
+🚀 Server running on port 8080
+📡 Environment: development
+🔗 CORS: http://localhost:64166
+Redis connected
+Redis connected
+Client connected: z4j453E9N5fjpkRaAAAB
+Socket z4j453E9N5fjpkRaAAAB joined booking:u2s4dj5y2erk6458bx8lom
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /health
+Original URL: /health
+Path: /health
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: { host: 'localhost:8080', 'user-agent': 'curl/8.19.0', accept: '*/*' }
+No token provided
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: POST
+URL: /api/auth/login
+Original URL: /api/auth/login
+Path: /api/auth/login
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept', 'content-length' ]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:error 
+Invalid `prisma.user.findUnique()` invocation in
+c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:36
+
+  109 const userAgent = AuditService.extractUserAgent(req);
+  110 
+  111 // Find user
+→ 112 const user = await prisma.user.findUnique({
+        where: {
+          tenantId_username: {
+            username: undefined,
+      +     tenantId: String
+          }
+        }
+      })
+
+Argument `tenantId` is missing.
+Login error: PrismaClientValidationError: 
+Invalid `prisma.user.findUnique()` invocation in
+c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:36
+
+  109 const userAgent = AuditService.extractUserAgent(req);
+  110 
+  111 // Find user
+→ 112 const user = await prisma.user.findUnique({
+        where: {
+          tenantId_username: {
+            username: undefined,
+      +     tenantId: String
+          }
+        }
+      })
+
+Argument `tenantId` is missing.
+    at wn (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:29:1363)
+    at $n.handleRequestError (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6958)
+    at $n.handleAndLogRequestError (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at l (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:18 {
+  clientVersion: '5.22.0'
+}
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: POST
+URL: /api/auth/login
+Original URL: /api/auth/login
+Path: /api/auth/login
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept', 'content-length' ]
+Body: {}
+=====================================
+prisma:error 
+Invalid `prisma.user.findUnique()` invocation in
+c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:36
+
+  109 const userAgent = AuditService.extractUserAgent(req);
+  110 
+  111 // Find user
+→ 112 const user = await prisma.user.findUnique({
+        where: {
+          tenantId_username: {
+            username: undefined,
+      +     tenantId: String
+          }
+        }
+      })
+
+Argument `tenantId` is missing.
+Login error: PrismaClientValidationError: 
+Invalid `prisma.user.findUnique()` invocation in
+c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:36
+
+  109 const userAgent = AuditService.extractUserAgent(req);
+  110 
+  111 // Find user
+→ 112 const user = await prisma.user.findUnique({
+        where: {
+          tenantId_username: {
+            username: undefined,
+      +     tenantId: String
+          }
+        }
+      })
+
+Argument `tenantId` is missing.
+    at wn (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:29:1363)
+    at $n.handleRequestError (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6958)
+    at $n.handleAndLogRequestError (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at l (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\src\modules\auth\routes.ts:112:18 {
+  clientVersion: '5.22.0'
+}
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: { host: 'localhost:8080', 'user-agent': 'curl/8.19.0', accept: '*/*' }
+No token provided
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: { host: 'localhost:8080', 'user-agent': 'curl/8.19.0', accept: '*/*' }
+No token provided
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'authorization', 'user-agent', 'host', 'connection' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: {
+  authorization: 'Bearer faketoken123',
+  'user-agent': 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8655',
+  host: 'localhost:8080',
+  connection: 'Keep-Alive'
+}
+Token found: faketoken123...
+Token verification failed: JsonWebTokenError: jwt malformed
+    at Object.module.exports (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\jsonwebtoken\verify.js:70:17)
+    at authenticate (c:\Users\FIX 11\projects\AUTO_Renew\backend\src\shared\middlewares\auth.ts:30:25)
+    at Layer.handle [as handle_request] (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:328:13)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:280:10)
+    at router.handle (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:175:3)
+    at router (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:47:12)
+    at Layer.handle [as handle_request] (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:328:13)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:280:10)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\src\server.ts:122:3
+    at Layer.handle [as handle_request] (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\layer.js:95:5)
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+SyntaxError: Bad escaped character in JSON at position 12 (line 1 column 13)
+    at JSON.parse (<anonymous>)
+    at parse (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\body-parser\lib\types\json.js:92:19)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\body-parser\lib\read.js:128:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:226:14)
+    at invokeCallback (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:238:16)
+    at done (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:509:20)
+    at endReadableNT (node:internal/streams/readable:1734:12)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+SyntaxError: Bad escaped character in JSON at position 12 (line 1 column 13)
+    at JSON.parse (<anonymous>)
+    at parse (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\body-parser\lib\types\json.js:92:19)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\body-parser\lib\read.js:128:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:226:14)
+    at invokeCallback (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:238:16)
+    at done (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:509:20)
+    at endReadableNT (node:internal/streams/readable:1734:12)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /health
+Original URL: /health
+Path: /health
+Base URL: 
+Headers: [ 'user-agent', 'host', 'connection' ]
+Body: {}
+=====================================
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: { host: 'localhost:8080', 'user-agent': 'curl/8.19.0', accept: '*/*' }
+No token provided
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [ 'authorization', 'user-agent', 'host', 'connection' ]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: {
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzZXIxIiwidGVuYW50SWQiOiJkZWZhdWx0Iiwicm9sZSI6Ik9XTkVSIiwidXNlcm5hbWUiOiJvd25lciIsImlhdCI6MTc4MTQwNTE5MSwiZXhwIjoxNzgxNDA4NzkxfQ.83kVrKiNcR54qj2UwEHFz0Qv1CO8_cObdwEbD2DhhM',
+  'user-agent': 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8655',
+  host: 'localhost:8080',
+  connection: 'Keep-Alive'
+}
+Token found: eyJhbGciOiJIUzI1NiIs...
+Token verification failed: JsonWebTokenError: invalid signature
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\jsonwebtoken\verify.js:171:19
+    at getSecret (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at Object.module.exports (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at authenticate (c:\Users\FIX 11\projects\AUTO_Renew\backend\src\shared\middlewares\auth.ts:30:25)
+    at Layer.handle [as handle_request] (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:328:13)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:280:10)
+    at router.handle (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:175:3)
+    at router (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:47:12)
+    at Layer.handle [as handle_request] (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:328:13)
+    at c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (c:\Users\FIX 11\projects\AUTO_Renew\backend\node_modules\express\lib\router\index.js:280:10)
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [
+  'host',               'connection',
+  'sec-ch-ua-platform', 'authorization',
+  'user-agent',         'sec-ch-ua',
+  'content-type',       'x-tenant-id',
+  'sec-ch-ua-mobile',   'accept',
+  'sec-gpc',            'accept-language',
+  'origin',             'sec-fetch-site',
+  'sec-fetch-mode',     'sec-fetch-dest',
+  'referer',            'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: {
+  host: 'localhost:8080',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"Windows"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjRhM2ZjMmFhLTBiYTctNDgwNy1hODAyLWQ5NmQ3ODk4YmRmYyIsInRlbmFudElkIjoiZGVmYXVsdCIsInJvbGUiOiJPV05FUiIsInVzZXJuYW1lIjoib3duZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgxNDA0NzgzLCJleHAiOjE3ODE0MDU2ODN9.ZEDZ51roowY4MJuRe6weWKrFiuzvkQIN6DO6KG9-nfM',
+  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Brave";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+  'content-type': 'application/json',
+  'x-tenant-id': 'default',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  'sec-gpc': '1',
+  'accept-language': 'ar;q=0.5',
+  origin: 'http://localhost:8085',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:8085/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'if-none-match': 'W/"5b1-FWg0UPfqJtjEMf+A1+TYcyEF2kM"'
+}
+Token found: eyJhbGciOiJIUzI1NiIs...
+Token decoded successfully: {
+  id: '4a3fc2aa-0ba7-4807-a802-d96d7898bdfc',
+  tenantId: 'default',
+  role: 'OWNER',
+  username: 'owner',
+  type: 'access',
+  iat: 1781404783,
+  exp: 1781405683
+}
+User set in request, calling next()
+Dashboard cache MISS for tenant: default
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/customers?page=1&pageSize=20
+Original URL: /api/customers?page=1&pageSize=20
+Path: /api/customers
+Base URL: 
+Headers: [
+  'host',               'connection',
+  'sec-ch-ua-platform', 'authorization',
+  'user-agent',         'sec-ch-ua',
+  'content-type',       'x-tenant-id',
+  'sec-ch-ua-mobile',   'accept',
+  'sec-gpc',            'accept-language',
+  'origin',             'sec-fetch-site',
+  'sec-fetch-mode',     'sec-fetch-dest',
+  'referer',            'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /?page=1&pageSize=20
+Headers: {
+  host: 'localhost:8080',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"Windows"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjRhM2ZjMmFhLTBiYTctNDgwNy1hODAyLWQ5NmQ3ODk4YmRmYyIsInRlbmFudElkIjoiZGVmYXVsdCIsInJvbGUiOiJPV05FUiIsInVzZXJuYW1lIjoib3duZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgxNDA0NzgzLCJleHAiOjE3ODE0MDU2ODN9.ZEDZ51roowY4MJuRe6weWKrFiuzvkQIN6DO6KG9-nfM',
+  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Brave";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+  'content-type': 'application/json',
+  'x-tenant-id': 'default',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  'sec-gpc': '1',
+  'accept-language': 'ar;q=0.5',
+  origin: 'http://localhost:8085',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:8085/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'if-none-match': 'W/"13b-JfLEQwPDY9S87yWwtEfR4hcR9K0"'
+}
+Token found: eyJhbGciOiJIUzI1NiIs...
+Token decoded successfully: {
+  id: '4a3fc2aa-0ba7-4807-a802-d96d7898bdfc',
+  tenantId: 'default',
+  role: 'OWNER',
+  username: 'owner',
+  type: 'access',
+  iat: 1781404783,
+  exp: 1781405683
+}
+User set in request, calling next()
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/dashboard/kpis
+Original URL: /api/dashboard/kpis
+Path: /api/dashboard/kpis
+Base URL: 
+Headers: [
+  'host',               'connection',
+  'sec-ch-ua-platform', 'authorization',
+  'user-agent',         'sec-ch-ua',
+  'content-type',       'x-tenant-id',
+  'sec-ch-ua-mobile',   'accept',
+  'sec-gpc',            'accept-language',
+  'origin',             'sec-fetch-site',
+  'sec-fetch-mode',     'sec-fetch-dest',
+  'referer',            'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+=== AUTHENTICATE MIDDLEWARE ===
+Method: GET
+URL: /kpis
+Headers: {
+  host: 'localhost:8080',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"Windows"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjRhM2ZjMmFhLTBiYTctNDgwNy1hODAyLWQ5NmQ3ODk4YmRmYyIsInRlbmFudElkIjoiZGVmYXVsdCIsInJvbGUiOiJPV05FUiIsInVzZXJuYW1lIjoib3duZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgxNDA0NzgzLCJleHAiOjE3ODE0MDU2ODN9.ZEDZ51roowY4MJuRe6weWKrFiuzvkQIN6DO6KG9-nfM',
+  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Brave";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+  'content-type': 'application/json',
+  'x-tenant-id': 'default',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  'sec-gpc': '1',
+  'accept-language': 'ar;q=0.5',
+  origin: 'http://localhost:8085',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:8085/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'if-none-match': 'W/"5b1-FWg0UPfqJtjEMf+A1+TYcyEF2kM"'
+}
+Token found: eyJhbGciOiJIUzI1NiIs...
+Token decoded successfully: {
+  id: '4a3fc2aa-0ba7-4807-a802-d96d7898bdfc',
+  tenantId: 'default',
+  role: 'OWNER',
+  username: 'owner',
+  type: 'access',
+  iat: 1781404783,
+  exp: 1781405683
+}
+User set in request, calling next()
+Dashboard cache HIT for tenant: default
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."tenantId", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address", "public"."Customer"."city", "public"."Customer"."notes", "public"."Customer"."loyaltyPoints", "public"."Customer"."isVip", "public"."Customer"."createdAt", "public"."Customer"."updatedAt" FROM "public"."Customer" WHERE "public"."Customer"."tenantId" = $1 ORDER BY "public"."Customer"."createdAt" DESC OFFSET $2
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /health
+Original URL: /health
+Path: /health
+Base URL: 
+Headers: [ 'host', 'user-agent', 'accept' ]
+Body: {}
+=====================================
+=== REQUEST LOGGING MIDDLEWARE ===
+Method: GET
+URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Original URL: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Path: /api/public/booking/u2s4dj5y2erk6458bx8lom
+Base URL: 
+Headers: [
+  'host',
+  'connection',
+  'sec-ch-ua-platform',
+  'user-agent',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'accept',
+  'sec-gpc',
+  'accept-language',
+  'sec-fetch-site',
+  'sec-fetch-mode',
+  'sec-fetch-dest',
+  'accept-encoding',
+  'if-none-match'
+]
+Body: {}
+=====================================
+prisma:query SELECT 1
+prisma:query SELECT "public"."Booking"."id", "public"."Booking"."tenantId", "public"."Booking"."branchId", "public"."Booking"."customerId", "public"."Booking"."vehicleId", "public"."Booking"."status"::text, "public"."Booking"."publicToken", "public"."Booking"."notes", "public"."Booking"."estimatedCompletionDate", "public"."Booking"."actualCompletionDate", "public"."Booking"."createdAt", "public"."Booking"."updatedAt", "public"."Booking"."priority", "public"."Booking"."scheduledDate", "public"."Booking"."scheduledTime" FROM "public"."Booking" WHERE ("public"."Booking"."publicToken" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Customer"."id", "public"."Customer"."fullName", "public"."Customer"."phone", "public"."Customer"."address" FROM "public"."Customer" WHERE "public"."Customer"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Vehicle"."id", "public"."Vehicle"."make", "public"."Vehicle"."model", "public"."Vehicle"."year", "public"."Vehicle"."licensePlate", "public"."Vehicle"."vin", "public"."Vehicle"."currentKm" FROM "public"."Vehicle" WHERE "public"."Vehicle"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."BookingService"."id", "public"."BookingService"."bookingId", "public"."BookingService"."serviceId", "public"."BookingService"."priceSYP", "public"."BookingService"."priceUSD", "public"."BookingService"."notes", "public"."BookingService"."createdAt" FROM "public"."BookingService" WHERE "public"."BookingService"."bookingId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Service"."id", "public"."Service"."name", "public"."Service"."nameAr", "public"."Service"."nameEn", "public"."Service"."description", "public"."Service"."priceSYP", "public"."Service"."priceUSD", "public"."Service"."estimatedDurationMinutes" FROM "public"."Service" WHERE "public"."Service"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Invoice"."id", "public"."Invoice"."tenantId", "public"."Invoice"."branchId", "public"."Invoice"."customerId", "public"."Invoice"."bookingId", "public"."Invoice"."invoiceNumber", "public"."Invoice"."invoiceDate", "public"."Invoice"."dueDate", "public"."Invoice"."subtotalSYP", "public"."Invoice"."subtotalUSD", "public"."Invoice"."taxSYP", "public"."Invoice"."taxUSD", "public"."Invoice"."taxRateId", "public"."Invoice"."discountSYP", "public"."Invoice"."discountUSD", "public"."Invoice"."loyaltyPointsEarned", "public"."Invoice"."loyaltyPointsRedeemed", "public"."Invoice"."totalSYP", "public"."Invoice"."totalUSD", "public"."Invoice"."paidSYP", "public"."Invoice"."paidUSD", "public"."Invoice"."status"::text, "public"."Invoice"."notes", "public"."Invoice"."createdAt", "public"."Invoice"."updatedAt", "public"."Invoice"."installmentPlanId" FROM "public"."Invoice" WHERE ("public"."Invoice"."status" IN (CAST($1::text AS "public"."InvoiceStatus"),CAST($2::text AS "public"."InvoiceStatus"),CAST($3::text AS "public"."InvoiceStatus"),CAST($4::text AS "public"."InvoiceStatus"),CAST($5::text AS "public"."InvoiceStatus")) AND "public"."Invoice"."bookingId" IN ($6)) ORDER BY "public"."Invoice"."createdAt" DESC LIMIT $7 OFFSET $8
+prisma:query SELECT "public"."TechnicianSchedule"."id", "public"."TechnicianSchedule"."tenantId", "public"."TechnicianSchedule"."branchId", "public"."TechnicianSchedule"."technicianId", "public"."TechnicianSchedule"."bookingId", "public"."TechnicianSchedule"."serviceId", "public"."TechnicianSchedule"."startTime", "public"."TechnicianSchedule"."endTime", "public"."TechnicianSchedule"."status"::text, "public"."TechnicianSchedule"."notes", "public"."TechnicianSchedule"."createdAt", "public"."TechnicianSchedule"."updatedAt" FROM "public"."TechnicianSchedule" WHERE "public"."TechnicianSchedule"."bookingId" IN ($1) ORDER BY "public"."TechnicianSchedule"."startTime" ASC OFFSET $2
+prisma:query SELECT "public"."Tenant"."id", "public"."Tenant"."name", "public"."Tenant"."nameAr", "public"."Tenant"."nameEn", "public"."Tenant"."logoUrl" FROM "public"."Tenant" WHERE "public"."Tenant"."id" IN ($1) OFFSET $2
+prisma:query SELECT "public"."CompanySettings"."id", "public"."CompanySettings"."address", "public"."CompanySettings"."phone" FROM "public"."CompanySettings" WHERE ("public"."CompanySettings"."tenantId" = $1 AND 1=1) LIMIT $2 OFFSET $3

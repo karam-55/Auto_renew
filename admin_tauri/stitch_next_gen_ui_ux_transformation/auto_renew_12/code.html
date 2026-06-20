@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إعدادات نظام أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;700&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&amp;family=IBM+Plex+Sans+Arabic:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#c3c6d6",
+                    "on-secondary-container": "#fffbff",
+                    "on-surface": "#191b23",
+                    "inverse-surface": "#2e3038",
+                    "tertiary-container": "#9c2e02",
+                    "primary-container": "#004ac6",
+                    "on-primary-container": "#b8c8ff",
+                    "surface-container-lowest": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#1b55d0",
+                    "tertiary-fixed-dim": "#ffb59e",
+                    "on-secondary-fixed": "#25005a",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "surface-bright": "#faf8ff",
+                    "surface-container-highest": "#e2e2ec",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed-variant": "#842500",
+                    "surface-variant": "#e2e2ec",
+                    "tertiary-fixed": "#ffdbd0",
+                    "on-tertiary-fixed": "#3a0b00",
+                    "on-tertiary-container": "#ffb9a4",
+                    "inverse-on-surface": "#f0f0fb",
+                    "tertiary": "#751f00",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#712ae2",
+                    "surface-container-high": "#e7e7f2",
+                    "on-background": "#191b23",
+                    "background": "#faf8ff",
+                    "bg-main": "#fcfcff",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#5a00c6",
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "glass-border": "rgba(255, 255, 255, 0.4)",
+                    "secondary-fixed": "#eaddff",
+                    "glass-bg": "rgba(255, 255, 255, 0.7)",
+                    "surface": "#faf8ff",
+                    "primary-glow": "rgba(0, 74, 198, 0.5)",
+                    "surface-dim": "#d9d9e4",
+                    "primary": "#003594",
+                    "primary-fixed": "#dbe1ff",
+                    "outline": "#737685",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-low": "#f3f3fd",
+                    "surface-container": "#ededf8",
+                    "secondary-light": "#ede9fe",
+                    "on-surface-variant": "#434654",
+                    "inverse-primary": "#b4c5ff",
+                    "secondary-fixed-dim": "#d2bbff",
+                    "secondary-container": "#8b4bfc"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "20px",
+                    "container-margin": "24px",
+                    "sidebar-offset": "16px",
+                    "card-padding": "24px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Be Vietnam Pro"],
+                    "label-mono": ["JetBrains Mono"],
+                    "body-lg": ["IBM Plex Sans Arabic"],
+                    "body-md": ["IBM Plex Sans Arabic"],
+                    "headline-lg": ["Be Vietnam Pro"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background: #faf8ff;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.12);
+        }
+
+        .nav-item-active {
+            background: rgba(0, 74, 198, 0.1);
+            border-right: 4px solid #003594;
+            color: #003594;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            transition: font-variation-settings 0.3s ease;
+        }
+
+        .active .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .pulse-glow {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 74, 198, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0); }
+        }
+
+        .stagger-in {
+            animation: slideUp 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Tabs Logic */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- TopNavBar -->
+<nav class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-48px)] mx-auto rounded-xl mt-sidebar-offset bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+<div class="flex items-center gap-4 flex-row-reverse">
+<span class="text-headline-md font-headline-md font-bold text-primary">نظام إدارة السيارات</span>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="text-body-md font-body-md text-on-surface-variant font-bold">الإعدادات</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container-low rounded-full px-4 py-2 border border-glass-border">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md pr-2" placeholder="بحث في الإعدادات..." type="text"/>
+</div>
+<button class="p-2 hover:bg-primary-container/10 rounded-full transition-all duration-300">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional close-up portrait of a Middle Eastern male executive in a sleek modern office setting, wearing a tailored business suit. The lighting is soft and natural, with a blurred high-tech background featuring glass partitions and subtle blue ambient lighting, maintaining a premium and authoritative aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrj4S-uQu630ich3HH8ECW5aIsBgOpjiRegli0RGx6Uh7Nsk21oqDv5PfHqY9xGaFOQdk12G1yibcf-vPysdXMsacNOkpUsbWIziqxqFxEb4ULvUqsyx3pbf_KcCQrnBs-OST7p3pBQVJzrHY0AxINqBG6NE3LuiN5DccvNFnnhPDqZUvUBtb4N7KNuDUzfQeGLH1KL_sOvscE3oKKgC2wwIpV95nY_MIY9eKBr94weKClTpQs4p6dY2MsH9NgJ1Pkzeiw42SUeQM"/>
+</div>
+</div>
+</nav>
+<div class="flex flex-row-reverse w-full px-container-margin mt-gutter gap-gutter relative">
+<!-- SideNavBar -->
+<aside class="w-64 h-[calc(100vh-120px)] sticky top-[100px] flex flex-col py-card-padding gap-gutter bg-glass-bg/70 backdrop-blur-xl rounded-2xl border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]">
+<div class="flex flex-row-reverse items-center gap-3 px-4 mb-6">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">directions_car</span>
+</div>
+<div>
+<h2 class="text-headline-md font-headline-md text-primary leading-tight">أوتو برو</h2>
+<p class="text-body-md text-on-surface-variant opacity-70">الإدارة المتقدمة</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant p-3 hover:translate-x-[-8px] transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="font-body-md">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant p-3 hover:translate-x-[-8px] transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3">directions_car</span>
+<span class="font-body-md">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant p-3 hover:translate-x-[-8px] transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3">build</span>
+<span class="font-body-md">الصيانة</span>
+</a>
+<a class="nav-item-active flex flex-row-reverse items-center justify-start p-3 rounded-l-full active" href="#">
+<span class="material-symbols-outlined ml-3">settings</span>
+<span class="font-body-md font-bold">الإعدادات</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant p-3 hover:translate-x-[-8px] transition-all duration-300" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="font-body-md">التقارير</span>
+</a>
+</nav>
+<div class="mt-auto px-4">
+<button class="w-full py-3 bg-primary-gradient bg-primary text-white rounded-xl shadow-lg hover:shadow-primary-glow/50 transition-all active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span>
+<span>إضافة سيارة</span>
+</button>
+<button class="w-full mt-4 flex flex-row-reverse items-center justify-start text-error p-3 hover:bg-error-container/10 rounded-lg transition-colors">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span>تسجيل الخروج</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col gap-gutter pb-12">
+<!-- Settings Tabs Header -->
+<div class="glass-card rounded-2xl p-2 flex flex-row-reverse gap-2 stagger-in">
+<button class="tab-btn active flex-1 py-3 rounded-xl flex items-center justify-center gap-2 bg-primary text-white shadow-md transition-all" id="btn-general" onclick="switchTab('general')">
+<span class="material-symbols-outlined">settings_suggest</span>
+<span class="font-body-lg">عام</span>
+</button>
+<button class="tab-btn flex-1 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-white/50 text-on-surface-variant transition-all" id="btn-security" onclick="switchTab('security')">
+<span class="material-symbols-outlined">security</span>
+<span class="font-body-lg">الأمان</span>
+</button>
+<button class="tab-btn flex-1 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-white/50 text-on-surface-variant transition-all" id="btn-sales" onclick="switchTab('sales')">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-lg">المبيعات والضرائب</span>
+</button>
+<button class="tab-btn flex-1 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-white/50 text-on-surface-variant transition-all" id="btn-workshop" onclick="switchTab('workshop')">
+<span class="material-symbols-outlined">handyman</span>
+<span class="font-body-lg">إعدادات الورشة</span>
+</button>
+</div>
+<!-- TAB: GENERAL -->
+<div class="tab-content active space-y-gutter" id="general">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Appearance Card -->
+<div class="glass-card rounded-2xl p-card-padding border-t-[3px] border-primary-container stagger-in" style="animation-delay: 0.1s">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">palette</span>
+</div>
+<h3 class="text-headline-md font-headline-md">المظهر والنمط</h3>
+</div>
+<div class="space-y-6">
+<div>
+<label class="block text-body-md text-on-surface-variant mb-4">اختيار الوضع</label>
+<div class="grid grid-cols-2 gap-4">
+<div class="cursor-pointer border-2 border-primary rounded-xl p-3 bg-white shadow-sm flex flex-col items-center gap-2 transition-all hover:scale-105" onclick="setTheme('light')">
+<div class="w-full h-20 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+<div class="h-4 w-full bg-white mb-1 shadow-sm"></div>
+<div class="p-2 space-y-1">
+<div class="h-1 w-3/4 bg-slate-300"></div>
+<div class="h-1 w-1/2 bg-slate-300"></div>
+</div>
+</div>
+<span class="font-body-md font-bold text-primary">وضع النهار</span>
+</div>
+<div class="cursor-pointer border-2 border-transparent rounded-xl p-3 bg-inverse-surface shadow-sm flex flex-col items-center gap-2 transition-all hover:scale-105" onclick="setTheme('dark')">
+<div class="w-full h-20 bg-slate-800 rounded-lg overflow-hidden">
+<div class="h-4 w-full bg-slate-700 mb-1"></div>
+<div class="p-2 space-y-1">
+<div class="h-1 w-3/4 bg-slate-600"></div>
+<div class="h-1 w-1/2 bg-slate-600"></div>
+</div>
+</div>
+<span class="font-body-md text-outline-variant">وضع الليل</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Localization Card -->
+<div class="glass-card rounded-2xl p-card-padding border-t-[3px] border-primary-container stagger-in" style="animation-delay: 0.2s">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">language</span>
+</div>
+<h3 class="text-headline-md font-headline-md">اللغة والمنطقة</h3>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">لغة النظام</label>
+<select class="w-full bg-surface-container-low border-glass-border rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-body-md">
+<option>العربية (السعودية)</option>
+<option>English (US)</option>
+</select>
+</div>
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">تنسيق التاريخ</label>
+<div class="flex gap-2">
+<button class="flex-1 py-2 px-3 bg-primary-container/10 border border-primary text-primary rounded-lg text-body-md">هجري</button>
+<button class="flex-1 py-2 px-3 bg-white border border-glass-border text-on-surface-variant rounded-lg text-body-md">ميلادي</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Notifications Grid Section -->
+<div class="glass-card rounded-2xl p-card-padding border-t-[3px] border-primary-container stagger-in" style="animation-delay: 0.3s">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">notifications_active</span>
+</div>
+<h3 class="text-headline-md font-headline-md">تفضيلات التنبيهات</h3>
+</div>
+<span class="px-3 py-1 bg-primary-container/20 text-primary-container rounded-full text-label-mono font-bold">نشط</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="p-4 rounded-xl border border-glass-border bg-white/40 flex items-start gap-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">mail</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<span class="font-bold text-body-md">البريد الإلكتروني</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<p class="text-label-mono text-on-surface-variant leading-snug">تقارير يومية وتنبيهات الأمان</p>
+</div>
+</div>
+<div class="p-4 rounded-xl border border-glass-border bg-white/40 flex items-start gap-4">
+<div class="p-2 bg-secondary-container/10 rounded-lg text-secondary">
+<span class="material-symbols-outlined">sms</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<span class="font-bold text-body-md">رسائل SMS</span>
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<p class="text-label-mono text-on-surface-variant leading-snug">إشعارات تسليم السيارات للعملاء</p>
+</div>
+</div>
+<div class="p-4 rounded-xl border border-glass-border bg-white/40 flex items-start gap-4">
+<div class="p-2 bg-tertiary/10 rounded-lg text-tertiary">
+<span class="material-symbols-outlined">app_registration</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<span class="font-bold text-body-md">إشعارات المتصفح</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<p class="text-label-mono text-on-surface-variant leading-snug">تنبيهات فورية أثناء العمل</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB: SALES & TAX -->
+<div class="tab-content space-y-gutter" id="sales">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- VAT Settings -->
+<div class="lg:col-span-1 glass-card rounded-2xl p-card-padding border-t-[3px] border-secondary stagger-in">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<h3 class="text-headline-md font-headline-md">إعدادات الضريبة</h3>
+</div>
+<div class="space-y-6">
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">الرقم الضريبي</label>
+<input class="w-full bg-surface-container-low border-glass-border rounded-xl px-4 py-3 font-label-mono text-left" type="text" value="300052445800003"/>
+</div>
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">نسبة ضريبة القيمة المضافة (%)</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-glass-border rounded-xl px-4 py-3 font-label-mono" type="number" value="15"/>
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-outline">%</span>
+</div>
+</div>
+<div class="flex items-center gap-3 p-3 bg-secondary-light/30 rounded-xl border border-secondary/20">
+<span class="material-symbols-outlined text-secondary">info</span>
+<p class="text-body-md text-secondary">يتم احتساب الضريبة تلقائياً في كافة الفواتير</p>
+</div>
+</div>
+</div>
+<!-- Invoice Customization -->
+<div class="lg:col-span-2 glass-card rounded-2xl p-card-padding border-t-[3px] border-secondary stagger-in">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">branding_watermark</span>
+</div>
+<h3 class="text-headline-md font-headline-md">تخصيص الفواتير</h3>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-6">
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">شعار المؤسسة</label>
+<div class="border-2 border-dashed border-glass-border rounded-2xl h-40 flex flex-col items-center justify-center bg-white/30 hover:bg-white/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-4xl text-outline mb-2">cloud_upload</span>
+<p class="text-body-md text-outline">اسحب الشعار هنا أو اضغط للرفع</p>
+</div>
+</div>
+<div>
+<label class="block text-body-md text-on-surface-variant mb-2">بادئة الفاتورة</label>
+<input class="w-full bg-surface-container-low border-glass-border rounded-xl px-4 py-3 font-label-mono" type="text" value="INV-2024-"/>
+</div>
+</div>
+<!-- Invoice Preview Overlay -->
+<div class="bg-slate-50 rounded-2xl p-6 shadow-inner border border-slate-200 relative overflow-hidden group">
+<div class="absolute top-4 right-4 text-label-mono text-slate-300 opacity-50 group-hover:opacity-100 transition-opacity">معاينة مباشرة</div>
+<div class="w-full h-full space-y-4">
+<div class="flex justify-between border-b pb-4 border-slate-200">
+<div class="w-12 h-12 bg-slate-300 rounded"></div>
+<div class="text-left">
+<div class="h-4 w-24 bg-slate-300 mb-2 ml-auto"></div>
+<div class="h-3 w-32 bg-slate-200 ml-auto"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="h-3 w-full bg-slate-200 rounded"></div>
+<div class="h-3 w-full bg-slate-200 rounded"></div>
+<div class="h-3 w-2/3 bg-slate-200 rounded"></div>
+</div>
+<div class="mt-8 pt-4 border-t border-slate-200 flex justify-between">
+<div class="h-4 w-16 bg-primary/40 rounded"></div>
+<div class="h-4 w-24 bg-primary/40 rounded"></div>
+</div>
+</div>
+<div class="absolute inset-0 bg-secondary/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-white text-secondary px-6 py-2 rounded-full font-bold shadow-lg border border-secondary/20">تعديل التصميم</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB: WORKSHOP -->
+<div class="tab-content space-y-gutter" id="workshop">
+<div class="glass-card rounded-2xl p-card-padding border-t-[3px] border-tertiary stagger-in">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-12 h-12 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">construction</span>
+</div>
+<h3 class="text-headline-md font-headline-md">إعدادات سير العمل في الورشة</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+<div>
+<h4 class="text-body-lg font-bold mb-6 text-on-surface">مراحل صيانة السيارة</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-3 bg-white/60 rounded-xl border border-glass-border">
+<span class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-label-mono font-bold">١</span>
+<span class="flex-1 text-body-md">الاستقبال والفحص الأولي</span>
+<span class="material-symbols-outlined text-outline cursor-move">drag_indicator</span>
+</div>
+<div class="flex items-center gap-4 p-3 bg-white/60 rounded-xl border border-glass-border">
+<span class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-label-mono font-bold">٢</span>
+<span class="flex-1 text-body-md">تقدير التكلفة والموافقة</span>
+<span class="material-symbols-outlined text-outline cursor-move">drag_indicator</span>
+</div>
+<div class="flex items-center gap-4 p-3 bg-white/60 rounded-xl border border-glass-border">
+<span class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-label-mono font-bold">٣</span>
+<span class="flex-1 text-body-md">قيد العمل (الورشة)</span>
+<span class="material-symbols-outlined text-outline cursor-move">drag_indicator</span>
+</div>
+<div class="flex items-center gap-4 p-3 bg-white/60 rounded-xl border border-glass-border border-dashed">
+<span class="material-symbols-outlined text-primary mx-auto">add_circle</span>
+</div>
+</div>
+</div>
+<div class="space-y-8">
+<div>
+<h4 class="text-body-lg font-bold mb-4 text-on-surface">إعدادات قطع الغيار</h4>
+<div class="flex items-center justify-between p-4 bg-tertiary-fixed/20 rounded-2xl">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">inventory</span>
+<span class="text-body-md">الخصم التلقائي من المخزون</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div>
+</label>
+</div>
+</div>
+<div class="p-6 rounded-2xl bg-surface-container-high relative overflow-hidden">
+
+<div class="relative z-10">
+<h4 class="text-body-lg font-bold mb-2">التقارير الذكية للورشة</h4>
+<p class="text-body-md text-on-surface-variant mb-4">تفعيل تحليل الذكاء الاصطناعي لتوقع زمن الصيانة.</p>
+<button class="px-6 py-2 bg-tertiary text-white rounded-full font-bold shadow-lg flex items-center gap-2">
+<span class="material-symbols-outlined">bolt</span>
+<span>تفعيل الخدمة</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Buttons Footer -->
+<div class="flex flex-row-reverse gap-4 mt-8 stagger-in" style="animation-delay: 0.5s">
+<button class="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary-glow/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined">save</span>
+<span class="text-body-lg">حفظ كافة التغييرات</span>
+</button>
+<button class="px-10 py-4 bg-white text-on-surface-variant border border-glass-border rounded-2xl font-bold hover:bg-surface-container-low transition-all">
+<span class="text-body-lg">إلغاء</span>
+</button>
+</div>
+</main>
+</div>
+<!-- Smart Floating Action Button -->
+<button class="fixed bottom-8 left-8 w-16 h-16 bg-primary text-white rounded-full shadow-2xl pulse-glow flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">help</span>
+</button>
+<script>
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-white', 'shadow-md', 'active');
+                btn.classList.add('hover:bg-white/50', 'text-on-surface-variant');
+            });
+
+            // Show selected content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate selected button
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.add('bg-primary', 'text-white', 'shadow-md', 'active');
+            activeBtn.classList.remove('hover:bg-white/50', 'text-on-surface-variant');
+        }
+
+        function setTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                // Normally we'd change visual cues here
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        // Initialize micro-interactions
+        document.querySelectorAll('input, select').forEach(element => {
+            element.addEventListener('focus', () => {
+                element.parentElement.classList.add('ring-2', 'ring-primary-glow');
+            });
+            element.addEventListener('blur', () => {
+                element.parentElement.classList.remove('ring-2', 'ring-primary-glow');
+            });
+        });
+    </script>
+</body></html>

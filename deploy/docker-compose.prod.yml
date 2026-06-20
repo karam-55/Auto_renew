@@ -1,0 +1,200 @@
+version: '3.8'
+
+networks:
+  garage_network:
+    driver: bridge
+
+services:
+  # ============================================
+  # PostgreSQL (Main Database)
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: garage_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-garage_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-garage_master}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    networks:
+      - garage_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garage_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # PostgreSQL (Evolution API)
+  # ============================================
+  evolution-postgres:
+    image: postgres:15-alpine
+    container_name: evolution_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${EVO_POSTGRES_DB:-evolution_db}
+      POSTGRES_USER: ${EVO_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${EVO_POSTGRES_PASSWORD}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - garage_network
+    expose:
+      - "5432"
+
+  # ============================================
+  # Redis
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: garage_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - garage_network
+    expose:
+      - "6379"
+
+  # ============================================
+  # Redis (Evolution API)
+  # ============================================
+  evolution-redis:
+    image: redis:7-alpine
+    container_name: evolution_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis_data:/data
+    networks:
+      - garage_network
+    expose:
+      - "6379"
+
+  # ============================================
+  # MinIO (File Storage)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: garage_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-garage_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    networks:
+      - garage_network
+
+  # ============================================
+  # Backend API
+  # ============================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: garage_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://${POSTGRES_USER:-garage_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-garage_master}?schema=public&connection_limit=20
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-garage_minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-garage-files}
+      MINIO_USE_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      CUSTOMER_CORS_ORIGIN: ${CUSTOMER_CORS_ORIGIN:-*}
+      MECHANIC_CORS_ORIGIN: ${MECHANIC_CORS_ORIGIN:-*}
+      WHATSAPP_ENABLED: "true"
+      WHATSAPP_API_URL: http://evolution-api:8081
+      WHATSAPP_API_KEY: ${EVO_API_KEY}
+      WHATSAPP_INSTANCE_NAME: ${EVO_INSTANCE_NAME:-garage}
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-default}
+    networks:
+      - garage_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health/live', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # Evolution API (WhatsApp)
+  # ============================================
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    container_name: evolution_api
+    restart: unless-stopped
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - evolution_instances:/evolution/instances
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8081
+      SERVER_URL: http://localhost:8081
+      LOG_LEVEL: info
+      LOG_BAILEYS: error
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@evolution-postgres:5432/${EVO_POSTGRES_DB:-evolution_db}?schema=evolution_api
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${EVO_API_KEY}
+    networks:
+      - garage_network
+
+  # ============================================
+  # Nginx Reverse Proxy
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: garage_nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - evolution-api
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../customer_frontend:/usr/share/nginx/html/customer:ro
+    networks:
+      - garage_network
+
+volumes:
+  postgres_data:
+  evolution_postgres_data:
+  redis_data:
+  evolution_redis_data:
+  minio_data:
+  evolution_instances:

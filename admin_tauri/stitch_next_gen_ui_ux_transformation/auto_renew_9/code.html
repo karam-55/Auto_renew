@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>أوتو برو | شاشة نقطة البيع</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;500;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #faf8ff;
+            overflow: hidden; /* Desktop app feel */
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #004ac6 0%, #003594 100%);
+        }
+        .active-glow {
+            box-shadow: 0 0 20px rgba(0, 74, 198, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c3c6d6;
+            border-radius: 10px;
+        }
+        .pulse-soft {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .7; transform: scale(1.05); }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Khurafi Transitions & Animations */
+        @keyframes slideInLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes entranceScale {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-slide-in-left {
+            animation: slideInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .product-card-entrance {
+            animation: entranceScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.15s; }
+        .stagger-3 { animation-delay: 0.2s; }
+        .stagger-4 { animation-delay: 0.25s; }
+        .stagger-5 { animation-delay: 0.3s; }
+        .stagger-6 { animation-delay: 0.35s; }
+
+        .neon-glow-hover:hover {
+            box-shadow: 0 10px 40px -10px rgba(0, 74, 198, 0.4);
+            transform: translateY(-8px);
+        }
+
+        .btn-ripple {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-ripple::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%, -50%);
+            transform-origin: 50% 50%;
+        }
+
+        .btn-ripple:hover::after {
+            animation: ripple 1s ease-out;
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0, 0); opacity: 0.5; }
+            20% { transform: scale(10, 10); opacity: 0.3; }
+            100% { opacity: 0; transform: scale(40, 40); }
+        }
+
+        .smooth-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "background": "#faf8ff",
+                "outline-variant": "#c3c6d6",
+                "surface-dim": "#d9d9e4",
+                "on-primary-fixed-variant": "#003ea8",
+                "surface-bright": "#faf8ff",
+                "outline": "#737685",
+                "glass-bg": "rgba(255, 255, 255, 0.7)",
+                "surface-container-high": "#e7e7f2",
+                "tertiary-container": "#9c2e02",
+                "on-surface": "#191b23",
+                "surface-tint": "#1b55d0",
+                "error": "#ba1a1a",
+                "secondary": "#712ae2",
+                "primary-container": "#004ac6",
+                "error-container": "#ffdad6",
+                "on-surface-variant": "#434654",
+                "primary-fixed": "#dbe1ff",
+                "surface-container-highest": "#e2e2ec",
+                "tertiary-fixed": "#ffdbd0",
+                "on-primary-fixed": "#00174b",
+                "on-tertiary-fixed-variant": "#842500",
+                "primary-fixed-dim": "#b4c5ff",
+                "tertiary-fixed-dim": "#ffb59e",
+                "on-secondary": "#ffffff",
+                "on-tertiary": "#ffffff",
+                "on-error-container": "#93000a",
+                "on-primary-container": "#b8c8ff",
+                "secondary-container": "#8b4bfc",
+                "bg-main": "#fcfcff",
+                "surface-container-lowest": "#ffffff",
+                "inverse-on-surface": "#f0f0fb",
+                "on-error": "#ffffff",
+                "secondary-fixed": "#eaddff",
+                "secondary-fixed-dim": "#d2bbff",
+                "primary-glow": "rgba(0, 74, 198, 0.5)",
+                "inverse-surface": "#2e3038",
+                "glass-border": "rgba(255, 255, 255, 0.4)",
+                "surface-variant": "#e2e2ec",
+                "on-background": "#191b23",
+                "on-tertiary-container": "#ffb9a4",
+                "on-secondary-container": "#fffbff",
+                "surface-container": "#ededf8",
+                "primary": "#003594",
+                "surface": "#faf8ff",
+                "on-tertiary-fixed": "#3a0b00",
+                "surface-container-low": "#f3f3fd",
+                "secondary-light": "#ede9fe",
+                "on-primary": "#ffffff",
+                "inverse-primary": "#b4c5ff",
+                "on-secondary-fixed": "#25005a",
+                "on-secondary-fixed-variant": "#5a00c6",
+                "tertiary": "#751f00"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "card-padding": "24px",
+                "gutter": "20px",
+                "sidebar-offset": "16px",
+                "container-margin": "24px"
+            },
+            "fontFamily": {
+                "body-lg": ["IBM Plex Sans Arabic"],
+                "headline-md": ["Be Vietnam Pro"],
+                "body-md": ["IBM Plex Sans Arabic"],
+                "headline-lg": ["Be Vietnam Pro"],
+                "label-mono": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col overflow-hidden">
+<!-- Header Navigation -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-[calc(100%-48px)] mx-auto rounded-xl mt-sidebar-offset bg-glass-bg/70 backdrop-blur-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+<div class="flex items-center gap-4 flex-row-reverse">
+<div class="w-10 h-10 rounded-full primary-gradient flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-primary font-bold leading-tight">نظام إدارة السيارات</h1>
+<p class="text-[10px] text-outline font-bold tracking-widest uppercase">نقطة البيع الذكية</p>
+</div>
+</div>
+<div class="flex-1 max-w-xl mx-8">
+<div class="relative group">
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full h-11 pr-12 pl-4 rounded-full border-none bg-surface-container-low/50 backdrop-blur-md focus:ring-2 focus:ring-primary/20 transition-all text-body-md" placeholder="ابحث عن منتج، خدمة، أو رقم القطعة..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3 flex-row-reverse">
+<div class="text-left">
+<p class="text-sm font-bold text-on-surface">أحمد المسؤول</p>
+<p class="text-[10px] text-outline">الوردية الصباحية</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 p-0.5">
+<img class="w-full h-full rounded-full object-cover" data-alt="User Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwsQDk_MOrhX3gMnzbWP3Rt2KOG15AHYzYcqrMsQiEPOm-hoLPrtK2utAoHBtazh_sn-Cr42t1KuOAMlCQ1Vtk67NuVWVJBnzoLN--NV9M0EO3Nimss9Poy1eaYXLYAmNw0rRqh_z18JUWFZqSaFj6w6HdywtDKVt6vSp4iXgKAZ7jZSk8l_9r4Qr3pTC1d4RdIYI_y1MDIAAm4SYfIKjopWSQmCaVPZTbDjvsjJiqahAUuSaiYfUI9CjsgtskhfhCdGcfW7Q_X9g"/>
+</div>
+</div>
+</div>
+</header>
+<main class="flex flex-row-reverse flex-1 gap-gutter p-container-margin h-[calc(100vh-100px)] overflow-hidden">
+<!-- Sidebar Navigation (Icons Only) -->
+<aside class="flex flex-col h-full py-card-padding gap-gutter w-20 rounded-2xl bg-glass-bg/70 backdrop-blur-xl border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] items-center">
+<div class="flex flex-col gap-6 w-full items-center">
+<button class="w-12 h-12 flex items-center justify-center rounded-xl bg-primary-container/10 text-primary border-r-4 border-primary transition-all scale-105 active:scale-95 shadow-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hover:-translate-x-1 active:scale-95">
+<span class="material-symbols-outlined">directions_car</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hover:-translate-x-1 active:scale-95">
+<span class="material-symbols-outlined">build</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hover:-translate-x-1 active:scale-95">
+<span class="material-symbols-outlined">inventory_2</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hover:-translate-x-1 active:scale-95">
+<span class="material-symbols-outlined">analytics</span>
+</button>
+</div>
+<div class="mt-auto">
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-error hover:bg-error-container/20 transition-all active:scale-95">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</aside>
+<!-- Product Grid Section -->
+<section class="flex-1 flex flex-col gap-gutter overflow-hidden">
+<!-- Categories -->
+<div class="flex flex-row-reverse gap-4 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+<button class="px-6 py-2 rounded-full primary-gradient text-white text-sm font-bold shadow-lg whitespace-nowrap btn-ripple">الكل</button>
+<button class="px-6 py-2 rounded-full bg-white border border-glass-border text-on-surface-variant text-sm font-medium hover:shadow-md transition-all whitespace-nowrap btn-ripple">قطع الغيار</button>
+<button class="px-6 py-2 rounded-full bg-white border border-glass-border text-on-surface-variant text-sm font-medium hover:shadow-md transition-all whitespace-nowrap btn-ripple">الزيوت والفلاتر</button>
+<button class="px-6 py-2 rounded-full bg-white border border-glass-border text-on-surface-variant text-sm font-medium hover:shadow-md transition-all whitespace-nowrap btn-ripple">الإطارات</button>
+<button class="px-6 py-2 rounded-full bg-white border border-glass-border text-on-surface-variant text-sm font-medium hover:shadow-md transition-all whitespace-nowrap btn-ripple">خدمات الصيانة</button>
+<button class="px-6 py-2 rounded-full bg-white border border-glass-border text-on-surface-variant text-sm font-medium hover:shadow-md transition-all whitespace-nowrap btn-ripple">التلميع والتنظيف</button>
+</div>
+<!-- Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pr-2 custom-scrollbar pb-12">
+<!-- Product Card 1 -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-1 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-primary">
+<div class="relative h-44 overflow-hidden">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Premium engine oil" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNAmBoY_WW-w9ts0yCKv2tBMhtNXL7Q1DHFe3NgJRnrKi-ZdkcZ18iXtva5o3koChA8QzLhw_sRd0Bw7xweHtfjF_3YDCib3cxhQl_niHsc737RNP8E9b1rMkSiT72wJuu8ERtt8nGEk3qwlTw-vKMmExpIMoVmAqOtMmpXElehCQNFcwbDz_6H3Cf4q3YtMRQ1A4JEToyFFIAa2lL_wNa0Yt6lFh76kzhlAro8FxN9Q_lm0w1WNp0CzrUQ6vBUuSg-TXdEj4Cqs8"/>
+<div class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold text-primary">متوفر: 45</div>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">زيت محرك سوبر 5W-30</h3>
+<p class="text-outline text-xs">تخليقي بالكامل - 4 لتر</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-primary font-bold text-lg">185.00 ر.س</span>
+<button class="w-10 h-10 rounded-full primary-gradient text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-2 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-primary">
+<div class="relative h-44 overflow-hidden">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Brake pads" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiEzGaTQ7jY0xODuCzD1FHyV8OOrjRusixvLWW6Z1F0_k1aLDO65atHhZqGrAiqMDVC8CJEolNOhmhO4YKkiFeP5A1eqqpvRZ_0nHz5wQ5O_KhnORk7CMSNGb4vGDKSt53-JnnpWNAThhNyRBMbgb6LE0G18CY0MmzaU_EShqv9lVez8nD8TXlCLtp-8UdvfYrmV5NXXFDlNtXKJHd6vNgsr53hay7AfCZkKwUupP87rxq-cryzVdzMquKM2l90kEFdOhKwKWOhTY"/>
+<div class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold text-primary">متوفر: 12</div>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">فحمات فرامل أمامية</h3>
+<p class="text-outline text-xs">سيراميك - تويوتا كامري</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-primary font-bold text-lg">340.00 ر.س</span>
+<button class="w-10 h-10 rounded-full primary-gradient text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 3 (Service) -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-3 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-secondary">
+<div class="relative h-44 overflow-hidden">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Computer checkup" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpbG67i1Xqaf-zyIkJt84JzJxm8tl0rB9VyliRrwQDOGBku-8EYmPreQPNfI3dJrIriIi4i2M302M810XqGClk1U9UzDm1pK3qTTdI91CpZXA6uG-j6n4vZI_kZFml8s0rnjeSa2mbD5YNnpSwVeDkiGyP9nr8jbfs09RQ_PpMgVD-VLJzgowtQUDkA2f3cOr7e_HVaXhzCjpwHlet8LDj0AgyWcp4nfy311HLrfOQKWAXbLObIKo6kkHdovGEHBg6JuuS5SaJ55w"/>
+<div class="absolute top-3 left-3 bg-secondary-container text-white px-2 py-1 rounded-lg text-[10px] font-bold">خدمة فورية</div>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">فحص كمبيوتر شامل</h3>
+<p class="text-outline text-xs">تقرير مفصل لجميع الحساسات</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-secondary font-bold text-lg">150.00 ر.س</span>
+<button class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-4 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-primary">
+<div class="relative h-44 overflow-hidden">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Michelin Tire" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrL_NRjIu6JN33ZeTJWUgTuPFlQFpqJe9lGbQKIu6u_LdlczmjcUp5jGbL-huvHMMV2wMVUAlXU7URyYSAcgbr-11yCORIJjJ9n0gGWrdlmBsVv1-8nIbB9c7rS6X6YtW0Sa4Pijqz6Bh-9mwDGiapPqh1S2HiQPgiK1kzm7IQ1mReVtuY_Nmpqjtapxf1b607H12P5OUipDkBN4_xps81qYdECCrmGzePjQESSIURO_krGos6O0UiFM5nNOopbK65tiVKQK2DJgg"/>
+<div class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold text-primary">متوفر: 8</div>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">إطار ميشلان Primacy 4</h3>
+<p class="text-outline text-xs">مقاس 225/55R17</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-primary font-bold text-lg">525.00 ر.س</span>
+<button class="w-10 h-10 rounded-full primary-gradient text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 5 -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-5 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-primary">
+<div class="relative h-44 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Spark plugs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWt5FNZkqUuew1WPwxaEbNEuVTOTEeh6CU-XRum2FEbfcu3fjkjlFXOXPdSFCpYNy_pW8kHkzEiYREYgKyvFQYwtGfRo-uveIT78rO3HyvgPWpWc0k-e14lcPH35fhsQ2PqqGdz-1KsFKPTz5XbRJDoA_KKgQQqLfw7PmCpDtbsINFMPSHTmdejvm3KWkPKoN8u5gfdHOlIAU3NVjDyOaQj4F_LeABcklz2p3nUaxrDYxFd8SLpfq0nBbHW9m7UlvIinGuS7ac4yA"/>
+<div class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold text-primary">متوفر: 30</div>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">بواجي ليزر إيريديوم</h3>
+<p class="text-outline text-xs">طقم 4 حبات - NGK</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-primary font-bold text-lg">210.00 ر.س</span>
+<button class="w-10 h-10 rounded-full primary-gradient text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 6 -->
+<div class="glass-panel rounded-2xl overflow-hidden group cursor-pointer smooth-transition neon-glow-hover product-card-entrance stagger-6 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] border-t-4 border-t-secondary">
+<div class="relative h-44 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Car detailing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqDoPtfwLs7bQiiFbdARsurqRT8kCg0rVHtHGSXLPhXuV5y2fKPBWO9boKFKG0T_7R6HJxOHoSryyO0im98e1Lg_y9j1jP8nTViMr3SynCDhaDIV1Oj8h2G1GEnErrU_sR4hK8TUAJ4Uro31FPJ8_jK4h8l8VbHbNWzpnL6PL6ZnfHGcQDe3MHhibYjMUGtnl9omKz1Gi6bZiugKSwyDnXkwdvolivV_YwiQZwNRQyqalvAtyrkWUnD8hcoiippVAapdQLP8szq6I"/>
+</div>
+<div class="p-4 flex flex-col gap-1">
+<h3 class="text-on-surface font-bold text-body-lg">تلميع خارجي نانو</h3>
+<p class="text-outline text-xs">حماية تدوم لمدة 6 أشهر</p>
+<div class="flex justify-between items-center mt-3">
+<span class="text-secondary font-bold text-lg">450.00 ر.س</span>
+<button class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg active:scale-90 btn-ripple">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Shopping Cart Sidebar -->
+<aside class="w-96 flex flex-col gap-gutter h-full animate-slide-in-left">
+<div class="glass-panel rounded-2xl flex-1 flex flex-col overflow-hidden shadow-2xl relative">
+<!-- Cart Header -->
+<div class="p-card-padding flex justify-between items-center border-b border-glass-border">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">shopping_basket</span>
+<h2 class="font-bold text-on-surface text-body-lg">سلة المشتريات</h2>
+</div>
+<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold">3 عناصر</span>
+</div>
+<!-- Cart Items -->
+<div class="flex-1 overflow-y-auto p-card-padding flex flex-col gap-4 custom-scrollbar">
+<!-- Cart Item 1 -->
+<div class="flex gap-4 items-center p-3 rounded-xl hover:bg-surface-container-low smooth-transition group">
+<div class="w-16 h-16 rounded-lg overflow-hidden border border-glass-border">
+<img class="w-full h-full object-cover" data-alt="Oil bottle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIEXbx5limyYy_DoFMZ7AYtPzFEeDbeA41oZ5ulh111GDhHu5WEexblqrA45Z8vIN9Y4qUzlDJQYmlK-nso5qWXtjRtdI13hTpCWor3aBKrErcO77p9xp85cleH4-XuhX-RdRtYSON01UfKxww9K6hCVbI5CEBenpcmi4UX2pUOUxzZF1LPod0Wp78_R7bkdIOBYUn-JlwipRssQu1gvcVCDci1xzJhuHHomR3_dkfNWWcJ0rYMskSOBBvCgkIrIKM6WnBJR7IEhA"/>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-on-surface">زيت محرك سوبر 5W-30</h4>
+<p class="text-xs text-outline font-label-mono">1 × 185.00 ر.س</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+<div class="flex items-center gap-2 bg-surface-container rounded-lg p-1 scale-90">
+<button class="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm hover:bg-primary/5 smooth-transition">+</button>
+<span class="text-xs font-bold w-4 text-center">1</span>
+<button class="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm hover:bg-error/5 smooth-transition">-</button>
+</div>
+</div>
+</div>
+<!-- Cart Item 2 -->
+<div class="flex gap-4 items-center p-3 rounded-xl hover:bg-surface-container-low smooth-transition group">
+<div class="w-16 h-16 rounded-lg overflow-hidden border border-glass-border">
+<img class="w-full h-full object-cover" data-alt="Brake pads" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEjvxmFiZydEVDnVZQ9pIl7QjzgBDa11kx7NOjHQUU1frktI7yWdak0UQzdrKOyqenMMVBzQTIULz99ZCZXUkyCfQBa3f6YypGupQm03jHxpZ6TDG_pkJ1xbfyadnIEtNrA-mFzhUsBLBLfPBS6uSBya9zyJN1a0Xq7g_gNUg0iTNrU6WcJPxnxGAiHPp3yXqzQM1GSZ_0gtW0LdsMTb-eHmFZ79jyQR4deWExc5xxcrJD08GEm02eO3psgguY4ietP5-xEFm6bvc"/>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-on-surface">فحمات فرامل أمامية</h4>
+<p class="text-xs text-outline font-label-mono">1 × 340.00 ر.س</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+<div class="flex items-center gap-2 bg-surface-container rounded-lg p-1 scale-90">
+<button class="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm">+</button>
+<span class="text-xs font-bold w-4 text-center">1</span>
+<button class="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm">-</button>
+</div>
+</div>
+</div>
+<!-- Cart Item 3 -->
+<div class="flex gap-4 items-center p-3 rounded-xl hover:bg-surface-container-low smooth-transition group border-r-4 border-secondary/30">
+<div class="w-16 h-16 rounded-lg overflow-hidden border border-glass-border">
+<img class="w-full h-full object-cover" data-alt="Diagnostic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYEs_AqUQA0Tq4ngyp2GVeGIcnLMYDy6eos5Qv7_gzkiB7JrMRLmDlihap0TNBjz29pBEWXxV-KGcllSpWO64KZynTQ5LRGMzkUGZZJGGi7CAhpweBRD2ikUOczQjszXupOZfIsGe4yoGKjbugnQyIdMAx9eRtxm_I0RJtawYp7sNQ7DItkxAE5gL-6ocaU1coqSuyTgscuQYTCEd6JERJbqzG8qun-ppCayesXcl2x9qrg50BjDPO33qkm4JkPT94zCwSBPxoRVY"/>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-on-surface">فحص كمبيوتر شامل</h4>
+<p class="text-xs text-outline font-label-mono">1 × 150.00 ر.س</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+<span class="text-[10px] bg-secondary-light text-secondary px-2 py-0.5 rounded-full font-bold">خدمة</span>
+</div>
+</div>
+</div>
+<!-- Summary & Checkout -->
+<div class="p-card-padding bg-surface-container-lowest/50 backdrop-blur-xl border-t border-glass-border space-y-4">
+<div class="space-y-2">
+<div class="flex justify-between text-sm text-outline">
+<span>المجموع الفرعي:</span>
+<span class="font-label-mono">675.00 ر.س</span>
+</div>
+<div class="flex justify-between text-sm text-outline">
+<span>ضريبة القيمة المضافة (15%):</span>
+<span class="font-label-mono">101.25 ر.س</span>
+</div>
+<div class="flex justify-between text-lg font-bold text-on-surface pt-2 border-t border-glass-border">
+<span>الإجمالي الكلي:</span>
+<span class="text-primary font-headline-md">776.25 ر.س</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 h-14 rounded-xl border-2 border-primary/20 text-primary font-bold hover:bg-primary/5 smooth-transition active:scale-95 btn-ripple">
+<span class="material-symbols-outlined">payments</span>
+<span>كاش</span>
+</button>
+<button class="flex items-center justify-center gap-2 h-14 rounded-xl border-2 border-primary/20 text-primary font-bold hover:bg-primary/5 smooth-transition active:scale-95 btn-ripple">
+<span class="material-symbols-outlined">credit_card</span>
+<span>شبكة</span>
+</button>
+</div>
+<button class="w-full h-16 primary-gradient text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-primary/30 smooth-transition active:scale-[0.98] flex items-center justify-center gap-3 group btn-ripple">
+<span>تأكيد الدفع والطباعة</span>
+<span class="material-symbols-outlined group-hover:translate-x-[-4px] transition-transform">print</span>
+</button>
+</div>
+</div>
+<!-- Customer Quick Select -->
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4 shadow-lg border-r-4 border-primary hover:border-primary-container smooth-transition">
+<div class="w-12 h-12 rounded-full bg-primary-fixed-dim flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-outline">العميل الحالي:</p>
+<p class="text-sm font-bold">محمد العتيبي (VIP)</p>
+</div>
+<button class="w-10 h-10 rounded-lg hover:bg-surface-container-high smooth-transition">
+<span class="material-symbols-outlined text-outline">edit</span>
+</button>
+</div>
+</aside>
+</main>
+<!-- Floating Action Button (Smart POS Helper) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 primary-gradient text-white rounded-full shadow-2xl pulse-soft flex items-center justify-center z-50 hover:scale-110 smooth-transition active:scale-95 btn-ripple">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</button>
+<script>
+    // Micro-interactions and hover effects
+    document.querySelectorAll('.active\\:scale-95, .active\\:scale-\\[0\\.98\\]').forEach(button => {
+        button.addEventListener('mousedown', () => {
+            button.classList.add('scale-95');
+        });
+        button.addEventListener('mouseup', () => {
+            button.classList.remove('scale-95');
+        });
+        button.addEventListener('mouseleave', () => {
+            button.classList.remove('scale-95');
+        });
+    });
+
+    // Search Bar focus effect
+    const searchInput = document.querySelector('input[type="text"]');
+    const searchContainer = searchInput.parentElement;
+    searchInput.addEventListener('focus', () => {
+        searchContainer.classList.add('active-glow');
+    });
+    searchInput.addEventListener('blur', () => {
+        searchContainer.classList.remove('active-glow');
+    });
+</script>
+</body></html>

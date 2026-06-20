@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إدارة المخزون - أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&amp;family=Be+Vietnam+Pro:wght@400;500;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&amp;family=IBM+Plex+Sans+Arabic:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-tertiary-fixed": "#3a0b00",
+                "surface-container-high": "#e7e7f2",
+                "surface-container-low": "#f3f3fd",
+                "surface-bright": "#faf8ff",
+                "primary-fixed-dim": "#b4c5ff",
+                "secondary-fixed": "#eaddff",
+                "secondary-container": "#8b4bfc",
+                "on-secondary-container": "#fffbff",
+                "primary-container": "#004ac6",
+                "inverse-primary": "#b4c5ff",
+                "glass-bg": "rgba(255, 255, 255, 0.7)",
+                "error-container": "#ffdad6",
+                "on-primary": "#ffffff",
+                "background": "#faf8ff",
+                "on-primary-container": "#b8c8ff",
+                "on-background": "#191b23",
+                "surface-container-lowest": "#ffffff",
+                "outline": "#737685",
+                "on-tertiary-fixed-variant": "#842500",
+                "primary": "#003594",
+                "on-primary-fixed-variant": "#003ea8",
+                "secondary": "#712ae2",
+                "surface": "#faf8ff",
+                "surface-container": "#ededf8",
+                "on-primary-fixed": "#00174b",
+                "inverse-surface": "#2e3038",
+                "on-error-container": "#93000a",
+                "tertiary": "#751f00",
+                "surface-variant": "#e2e2ec",
+                "on-secondary": "#ffffff",
+                "surface-dim": "#d9d9e4",
+                "surface-tint": "#1b55d0",
+                "error": "#ba1a1a",
+                "outline-variant": "#c3c6d6",
+                "bg-main": "#fcfcff",
+                "primary-glow": "rgba(0, 74, 198, 0.5)",
+                "primary-fixed": "#dbe1ff",
+                "surface-container-highest": "#e2e2ec",
+                "glass-border": "rgba(255, 255, 255, 0.4)",
+                "on-surface": "#191b23",
+                "inverse-on-surface": "#f0f0fb",
+                "secondary-light": "#ede9fe",
+                "tertiary-container": "#9c2e02",
+                "on-secondary-fixed-variant": "#5a00c6",
+                "on-secondary-fixed": "#25005a",
+                "on-tertiary-container": "#ffb9a4",
+                "on-error": "#ffffff",
+                "on-tertiary": "#ffffff",
+                "tertiary-fixed-dim": "#ffb59e",
+                "tertiary-fixed": "#ffdbd0",
+                "secondary-fixed-dim": "#d2bbff",
+                "on-surface-variant": "#434654"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "container-margin": "24px",
+                "card-padding": "24px",
+                "sidebar-offset": "16px",
+                "gutter": "20px"
+            },
+            "fontFamily": {
+                "body-lg": ["IBM Plex Sans Arabic"],
+                "headline-md": ["Be Vietnam Pro"],
+                "headline-lg": ["Be Vietnam Pro"],
+                "label-mono": ["JetBrains Mono"],
+                "body-md": ["IBM Plex Sans Arabic"]
+            },
+            "fontSize": {
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      body {
+        background: #faf8ff;
+        overflow: hidden;
+        font-family: 'IBM Plex Sans Arabic', sans-serif;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+      }
+      .low-stock-glow {
+        box-shadow: 0 0 15px rgba(186, 26, 26, 0.4);
+        animation: pulse-red 2s infinite;
+      }
+      @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(186, 26, 26, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        vertical-align: middle;
+      }
+      .active-glow-indicator {
+        position: absolute;
+        right: 0;
+        top: 25%;
+        height: 50%;
+        width: 4px;
+        background: #003594;
+        box-shadow: 0 0 10px #004ac6;
+        border-radius: 0 99px 99px 0;
+      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #c3c6d6; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #737685; }
+    </style>
+</head>
+<body class="text-on-background bg-surface-bright">
+<!-- Background Shader -->
+
+<!-- Side Navigation Bar -->
+<aside class="z-50 bg-glass-bg/70 backdrop-blur-xl rounded-2xl h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] flex flex-col py-card-padding gap-gutter">
+<div class="px-6 mb-8 flex flex-row-reverse items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">directions_car</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-primary">أوتو برو</h1>
+<p class="text-xs text-outline font-body-md leading-none">الإدارة المتقدمة</p>
+</div>
+</div>
+<nav class="flex-1 space-y-2 px-2">
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="font-body-md">لوحة القيادة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">directions_car</span>
+<span class="font-body-md">الأسطول</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">build</span>
+<span class="font-body-md">الصيانة</span>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full p-3 relative" href="#">
+<span class="material-symbols-outlined ml-3" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-body-md">المخزن</span>
+<div class="active-glow-indicator"></div>
+</a>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-primary transition-all duration-300 p-3 rounded-xl group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="font-body-md">التقارير</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-primary text-on-primary py-3 px-4 rounded-xl font-body-md flex items-center justify-center gap-2 shadow-lg hover:shadow-primary-glow/40 transition-all active:scale-95">
+<span class="material-symbols-outlined">add</span>
+<span>إضافة قطعة</span>
+</button>
+<a class="flex flex-row-reverse items-center justify-start text-on-surface-variant hover:text-error transition-colors p-3 mt-4" href="#">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="font-body-md">تسجيل الخروج</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="mr-[300px] ml-container-margin pt-sidebar-offset h-screen flex flex-col gap-6 overflow-hidden relative z-10">
+<!-- Top Navigation Bar -->
+<header class="bg-glass-bg/70 backdrop-blur-xl rounded-xl w-full h-16 flex flex-row-reverse justify-between items-center px-card-padding border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] sticky top-0 z-40 transition-all">
+<div class="flex flex-row-reverse items-center gap-6">
+<h2 class="font-headline-md text-headline-md text-primary font-bold">إدارة المخزون</h2>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex flex-row-reverse items-center gap-2">
+<span class="bg-primary-container/20 text-primary px-3 py-1 rounded-full text-xs font-bold">إجمالي القطع: 1,420</span>
+<span class="bg-error-container/20 text-error px-3 py-1 rounded-full text-xs font-bold">نقص حاد: 12</span>
+</div>
+</div>
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary">search</span>
+<input class="bg-surface-container-low border-none rounded-full pr-10 pl-4 py-2 w-64 text-sm focus:ring-2 focus:ring-primary focus:bg-white transition-all" placeholder="بحث في المستودع..." type="text"/>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A high-quality studio portrait of a professional automotive manager in a modern office. The lighting is crisp and cinematic, emphasizing a professional and authoritative mood. The background is slightly blurred with soft blue and silver tech-inspired accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9uO4NLRFIv303S7RhdF6N5OZYTboRWm9x8SzW4indOG2uvKen6L80tWRZzZX8Gp0eX4kNC0IW0nOnkp2nQo_WSWkxhKV3VwuqkdafQWCtYg4Qp2c1m1DSYakg_kingdc6X_SHJRulUCGSFakWm0njUs_28X_8YCqt5o1MaFicUsoMDA60LJV-shhDhJe--X8yn0JEytJld4F2w8F-eRYqndmnVdwMTO46UjQym1O9ENAtwRy-NFmLmYMkI3BUmwV2XcTJ1uv5GJc"/>
+</div>
+</div>
+</header>
+<!-- Content Layout: Filter Bar + Table + Detail Sidebar -->
+<div class="flex-1 flex flex-row-reverse gap-gutter overflow-hidden">
+<!-- Table & Filter Section -->
+<section class="flex-1 flex flex-col gap-gutter overflow-hidden">
+<!-- Filters Glass Bar -->
+<div class="glass-card p-4 rounded-xl flex flex-row-reverse items-center gap-4">
+<div class="flex flex-row-reverse items-center gap-2">
+<span class="text-sm font-bold text-outline">الفئة:</span>
+<select class="bg-transparent border-none text-sm font-body-md text-primary focus:ring-0 cursor-pointer">
+<option>الكل</option>
+<option>المحرك</option>
+<option>المكابح</option>
+<option>الإطارات</option>
+<option>الزيوت والسوائل</option>
+</select>
+</div>
+<div class="w-px h-6 bg-outline-variant"></div>
+<div class="flex flex-row-reverse items-center gap-2">
+<span class="text-sm font-bold text-outline">المورد:</span>
+<select class="bg-transparent border-none text-sm font-body-md text-primary focus:ring-0 cursor-pointer">
+<option>كل الموردين</option>
+<option>تويوتا الأصلية</option>
+<option>مورد بوش</option>
+<option>كاسترول</option>
+</select>
+</div>
+<div class="w-px h-6 bg-outline-variant"></div>
+<div class="flex flex-row-reverse items-center gap-2">
+<span class="text-sm font-bold text-outline">مستوى المخزون:</span>
+<select class="bg-transparent border-none text-sm font-body-md text-primary focus:ring-0 cursor-pointer">
+<option>الكل</option>
+<option>متوفر</option>
+<option>منخفض</option>
+<option>غير متوفر</option>
+</select>
+</div>
+<button class="mr-auto text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-sm">filter_alt_off</span>
+                        مسح الفلاتر
+                    </button>
+</div>
+<!-- Spare Parts Table -->
+<div class="glass-card flex-1 rounded-xl overflow-hidden flex flex-col border-t-[3px] border-primary">
+<div class="overflow-y-auto flex-1">
+<table class="w-full text-right border-collapse">
+<thead class="sticky top-0 bg-white/80 backdrop-blur-md z-10">
+<tr class="text-outline border-b border-outline-variant">
+<th class="p-4 font-bold text-sm">الصورة</th>
+<th class="p-4 font-bold text-sm">اسم القطعة / الرقم التسلسلي</th>
+<th class="p-4 font-bold text-sm">الفئة</th>
+<th class="p-4 font-bold text-sm text-center">الكمية</th>
+<th class="p-4 font-bold text-sm">الموقع في المستودع</th>
+<th class="p-4 font-bold text-sm">السعر (ر.س)</th>
+<th class="p-4 font-bold text-sm">الحالة</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1: Normal -->
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer group hover:scale-[1.01] origin-right" onclick="selectRow(this)">
+<td class="p-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A high-definition product photograph of a modern car engine filter. The lighting is clean and industrial with soft shadows on a minimalist white background. The aesthetic is professional, sharp, and technical, fitting a premium automotive inventory system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5woJPo5dVPg6l_X6RrnnLuYgEBPX0W8lmudtOengfb8Mb5ZziAx-FuS91SpytROwuXt6Q2Xlla0LSMs96RFEyZxnwpU-sP4bC_e-VvDyWvf2nAIGWR5lOs8nLUVbg9gDAVMmN8j9IA_mtEIT6R1nd45Zep23DT6gS35CiGtFJ4wacbDypbWkQNSL95sdQIf0fx8mTJF_hCFWPJZxI5HJqsX0BKYOCGrDrEP-2BUNcobQ-yR1nToQ4lLaDAj2TZxPuocdpwBV4JyM"/>
+</div>
+</td>
+<td class="p-4">
+<div class="font-bold text-on-surface">فلتر زيت محرك V8</div>
+<div class="text-xs text-outline font-label-mono">#OF-88293-TY</div>
+</td>
+<td class="p-4 text-sm">المحرك</td>
+<td class="p-4 text-center font-label-mono text-primary font-bold">142</td>
+<td class="p-4 text-sm">الرف A4 - الطابق 2</td>
+<td class="p-4 text-sm font-bold">85.00</td>
+<td class="p-4">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">متوفر</span>
+</td>
+</tr>
+<!-- Row 2: Low Stock Alert -->
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer group hover:scale-[1.01] origin-right" onclick="selectRow(this)">
+<td class="p-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Close-up professional photography of high-performance ceramic brake pads for a luxury vehicle. The metal texture is detailed, showing precision engineering. Lighting is cool and atmospheric with subtle lens flares, conveying a sense of quality and safety." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzMkb_gbaMevq4VOUVmL4AuwC8O_bnflJMk9jJERVGXI5F9_3yWJHfnJ-7wz-xiZ3lEUUawMyPLTkjF3uajmcPozkUr8cl1uD-0mwn7usjzYefK7gIKf2MemzJthVFe9Ptf78tSuiv91cXY4HehG3bGMoYqzzO6mfcc3agthM89m3UsvgpCGMuamwLOo5Gx99knnYtB5WlVBoL7EGgdwzvsunXJApkBrIcKSk4J5PE0SJlySmU_eLFy4QwpuUR860a-a9gmjHTp_s"/>
+</div>
+</td>
+<td class="p-4">
+<div class="font-bold text-on-surface">فحمات مكابح سيراميك</div>
+<div class="text-xs text-outline font-label-mono">#BP-1122-BR</div>
+</td>
+<td class="p-4 text-sm">المكابح</td>
+<td class="p-4 text-center font-label-mono text-error font-bold relative">
+<span class="relative z-10">4</span>
+<div class="absolute inset-0 m-auto w-8 h-8 rounded-full low-stock-glow opacity-50"></div>
+</td>
+<td class="p-4 text-sm">الرف C1 - الطابق 1</td>
+<td class="p-4 text-sm font-bold">450.00</td>
+<td class="p-4">
+<span class="px-3 py-1 rounded-full bg-error-container text-error text-xs font-bold">نقص حاد</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer group hover:scale-[1.01] origin-right" onclick="selectRow(this)">
+<td class="p-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A clean product shot of a lead-acid car battery sitting on a industrial metal bench. Soft overhead lighting highlights the brand labels and terminals. The surrounding environment is a modern, high-tech garage with a palette of deep grays and vibrant blue accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8YweLzFRjLB9Hnenlfk-xy0_Vv9QyALXY4RvQK6w7WXagmGytFb5kZgCw5p40eXC6DfDKsDzrbGMn3oF5-3cXUG4ZicgI52nguPU9cu2ZKDL3NE36rafHzUKb91FdnK01T9C0_PHqCylDJ7gRNakGhsE7dsob2ZIwNqAH32y23roZ8Hy2YrsTxBdzBvc1fv7g_FE4QXOcSffH5hPkCQ2wquEw96I6dQPZeyecUKsySE0gSjX1zR1S7uIit1w1bjW_CDX5qbFdBPI"/>
+</div>
+</td>
+<td class="p-4">
+<div class="font-bold text-on-surface">بطارية 12 فولت - 70 أمبير</div>
+<div class="text-xs text-outline font-label-mono">#BT-70AH-EX</div>
+</td>
+<td class="p-4 text-sm">الكهرباء</td>
+<td class="p-4 text-center font-label-mono text-primary font-bold">28</td>
+<td class="p-4 text-sm">المنطقة B - المخزن البارد</td>
+<td class="p-4 text-sm font-bold">320.00</td>
+<td class="p-4">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">متوفر</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-primary-container/5 transition-all cursor-pointer group hover:scale-[1.01] origin-right" onclick="selectRow(this)">
+<td class="p-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Professional studio lighting on a premium synthetic oil gallon. The golden liquid is visible through a translucent strip on the container. The background is a dark, sleek texture with a soft blue neon glow reflecting off the bottle, emphasizing a high-tech lubricant product." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPQmFdH2_u0JSQQyvdkkgHcQ_Jdd7aiUM0f7z0TfAN6B41IG3Sv4Kz6U0W-2-AhSjA3w7_I0WbtmicDoS1UgYzZ25hR3Au_hSVp26DA6tmZQaQ1W1j_vjFapsp8gXefJfwFH55hVd_ugDGRJUwwvMfJyP7ZixURgQ6tRBJnv2eduezc2jxmlJiDzDIrauRxh72BmKBJH1mDe199hchmJxc6YNbYbOxYjObGqQe1BNAcnlmd_PNWEIlYShHBW5oA-Yw3DsKg5QFksE"/>
+</div>
+</td>
+<td class="p-4">
+<div class="font-bold text-on-surface">زيت محرك 5W-30 تخليقي</div>
+<div class="text-xs text-outline font-label-mono">#OL-530-CS</div>
+</td>
+<td class="p-4 text-sm">الزيوت</td>
+<td class="p-4 text-center font-label-mono text-secondary font-bold">65</td>
+<td class="p-4 text-sm">الرف D9 - السوائل</td>
+<td class="p-4 text-sm font-bold">55.00</td>
+<td class="p-4">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">متوفر</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- Quick Detail Sidebar (Right) -->
+<aside class="w-80 glass-card rounded-xl p-6 flex flex-col gap-6 transform transition-all duration-500 opacity-0 translate-x-10 pointer-events-none" id="detailSidebar">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-primary">تفاصيل القطعة</h3>
+<button class="text-outline hover:text-primary transition-colors" onclick="closeDetails()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="aspect-video w-full rounded-lg overflow-hidden bg-surface-container shadow-inner">
+<img class="w-full h-full object-cover" data-alt="A detailed, macro product shot of a high-performance car part. The focus is incredibly sharp, revealing the fine texture of the metal and composite materials. Professional studio lighting with soft gradients of blue and white creates a luxury, high-tech atmosphere consistent with a premium automotive interface." id="detailImg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfGfdNJyPSwMof6Gs6eAwo6GJSzLmvi1cT7qnzMUefeaxAV4QyRSVMAZq6hGcMm4tTCk0M1oCH59voZeVkwO72I8CQGTtxq6B6tji6ucnev4C3RLOOFhkqabay9ERhuaQ8FB-Mg2t293c310Ur0cfMiwlTZWf9bvNj390XXMKK7JZs4Fr0z1PbZawo180EDCoB7NTdFezCGrYAvdeSt7qB9HQtv_iY3FkfVdvq4fyeRRcfzN_KECEVa7zmg3FDSYzvMB-TRx3-DiQ"/>
+</div>
+<div class="space-y-4">
+<div>
+<span class="text-xs text-outline uppercase font-bold tracking-wider">الاسم</span>
+<p class="font-body-lg text-on-surface" id="detailName">--</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<span class="text-xs text-outline uppercase font-bold">السعر</span>
+<p class="font-headline-md text-primary" id="detailPrice">0.00 ر.س</p>
+</div>
+<div>
+<span class="text-xs text-outline uppercase font-bold">الكمية</span>
+<p class="font-headline-md text-on-surface" id="detailStock">0</p>
+</div>
+</div>
+<div class="h-px bg-outline-variant/30"></div>
+<div>
+<span class="text-xs text-outline uppercase font-bold">المورد</span>
+<p class="text-sm text-on-surface-variant font-body-md">شركة الوفاء لقطع الغيار المحدودة</p>
+</div>
+<div>
+<span class="text-xs text-outline uppercase font-bold">تاريخ آخر توريد</span>
+<p class="text-sm text-on-surface-variant font-label-mono">2023-10-15</p>
+</div>
+</div>
+<div class="mt-auto space-y-3">
+<button class="w-full bg-primary-container text-on-primary-container py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-container/80 transition-all">
+<span class="material-symbols-outlined">edit</span>
+                        تعديل البيانات
+                    </button>
+<button class="w-full border border-primary text-primary py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/5 transition-all">
+<span class="material-symbols-outlined">history</span>
+                        سجل الحركات
+                    </button>
+</div>
+</aside>
+</div>
+</main>
+<!-- FAB: Smart Action Button -->
+<button class="fixed bottom-8 left-8 w-16 h-16 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 active:scale-95 transition-all group overflow-hidden">
+<div class="absolute inset-0 bg-primary-container/30 animate-pulse"></div>
+<span class="material-symbols-outlined relative z-10 text-3xl">qr_code_scanner</span>
+<!-- Tooltip -->
+<div class="absolute bottom-20 left-0 bg-inverse-surface text-inverse-on-surface text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            مسح الباركود
+        </div>
+</button>
+<script>
+        function selectRow(row) {
+            // Remove highlighting from other rows
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('bg-primary-container/10', 'border-r-4', 'border-primary'));
+            
+            // Highlight current row
+            row.classList.add('bg-primary-container/10', 'border-r-4', 'border-primary');
+
+            // Get Data
+            const name = row.cells[1].querySelector('.font-bold').innerText;
+            const price = row.cells[5].innerText;
+            const stock = row.cells[3].innerText;
+            const imgSrc = row.cells[0].querySelector('img').src;
+
+            // Update Sidebar
+            const sidebar = document.getElementById('detailSidebar');
+            document.getElementById('detailName').innerText = name;
+            document.getElementById('detailPrice').innerText = price + ' ر.س';
+            document.getElementById('detailStock').innerText = stock;
+            
+            // Show Sidebar
+            sidebar.classList.remove('opacity-0', 'translate-x-10', 'pointer-events-none');
+        }
+
+        function closeDetails() {
+            const sidebar = document.getElementById('detailSidebar');
+            sidebar.classList.add('opacity-0', 'translate-x-10', 'pointer-events-none');
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('bg-primary-container/10', 'border-r-4', 'border-primary'));
+        }
+
+        // Simulate micro-interactions
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('mousedown', () => el.style.transform = 'scale(0.95)');
+            el.addEventListener('mouseup', () => el.style.transform = '');
+        });
+    </script>
+</body></html>

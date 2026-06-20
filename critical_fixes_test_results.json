@@ -1,0 +1,52 @@
+{
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "successRate": "100.00%"
+  },
+  "results": [
+    {
+      "test": "Register new user",
+      "expected": 201,
+      "actual": 201,
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:44.874Z"
+    },
+    {
+      "test": "NO EMAILS - Register response",
+      "expected": "no email field",
+      "actual": "no email field",
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:44.875Z"
+    },
+    {
+      "test": "Create invoice with dates",
+      "expected": 201,
+      "actual": 201,
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:44.903Z"
+    },
+    {
+      "test": "Create cheque with amountSYP",
+      "expected": 201,
+      "actual": 201,
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:44.926Z"
+    },
+    {
+      "test": "Create GRN with purchaseOrder relation",
+      "expected": 201,
+      "actual": 201,
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:44.994Z"
+    },
+    {
+      "test": "Create installment plan with valid dates",
+      "expected": 201,
+      "actual": 201,
+      "passed": true,
+      "timestamp": "2026-05-26T05:41:45.015Z"
+    }
+  ]
+}

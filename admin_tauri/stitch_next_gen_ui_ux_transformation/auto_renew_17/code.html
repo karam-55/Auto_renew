@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إدارة الفروع | أوتو برو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&family=IBM+Plex+Sans+Arabic:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: #faf8ff;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .primary-gradient {
+            background: linear-gradient(135deg, #003594 0%, #712ae2 100%);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 74, 198, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 74, 198, 0); }
+        }
+
+        .fab-pulse {
+            animation: pulse-glow 2s infinite;
+        }
+
+        .sidebar-active-indicator {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 24px;
+            background: #003594;
+            border-radius: 4px 0 0 4px;
+            box-shadow: -2px 0 8px #004ac6;
+        }
+
+        .map-marker-glow {
+            filter: drop-shadow(0 0 8px rgba(0, 74, 198, 0.6));
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c3c6d6; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #737685; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#eaddff",
+                        "surface-container-high": "#e7e7f2",
+                        "on-background": "#191b23",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d9d9e4",
+                        "glass-border": "rgba(255, 255, 255, 0.4)",
+                        "on-tertiary-fixed": "#3a0b00",
+                        "on-tertiary-container": "#ffb9a4",
+                        "bg-main": "#fcfcff",
+                        "surface-variant": "#e2e2ec",
+                        "on-secondary-fixed-variant": "#5a00c6",
+                        "secondary-container": "#8b4bfc",
+                        "outline": "#737685",
+                        "inverse-primary": "#b4c5ff",
+                        "surface-container-highest": "#e2e2ec",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb59e",
+                        "outline-variant": "#c3c6d6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "primary-glow": "rgba(0, 74, 198, 0.5)",
+                        "tertiary-fixed": "#ffdbd0",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#dbe1ff",
+                        "on-surface": "#191b23",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f3f3fd",
+                        "secondary-fixed-dim": "#d2bbff",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#25005a",
+                        "primary": "#003594",
+                        "primary-container": "#004ac6",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#b8c8ff",
+                        "on-secondary": "#ffffff",
+                        "background": "#faf8ff",
+                        "surface": "#faf8ff",
+                        "surface-container": "#ededf8",
+                        "tertiary-container": "#9c2e02",
+                        "surface-tint": "#1b55d0",
+                        "on-error-container": "#93000a",
+                        "glass-bg": "rgba(255, 255, 255, 0.7)",
+                        "on-tertiary-fixed-variant": "#842500",
+                        "secondary-light": "#ede9fe",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "inverse-on-surface": "#f0f0fb",
+                        "on-secondary-container": "#fffbff",
+                        "tertiary": "#751f00",
+                        "on-surface-variant": "#434654",
+                        "secondary": "#712ae2",
+                        "inverse-surface": "#2e3038"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "card-padding": "24px",
+                        "gutter": "20px",
+                        "sidebar-offset": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "label-mono": ["JetBrains Mono"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-48px)] w-64 fixed right-container-margin top-sidebar-offset bg-glass-bg/70 backdrop-blur-xl rounded-2xl border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] z-50 py-card-padding gap-gutter">
+<div class="px-6 mb-8 text-right">
+<div class="flex flex-row-reverse items-center gap-3">
+<div class="w-10 h-10 rounded-xl primary-gradient flex items-center justify-center text-white">
+<span class="material-symbols-outlined">directions_car</span>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md text-primary">أوتو برو</h1>
+<p class="text-[12px] text-outline opacity-70">الإدارة المتقدمة</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<!-- Dashboard -->
+<a class="flex flex-row-reverse items-center justify-start p-3 text-on-surface-variant hover:text-primary transition-all duration-300 group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">لوحة القيادة</span>
+</a>
+<!-- Fleet -->
+<a class="flex flex-row-reverse items-center justify-start p-3 text-on-surface-variant hover:text-primary transition-all duration-300 group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="directions_car">directions_car</span>
+<span class="font-body-md text-body-md">الأسطول</span>
+</a>
+<!-- Active: Branches (Mapped from context) -->
+<a class="flex flex-row-reverse items-center justify-start p-3 text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full relative" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="location_on" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="font-body-md text-body-md">الفروع</span>
+</a>
+<!-- Maintenance -->
+<a class="flex flex-row-reverse items-center justify-start p-3 text-on-surface-variant hover:text-primary transition-all duration-300 group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="build">build</span>
+<span class="font-body-md text-body-md">الصيانة</span>
+</a>
+<!-- Inventory -->
+<a class="flex flex-row-reverse items-center justify-start p-3 text-on-surface-variant hover:text-primary transition-all duration-300 group hover:translate-x-[-8px]" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="inventory_2">inventory_2</span>
+<span class="font-body-md text-body-md">المخزن</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full primary-gradient text-on-primary py-3 px-4 rounded-xl font-bold flex flex-row-reverse items-center justify-center gap-2 shadow-lg transition-transform active:scale-95">
+<span class="material-symbols-outlined">add_location</span>
+<span>إضافة فرع جديد</span>
+</button>
+<div class="mt-6 border-t border-outline-variant/30 pt-4">
+<a class="flex flex-row-reverse items-center justify-start p-3 text-error hover:bg-error-container/10 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined ml-3">logout</span>
+<span class="font-body-md">تسجيل الخروج</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="md:pr-72 min-h-screen p-container-margin">
+<!-- Top Nav Bar -->
+<header class="sticky top-sidebar-offset z-40 flex flex-row-reverse justify-between items-center px-card-padding h-16 w-full mx-auto bg-glass-bg/70 backdrop-blur-xl rounded-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] mb-gutter">
+<div class="flex flex-row-reverse items-center gap-4">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">إدارة الفروع</h2>
+<div class="hidden md:flex h-8 w-px bg-outline-variant/50"></div>
+<div class="hidden md:flex flex-row-reverse gap-4">
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[18px]">domain</span>
+<span class="text-body-md font-bold">12 فرع نشط</span>
+</div>
+</div>
+</div>
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="bg-surface-container-low border-none rounded-full pr-10 pl-4 h-10 w-64 focus:ring-2 focus:ring-primary-container text-body-md" placeholder="بحث عن فرع أو موظف..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+</div>
+<div class="flex items-center gap-3 border-r border-outline-variant/30 pr-4">
+<div class="text-left">
+<p class="text-body-md font-bold leading-tight">أحمد المدير</p>
+<p class="text-[12px] text-outline">مدير عام النظام</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary-container p-0.5 overflow-hidden">
+<img class="w-full h-full object-cover rounded-full" data-alt="A professional business portrait of a Middle Eastern male administrator in a clean office setting, featuring high-end lighting and a sophisticated atmosphere. The color palette is dominated by corporate blues and soft greys with a luxury glassmorphism background effect. High resolution digital photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8lVaAAUWcuY5Whr7TkblCneXK53LNZMfnlBdeqaP77vtmhdnNZc5NVfY463qORdiK4osByAkep_IHrNEgpXJujt8lz4rVj4O3_jnV0gWgB3zK2uX94KE9io6heKSTLSpn2M3FQ9v7NXKfL89jhmmGIxIgHICxVhqnAkI3LMP0hDqEeV6fRHwecVWbRcAbWWUzrmqjAigz8CQ7mdKUGX7KYohQ8OUl6rnTlNex2BRZRyokkJLza9ApZFoeGIAfL9xCZL100ecyrgE"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Dynamic Content Grid -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Map & List Toggle View (Bento Large Item) -->
+<section class="col-span-12 lg:col-span-8 space-y-gutter">
+<div class="glass-panel rounded-2xl p-6 shadow-lg h-[500px] flex flex-col relative overflow-hidden">
+<div class="flex flex-row-reverse justify-between items-center mb-6">
+<h3 class="font-headline-sm text-headline-md flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">map</span>
+                            التوزيع الجغرافي للفروع
+                        </h3>
+<div class="bg-surface-container-low p-1 rounded-lg flex flex-row-reverse">
+<button class="px-4 py-1.5 rounded-md bg-white shadow-sm text-primary font-bold transition-all text-body-md" id="showMap">الخريطة</button>
+<button class="px-4 py-1.5 rounded-md text-on-surface-variant hover:bg-white/50 transition-all text-body-md" id="showList">القائمة</button>
+</div>
+</div>
+<!-- Interactive Map Container -->
+<div class="flex-1 bg-surface-container-high rounded-xl relative overflow-hidden">
+<div class="w-full h-full bg-cover bg-center opacity-80 mix-blend-multiply" data-location="Riyadh" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDhb6vi2ZEqrbhZveOj-qIBtSkqay8FDhDi3XgBJg3biYjRT1W1xCt6gotSFxTECTKOQ801iyPjZ5NXEZX1j_P8lyHbTsfKJA-wQTROqDCTaAOzNv1PvdzCXOrzFeQoXGQeYCpXBeAnmOMtlNA9qcAq0-XzeicSrmSRDotcx4JMWa1k__VBEZkxJP6H6TJKPJoTzvw_x6nBmFIZp4bvKEdAZyqIigdnXfhPq6JlBoLvX0S20xo3RglhmtPwIN74pkw3IQGHRU8Vgow')"></div>
+<!-- Map Pulse Markers -->
+<div class="absolute top-1/4 right-1/3 group cursor-pointer">
+<div class="w-4 h-4 bg-primary rounded-full map-marker-glow relative z-10"></div>
+<div class="absolute -top-16 -right-12 bg-white p-3 rounded-xl shadow-2xl scale-0 group-hover:scale-100 transition-all origin-bottom-right z-20 w-40 border border-primary/20">
+<p class="font-bold text-body-md">فرع الرياض - النرجس</p>
+<p class="text-[12px] text-green-600 font-bold">الحالة: متاح</p>
+</div>
+</div>
+<div class="absolute bottom-1/3 left-1/4 group cursor-pointer">
+<div class="w-4 h-4 bg-tertiary rounded-full map-marker-glow relative z-10"></div>
+<div class="absolute -top-16 -right-12 bg-white p-3 rounded-xl shadow-2xl scale-0 group-hover:scale-100 transition-all origin-bottom-right z-20 w-40 border border-tertiary/20">
+<p class="font-bold text-body-md">فرع جدة - الكورنيش</p>
+<p class="text-[12px] text-error font-bold">الحالة: مشغول جداً</p>
+</div>
+</div>
+<div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-white/40 to-transparent"></div>
+</div>
+</div>
+<!-- Horizontal KPI Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- KPI 1 -->
+<div class="glass-panel rounded-2xl p-6 border-t-[3px] border-primary shadow-sm hover:translate-y-[-8px] transition-all duration-300">
+<div class="flex flex-row-reverse justify-between items-start">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<div class="text-right">
+<p class="text-outline text-body-md">إجمالي المبيعات</p>
+<h4 class="text-headline-md font-bold mt-1">45,280 ر.س</h4>
+</div>
+</div>
+<div class="mt-4 flex flex-row-reverse items-center gap-1 text-green-600 text-sm">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span>+12.5% عن الأسبوع الماضي</span>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="glass-panel rounded-2xl p-6 border-t-[3px] border-secondary shadow-sm hover:translate-y-[-8px] transition-all duration-300">
+<div class="flex flex-row-reverse justify-between items-start">
+<div class="w-12 h-12 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+</div>
+<div class="text-right">
+<p class="text-outline text-body-md">إجمالي الموظفين</p>
+<h4 class="text-headline-md font-bold mt-1">128 موظف</h4>
+</div>
+</div>
+<div class="mt-4 flex flex-row-reverse items-center gap-1 text-outline text-sm">
+<span class="material-symbols-outlined text-[16px]">info</span>
+<span>85% معدل الحضور اليومي</span>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="glass-panel rounded-2xl p-6 border-t-[3px] border-tertiary shadow-sm hover:translate-y-[-8px] transition-all duration-300">
+<div class="flex flex-row-reverse justify-between items-start">
+<div class="w-12 h-12 rounded-full bg-tertiary-container/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
+</div>
+<div class="text-right">
+<p class="text-outline text-body-md">الطلبات المكتملة</p>
+<h4 class="text-headline-md font-bold mt-1">1,024 طلب</h4>
+</div>
+</div>
+<div class="mt-4 flex flex-row-reverse items-center gap-1 text-green-600 text-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>كفاءة تشغيلية 98%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Side Bento Column -->
+<aside class="col-span-12 lg:col-span-4 space-y-gutter">
+<!-- Branch Performance List -->
+<div class="glass-panel rounded-2xl p-6 shadow-lg">
+<h3 class="font-headline-sm text-headline-md mb-6 flex flex-row-reverse items-center gap-2">
+<span class="material-symbols-outlined text-primary">bar_chart</span>
+                        أداء الفروع
+                    </h3>
+<div class="space-y-4">
+<!-- Branch Item -->
+<div class="p-4 rounded-xl hover:bg-primary-container/5 transition-all border-r-2 border-transparent hover:border-primary group cursor-pointer">
+<div class="flex flex-row-reverse justify-between items-center mb-2">
+<span class="font-bold text-body-md">فرع الرياض الرئيسي</span>
+<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">نشط</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 85%"></div>
+</div>
+<div class="flex flex-row-reverse justify-between mt-2 text-[12px] text-outline">
+<span>المبيعات: 12,400 ر.س</span>
+<span>الهدف: 15,000 ر.س</span>
+</div>
+</div>
+<!-- Branch Item -->
+<div class="p-4 rounded-xl hover:bg-primary-container/5 transition-all border-r-2 border-transparent hover:border-primary group cursor-pointer">
+<div class="flex flex-row-reverse justify-between items-center mb-2">
+<span class="font-bold text-body-md">فرع مكة - العزيزية</span>
+<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">نشط</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 62%"></div>
+</div>
+<div class="flex flex-row-reverse justify-between mt-2 text-[12px] text-outline">
+<span>المبيعات: 8,100 ر.س</span>
+<span>الهدف: 12,000 ر.س</span>
+</div>
+</div>
+<!-- Branch Item -->
+<div class="p-4 rounded-xl hover:bg-primary-container/5 transition-all border-r-2 border-transparent hover:border-primary group cursor-pointer">
+<div class="flex flex-row-reverse justify-between items-center mb-2">
+<span class="font-bold text-body-md">فرع جدة - التحلية</span>
+<span class="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded-full font-bold">مزدحم</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 95%"></div>
+</div>
+<div class="flex flex-row-reverse justify-between mt-2 text-[12px] text-outline">
+<span>المبيعات: 18,900 ر.س</span>
+<span>الهدف: 20,000 ر.س</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3 text-primary font-bold border border-primary/20 rounded-xl hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2">
+                        عرض كافة الفروع
+                        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+</button>
+</div>
+<!-- Staff Highlights -->
+<div class="glass-panel rounded-2xl p-6 shadow-lg bg-primary-container/5 overflow-hidden relative">
+<div class="absolute -right-10 -bottom-10 opacity-10">
+<span class="material-symbols-outlined text-[150px]">badge</span>
+</div>
+<h3 class="font-headline-sm text-headline-md mb-6 flex flex-row-reverse items-center gap-2">
+<span class="material-symbols-outlined text-primary">military_tech</span>
+                        موظفو الشهر
+                    </h3>
+<div class="space-y-4">
+<div class="flex flex-row-reverse items-center gap-4 bg-white/40 p-3 rounded-xl backdrop-blur-sm border border-white/40">
+<img class="w-12 h-12 rounded-full border-2 border-primary object-cover" data-alt="A portrait of a male automotive technician smiling in a clean workshop, wearing a professional uniform with a brand logo. Background features soft focus blurred luxury cars. Bright studio lighting, cinematic feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWVpfR5TzjZ8OVXwE8wRqXJdcWEhPcUQd2XmBmp86kyJTyL1LTNK7RcHk7RRGEhEiLNL7RM9Us_dPj52zBbjQGoE9kq8_MJsYw084Qowt7F06DTJYN07_0t2F6169XxgeJWapsjlOe4tjDRKtMsTaptY9eMGIxuNMU1e5Z7ytTU_-sihqnYELIIoyZg4y-eO7ZbpAJ9SzoZtNynQbP-DCfz_7UkH64Ow1RZ85oK6Eim8iKGoPTFbuAxFDS8O8EU0M-Rz0lyjQfIsU"/>
+<div class="text-right flex-1">
+<p class="font-bold text-body-md">سامي الحربي</p>
+<p class="text-[12px] text-outline">فرع الرياض - فني أول</p>
+</div>
+<div class="text-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</div>
+<div class="flex flex-row-reverse items-center gap-4 bg-white/40 p-3 rounded-xl backdrop-blur-sm border border-white/40 opacity-70">
+<img class="w-12 h-12 rounded-full border-2 border-outline object-cover" data-alt="Close up portrait of a professional female administrative worker in a modern corporate office background. She has a confident smile and is wearing professional business attire. Soft natural light, high-end photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhWdTSGILbPj2oJjBIBbMbIevNXntxAolsvSEOQo1tduRDOpMX5Jt-cBqBuNLYlYZ3v70SH7VKKPUxbna7mfVsUBwBXETmRGIiEgutctdaGNdDZVZrSCQVKLXhk0wBvRhN6tIxgTumTs32gSNgeNJMj_aumd3Xq4KPcQI5JENrmyDh-wBOayUqOftz9S-9YJwhnw1cO_stOn9yLJ04VbkukINQNbwtKG9hRMZGFhw6q7-3ltanvX9cmGwf4ngSm7xnwUxXpup2fwU"/>
+<div class="text-right flex-1">
+<p class="font-bold text-body-md">نورة القحطاني</p>
+<p class="text-[12px] text-outline">فرع الدمام - خدمة عملاء</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Detail Table Section -->
+<section class="mt-gutter glass-panel rounded-2xl p-6 shadow-xl mb-24 overflow-x-auto">
+<div class="flex flex-row-reverse justify-between items-center mb-6">
+<h3 class="font-headline-sm text-headline-md flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">receipt_long</span>
+                    تفاصيل العمليات حسب الفرع
+                </h3>
+<button class="flex flex-row-reverse items-center gap-2 text-primary font-bold text-body-md hover:bg-primary-container/10 px-4 py-2 rounded-lg transition-all">
+<span class="material-symbols-outlined">filter_list</span>
+                    تصفية البيانات
+                </button>
+</div>
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="text-outline border-b border-outline-variant/30">
+<th class="py-4 px-4 font-bold">اسم الفرع</th>
+<th class="py-4 px-4 font-bold">الحالة</th>
+<th class="py-4 px-4 font-bold">عدد الموظفين</th>
+<th class="py-4 px-4 font-bold">المبيعات اليومية</th>
+<th class="py-4 px-4 font-bold">الكفاءة</th>
+<th class="py-4 px-4 font-bold">الإجراءات</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-primary-container/5 hover:scale-[1.01] transition-all group">
+<td class="py-4 px-4 font-bold">فرع الرياض - النرجس</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">
+<span class="w-2 h-2 bg-green-700 rounded-full animate-pulse"></span>
+                                متاح
+                            </span>
+</td>
+<td class="py-4 px-4">24 موظف</td>
+<td class="py-4 px-4 font-headline-sm">4,200 ر.س</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">92%</span>
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full">
+<div class="bg-green-500 h-full rounded-full" style="width: 92%"></div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<button class="w-8 h-8 rounded-lg hover:bg-primary hover:text-white transition-all text-outline-variant hover:text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary-container/5 hover:scale-[1.01] transition-all">
+<td class="py-4 px-4 font-bold">فرع جدة - الكورنيش</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 bg-error-container text-error px-3 py-1 rounded-full text-sm font-bold">
+<span class="w-2 h-2 bg-error rounded-full"></span>
+                                مشغول
+                            </span>
+</td>
+<td class="py-4 px-4">18 موظف</td>
+<td class="py-4 px-4 font-headline-sm">3,800 ر.س</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">78%</span>
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full">
+<div class="bg-yellow-500 h-full rounded-full" style="width: 78%"></div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<button class="w-8 h-8 rounded-lg hover:bg-primary hover:text-white transition-all text-outline-variant hover:text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary-container/5 hover:scale-[1.01] transition-all">
+<td class="py-4 px-4 font-bold">فرع الخبر - الراشد</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">
+<span class="w-2 h-2 bg-green-700 rounded-full animate-pulse"></span>
+                                متاح
+                            </span>
+</td>
+<td class="py-4 px-4">12 موظف</td>
+<td class="py-4 px-4 font-headline-sm">2,950 ر.س</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">88%</span>
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full">
+<div class="bg-green-500 h-full rounded-full" style="width: 88%"></div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<button class="w-8 h-8 rounded-lg hover:bg-primary hover:text-white transition-all text-outline-variant hover:text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+</main>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed bottom-8 left-8 w-16 h-16 rounded-full primary-gradient text-white shadow-2xl flex items-center justify-center fab-pulse z-50 hover:scale-110 active:scale-95 transition-all group">
+<span class="material-symbols-outlined text-[32px]">add</span>
+<span class="absolute left-20 bg-primary text-white px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-bold shadow-lg pointer-events-none">إضافة فرع جديد</span>
+</button>
+<script>
+        // Interactive Toggle for Map/List View
+        const showMapBtn = document.getElementById('showMap');
+        const showListBtn = document.getElementById('showList');
+
+        showMapBtn.addEventListener('click', () => {
+            showMapBtn.classList.add('bg-white', 'shadow-sm', 'text-primary', 'font-bold');
+            showMapBtn.classList.remove('text-on-surface-variant');
+            showListBtn.classList.remove('bg-white', 'shadow-sm', 'text-primary', 'font-bold');
+            showListBtn.classList.add('text-on-surface-variant');
+        });
+
+        showListBtn.addEventListener('click', () => {
+            showListBtn.classList.add('bg-white', 'shadow-sm', 'text-primary', 'font-bold');
+            showListBtn.classList.remove('text-on-surface-variant');
+            showMapBtn.classList.remove('bg-white', 'shadow-sm', 'text-primary', 'font-bold');
+            showMapBtn.classList.add('text-on-surface-variant');
+        });
+
+        // Micro-interactions for table rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'translateX(-5px)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'translateX(0)';
+            });
+        });
+    </script>
+</body></html>

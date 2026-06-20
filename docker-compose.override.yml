@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    command: npm run dev
+    environment:
+      NODE_ENV: development

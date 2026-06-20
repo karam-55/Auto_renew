@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garage Go - تتبع الحجز</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome - Local first, CDN fallback -->
+    <link rel="stylesheet" href="lib/css/fontawesome.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+    
+    <!-- Animation Libraries - Local first, CDN fallback -->
+    <link href="lib/css/aos.css" rel="stylesheet" onerror="this.href='https://unpkg.com/aos@2.3.1/dist/aos.css'">
+    <script src="lib/js/aos.js" onerror="this.src='https://unpkg.com/aos@2.3.1/dist/aos.js'"></script>
+    <script src="lib/js/gsap.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js'"></script>
+    <script src="lib/js/ScrollTrigger.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js'"></script>
+    <script src="lib/js/lottie.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js'"></script>
+    
+    <!-- Three.js - Local first, CDN fallback -->
+    <script src="lib/js/three.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'"></script>
+    
+    <!-- Socket.io - Local first, CDN fallback -->
+    <script src="lib/js/socket.io.min.js" onerror="this.src='https://cdn.socket.io/4.7.2/socket.io.min.js'"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div id="lottie-loading"></div>
+            <p>جاري التحميل...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="error hidden">
+            <i class="fas fa-exclamation-circle"></i>
+            <p id="error-message">حدث خطأ</p>
+            <button onclick="retry()">إعادة المحاولة</button>
+        </div>
+
+        <!-- Booking Details -->
+        <div id="booking-details" class="hidden">
+            <header class="header">
+                <div class="logo">
+                    <i class="fas fa-car"></i>
+                    <span>Garage Go</span>
+                </div>
+                <div class="header-right">
+                    <div class="status-badge" id="status-badge">
+                        <span id="status-text">قيد الانتظار</span>
+                    </div>
+                    <div class="live-indicator" id="live-indicator">
+                        <span class="live-dot"></span>
+                        <span class="live-text">مباشر</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="main-content">
+                <!-- Company Info -->
+                <section class="card company-card">
+                    <h2><i class="fas fa-building"></i> معلومات المرآب</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>اسم المرآب</label>
+                            <span id="company-name">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>رقم الهاتف</label>
+                            <span id="company-phone">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Customer Info -->
+                <section class="card customer-card">
+                    <h2><i class="fas fa-user"></i> معلومات الزبون</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>الاسم</label>
+                            <span id="customer-name">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>رقم الهاتف</label>
+                            <span id="customer-phone">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Vehicle Info -->
+                <section class="card vehicle-card">
+                    <h2><i class="fas fa-car"></i> معلومات المركبة</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>الماركة</label>
+                            <span id="vehicle-make">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>الموديل</label>
+                            <span id="vehicle-model">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>السنة</label>
+                            <span id="vehicle-year">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>رقم اللوحة</label>
+                            <span id="vehicle-plate">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Booking Info -->
+                <section class="card booking-card">
+                    <h2><i class="fas fa-calendar-check"></i> معلومات الحجز</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>رقم الحجز</label>
+                            <span id="booking-id">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>تاريخ الحجز</label>
+                            <span id="booking-date">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>تاريخ التسليم المتوقع</label>
+                            <span id="estimated-date">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>الملاحظات</label>
+                            <span id="booking-notes">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Services -->
+                <section class="card services-card">
+                    <h2><i class="fas fa-tools"></i> الخدمات</h2>
+                    <div id="services-list" class="services-list">
+                        <!-- Services will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- Invoice - Hidden for customer view -->
+                <section class="card invoice-card" style="display: none;">
+                    <h2><i class="fas fa-file-invoice-dollar"></i> الفاتورة</h2>
+                    <div class="invoice-info">
+                        <div class="invoice-row">
+                            <span>المجموع الفرعي</span>
+                            <span id="subtotal">0 SYP</span>
+                        </div>
+                        <div class="invoice-row">
+                            <span>الضريبة</span>
+                            <span id="tax">0 SYP</span>
+                        </div>
+                        <div class="invoice-row">
+                            <span>الخصم</span>
+                            <span id="discount">0 SYP</span>
+                        </div>
+                        <div class="invoice-row total">
+                            <span>الإجمالي</span>
+                            <span id="total">0 SYP</span>
+                        </div>
+                        <div class="invoice-row paid">
+                            <span>المدفوع</span>
+                            <span id="paid">0 SYP</span>
+                        </div>
+                        <div class="invoice-row remaining">
+                            <span>المتبقي</span>
+                            <span id="remaining">0 SYP</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Mechanic Notes -->
+                <section class="card mechanic-card">
+                    <h2><i class="fas fa-user-gear"></i> ملاحظات الميكانيكي</h2>
+                    <div id="mechanic-notes" class="mechanic-notes">
+                        <p>لا توجد ملاحظات حالياً</p>
+                    </div>
+                </section>
+
+                <!-- Rating -->
+                <section class="card rating-card" id="rating-section" style="display: none;">
+                    <h2><i class="fas fa-star"></i> قيّم الخدمة</h2>
+                    <p style="margin-bottom: 15px; color: #666;">كيف كانت تجربتك معنا؟</p>
+                    <div class="rating-stars" id="rating-stars">
+                        <i class="fas fa-star star" data-rating="1"></i>
+                        <i class="fas fa-star star" data-rating="2"></i>
+                        <i class="fas fa-star star" data-rating="3"></i>
+                        <i class="fas fa-star star" data-rating="4"></i>
+                        <i class="fas fa-star star" data-rating="5"></i>
+                    </div>
+                    <textarea id="rating-comment" placeholder="أضف تعليقك (اختياري)" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-top: 15px; resize: vertical; min-height: 80px;"></textarea>
+                    <button onclick="submitRating()" style="margin-top: 15px; background: #2563EB; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.3s;">إرسال التقييم</button>
+                </section>
+            </main>
+
+            <footer class="footer">
+                <p>&copy; 2026 Garage Go. جميع الحقوق محفوظة.</p>
+                <p class="last-updated">آخر تحديث: <span id="last-updated">-</span></p>
+            </footer>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
