@@ -27,19 +27,21 @@ jobs:
         env:
           SERVER_IP: 178.105.209.59
         run: |
-          echo "=== Syncing code to server ==="
+          echo "=== Syncing code to server (backend + customer_frontend + deploy only) ==="
+          # Sync only essential folders for deployment
           rsync -avz --delete \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='.github' \
-            --exclude='venv311' \
-            --exclude='*.log' \
+            --exclude='node_modules/' \
             --exclude='dist/' \
-            --exclude='build/' \
-            --exclude='.windsurf/' \
-            --exclude='.devin/' \
-            --exclude='graphify-out/' \
-            ./ root@$SERVER_IP:/opt/auto-renew/
+            --exclude='*.log' \
+            ./backend/ root@$SERVER_IP:/opt/auto-renew/backend/
+          
+          rsync -avz --delete \
+            --exclude='*.log' \
+            ./customer_frontend/ root@$SERVER_IP:/opt/auto-renew/customer_frontend/
+          
+          rsync -avz --delete \
+            --exclude='*.log' \
+            ./deploy/ root@$SERVER_IP:/opt/auto-renew/deploy/
 
           echo "=== Building and deploying ==="
           ssh root@$SERVER_IP "
