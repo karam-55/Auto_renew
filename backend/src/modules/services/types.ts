@@ -22,6 +22,8 @@ export interface CreateServiceInput {
   priceUSD?: number;
   estimatedDurationMinutes?: number;
   isActive?: boolean;
+  departmentId?: string;
+  assignedEmployeeId?: string;
 }
 
 export interface UpdateServiceInput {
@@ -48,6 +50,8 @@ export interface UpdateServiceInput {
   priceUSD?: number;
   estimatedDurationMinutes?: number;
   isActive?: boolean;
+  departmentId?: string;
+  assignedEmployeeId?: string;
 }
 
 export interface ServiceResponse {
@@ -76,6 +80,8 @@ export interface ServiceResponse {
   priceUSD: number | null;
   estimatedDurationMinutes: number | null;
   isActive: boolean;
+  departmentId: string | null;
+  assignedEmployeeId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

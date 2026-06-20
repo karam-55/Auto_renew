@@ -148,6 +148,28 @@ export class ServicesScreen {
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم الخدمة *</label>
               <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-name" placeholder="اسم الخدمة" />
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">القسم المختص <span id="dept-loading" class="text-text-tertiary text-body-xs hidden">جاري التحميل...</span></label>
+                <select id="svc-department" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow">
+                  <option value="">اختر القسم</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المدة المتوقعة (دقيقة)</label>
+                <input type="number" id="svc-duration-minutes" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="60" value="60" />
+              </div>
+            </div>
+            <div id="employee-warning" class="hidden bg-warning/10 rounded-lg p-3 text-body-sm text-warning font-medium">
+              <span class="material-symbols-outlined text-[18px] align-middle">warning</span>
+              هذا القسم لا يستخدم راتب ثابت — يجب اختيار الموظف المختص
+            </div>
+            <div id="employee-select-row" class="hidden">
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الموظف المختص <span id="emp-loading" class="text-text-tertiary text-body-xs hidden">جاري التحميل...</span></label>
+              <select id="svc-employee" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow">
+                <option value="">اختر الموظف</option>
+              </select>
+            </div>
             <div class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/10">
               <p class="text-xs text-text-tertiary mb-2 font-medium">السعر = تكلفة العمل + تكلفة المواد + الربح</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -566,6 +588,118 @@ export class ServicesScreen {
     priceSYP?.addEventListener('blur', convertSYPtoUSD)
   }
 
+  private async loadDepartmentsForService(el: HTMLElement) {
+    const select = el.querySelector('#svc-department') as HTMLSelectElement
+    const loading = el.querySelector('#dept-loading') as HTMLElement
+    loading?.classList.remove('hidden')
+    try {
+      const res: any = await this.api.get('/api/departments')
+      const depts = res.data?.data || res.data || []
+      select.innerHTML = '<option value="">اختر القسم</option>'
+      depts.forEach((d: any) => {
+        const opt = document.createElement('option')
+        opt.value = d.id
+        opt.textContent = d.nameAr || d.name || 'غير مسمى'
+        opt.dataset.hasFixedSalary = d.hasFixedSalary ? 'true' : 'false'
+        opt.dataset.hourlyRate = d.calculatedHourlyRateSYP || ''
+        select.appendChild(opt)
+      })
+    } catch { /* ignore */ }
+    loading?.classList.add('hidden')
+  }
+
+  private async loadEmployeesForService(el: HTMLElement, departmentId: string) {
+    const select = el.querySelector('#svc-employee') as HTMLSelectElement
+    const loading = el.querySelector('#emp-loading') as HTMLElement
+    loading?.classList.remove('hidden')
+    try {
+      const res: any = await this.api.get(`/api/employees?departmentId=${departmentId}`)
+      const employees = res.data?.employees || res.data || []
+      select.innerHTML = '<option value="">اختر الموظف</option>'
+      employees.forEach((e: any) => {
+        const opt = document.createElement('option')
+        opt.value = e.id
+        opt.textContent = e.fullNameAr || e.name || 'غير مسمى'
+        opt.dataset.hourlyRate = e.hourlyRate || ''
+        select.appendChild(opt)
+      })
+    } catch { /* ignore */ }
+    loading?.classList.add('hidden')
+  }
+
+  private setupDepartmentEmployeeLogic(el: HTMLElement) {
+    const deptSelect = el.querySelector('#svc-department') as HTMLSelectElement
+    const empSelectRow = el.querySelector('#employee-select-row') as HTMLElement
+    const empWarning = el.querySelector('#employee-warning') as HTMLElement
+    const empSelect = el.querySelector('#svc-employee') as HTMLSelectElement
+    const durationInput = el.querySelector('#svc-duration-minutes') as HTMLInputElement
+    const laborCostSYP = el.querySelector('#svc-labor-cost-syp') as HTMLInputElement
+
+    deptSelect?.addEventListener('change', async () => {
+      const selectedOption = deptSelect.selectedOptions[0]
+      const hasFixedSalary = selectedOption?.dataset.hasFixedSalary === 'true'
+      const deptHourlyRate = selectedOption?.dataset.hourlyRate
+      const deptId = deptSelect.value
+
+      if (!deptId) {
+        empSelectRow.classList.add('hidden')
+        empWarning.classList.add('hidden')
+        return
+      }
+
+      if (hasFixedSalary) {
+        empSelectRow.classList.add('hidden')
+        empWarning.classList.add('hidden')
+        // Auto-calculate labor cost
+        const duration = parseFloat(durationInput?.value) || 60
+        if (deptHourlyRate) {
+          const laborCost = Math.round(Number(deptHourlyRate) * (duration / 60))
+          laborCostSYP.value = String(laborCost)
+          laborCostSYP.dispatchEvent(new Event('input'))
+        }
+      } else {
+        empWarning.classList.remove('hidden')
+        empSelectRow.classList.remove('hidden')
+        await this.loadEmployeesForService(el, deptId)
+      }
+    })
+
+    empSelect?.addEventListener('change', () => {
+      const selectedOption = empSelect.selectedOptions[0]
+      const empHourlyRate = selectedOption?.dataset.hourlyRate
+      const duration = parseFloat(durationInput?.value) || 60
+      if (empHourlyRate) {
+        const laborCost = Math.round(Number(empHourlyRate) * (duration / 60))
+        laborCostSYP.value = String(laborCost)
+        laborCostSYP.dispatchEvent(new Event('input'))
+      }
+    })
+
+    durationInput?.addEventListener('input', () => {
+      const deptId = deptSelect.value
+      if (!deptId) return
+      const selectedOption = deptSelect.selectedOptions[0]
+      const hasFixedSalary = selectedOption?.dataset.hasFixedSalary === 'true'
+      const duration = parseFloat(durationInput?.value) || 60
+      if (hasFixedSalary) {
+        const deptHourlyRate = selectedOption?.dataset.hourlyRate
+        if (deptHourlyRate) {
+          const laborCost = Math.round(Number(deptHourlyRate) * (duration / 60))
+          laborCostSYP.value = String(laborCost)
+          laborCostSYP.dispatchEvent(new Event('input'))
+        }
+      } else {
+        const empOption = empSelect.selectedOptions[0]
+        const empHourlyRate = empOption?.dataset.hourlyRate
+        if (empHourlyRate) {
+          const laborCost = Math.round(Number(empHourlyRate) * (duration / 60))
+          laborCostSYP.value = String(laborCost)
+          laborCostSYP.dispatchEvent(new Event('input'))
+        }
+      }
+    })
+  }
+
   private openModal(el: HTMLElement, service: any | null, editingId?: string) {
     const modal = el.querySelector('#service-modal') as HTMLElement
     const title = el.querySelector('#modal-title') as HTMLElement
@@ -602,6 +736,23 @@ export class ServicesScreen {
     ;(el.querySelector('#svc-active') as HTMLInputElement).checked = service ? service.isActive !== false : true
 
     this.populateCategorySelect(el, service?.category || '')
+
+    // Load departments and setup department/employee logic
+    this.loadDepartmentsForService(el).then(() => {
+      if (service?.departmentId) {
+        const deptSelect = el.querySelector('#svc-department') as HTMLSelectElement
+        deptSelect.value = service.departmentId
+        // Trigger change to load employees if needed
+        deptSelect.dispatchEvent(new Event('change'))
+        if (service?.assignedEmployeeId) {
+          setTimeout(() => {
+            const empSelect = el.querySelector('#svc-employee') as HTMLSelectElement
+            empSelect.value = service.assignedEmployeeId
+          }, 300)
+        }
+      }
+    })
+    this.setupDepartmentEmployeeLogic(el)
 
     // Setup auto-calculation listeners
     this.setupAutoCalculation(el)
@@ -643,6 +794,8 @@ export class ServicesScreen {
     const warrantyDescription = (el.querySelector('#svc-warranty-desc') as HTMLInputElement).value.trim() || undefined
     const warrantyTerms = (el.querySelector('#svc-warranty-terms') as HTMLTextAreaElement).value.trim() || undefined
     const isActive = (el.querySelector('#svc-active') as HTMLInputElement).checked
+    const departmentId = (el.querySelector('#svc-department') as HTMLSelectElement).value || undefined
+    const assignedEmployeeId = (el.querySelector('#svc-employee') as HTMLSelectElement).value || undefined
 
     if (!name) {
       alert('اسم الخدمة مطلوب')
@@ -673,6 +826,8 @@ export class ServicesScreen {
       warrantyDescription,
       warrantyTerms,
       isActive,
+      departmentId,
+      assignedEmployeeId,
     }
 
     try {

@@ -55,6 +55,7 @@ export interface EmployeeResponse {
   address?: string | null;
   emergencyContact?: string | null;
   idNumber?: string | null;
+  departmentHasFixedSalary?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -43,6 +43,7 @@ export class EmployeeService {
         salarySYP: Number(e.salarySYP),
         salaryUSD: e.salaryUSD ? Number(e.salaryUSD) : undefined,
         hourlyRate: e.hourlyRate ? Number(e.hourlyRate) : undefined,
+        departmentHasFixedSalary: false, // Will be populated by frontend or separate query
       })),
       total,
     };
@@ -63,6 +64,7 @@ export class EmployeeService {
         hireDate: true,
         salarySYP: true,
         salaryUSD: true,
+        hourlyRate: true,
         contractType: true,
         status: true,
         phone: true,
@@ -79,6 +81,8 @@ export class EmployeeService {
       ...employee,
       salarySYP: Number(employee.salarySYP),
       salaryUSD: employee.salaryUSD ? Number(employee.salaryUSD) : undefined,
+      hourlyRate: employee.hourlyRate ? Number(employee.hourlyRate) : undefined,
+      departmentHasFixedSalary: false,
     };
   }
 
@@ -105,6 +109,7 @@ export class EmployeeService {
         hireDate: true,
         salarySYP: true,
         salaryUSD: true,
+        hourlyRate: true,
         contractType: true,
         status: true,
         phone: true,
@@ -121,6 +126,8 @@ export class EmployeeService {
       ...e,
       salarySYP: Number(e.salarySYP),
       salaryUSD: e.salaryUSD ? Number(e.salaryUSD) : undefined,
+      hourlyRate: e.hourlyRate ? Number(e.hourlyRate) : undefined,
+      departmentHasFixedSalary: false,
     }));
   }
 
@@ -139,6 +146,7 @@ export class EmployeeService {
         hireDate: true,
         salarySYP: true,
         salaryUSD: true,
+        hourlyRate: true,
         contractType: true,
         status: true,
         phone: true,
@@ -155,6 +163,8 @@ export class EmployeeService {
       ...e,
       salarySYP: Number(e.salarySYP),
       salaryUSD: e.salaryUSD ? Number(e.salaryUSD) : undefined,
+      hourlyRate: e.hourlyRate ? Number(e.hourlyRate) : undefined,
+      departmentHasFixedSalary: false,
     }));
   }
 
@@ -177,8 +187,19 @@ export class EmployeeService {
       throw new Error('Department not found');
     }
 
+    const dept = department as any;
+
+    // If department has fixed salary, override hourlyRate with department's rate
+    let finalHourlyRate = data.hourlyRate;
+    let finalSalarySYP = data.salarySYP;
+    if (dept.hasFixedSalary && dept.calculatedHourlyRateSYP) {
+      finalHourlyRate = Number(dept.calculatedHourlyRateSYP);
+      // Recalculate salary based on fixed hourly rate and standard hours
+      finalSalarySYP = finalHourlyRate * (dept.workHoursPerMonth ?? 160);
+    }
+
     // Validate salary
-    if (data.salarySYP <= 0) {
+    if (finalSalarySYP <= 0) {
       throw new Error('Salary must be greater than 0');
     }
 
@@ -212,9 +233,9 @@ export class EmployeeService {
         position: data.position,
         departmentId: data.departmentId,
         hireDate: data.hireDate,
-        salarySYP: data.salarySYP,
+        salarySYP: finalSalarySYP,
         salaryUSD: data.salaryUSD,
-        hourlyRate: data.hourlyRate,
+        hourlyRate: finalHourlyRate,
         contractType: data.contractType,
         status: data.status ?? 'ACTIVE',
         phone: data.phone,
@@ -234,6 +255,7 @@ export class EmployeeService {
         hireDate: true,
         salarySYP: true,
         salaryUSD: true,
+        hourlyRate: true,
         contractType: true,
         status: true,
         phone: true,
@@ -249,6 +271,8 @@ export class EmployeeService {
       ...employee,
       salarySYP: Number(employee.salarySYP),
       salaryUSD: employee.salaryUSD ? Number(employee.salaryUSD) : undefined,
+      hourlyRate: employee.hourlyRate ? Number(employee.hourlyRate) : undefined,
+      departmentHasFixedSalary: dept.hasFixedSalary ?? false,
     };
   }
 
@@ -274,14 +298,29 @@ export class EmployeeService {
     }
 
     // If updating department, verify it exists and belongs to tenant
+    let department: any = null;
     if (data.departmentId) {
-      const department = await prisma.department.findFirst({
+      department = await prisma.department.findFirst({
         where: { id: data.departmentId, tenantId },
       });
 
       if (!department) {
         throw new Error('Department not found');
       }
+    } else {
+      department = await prisma.department.findFirst({
+        where: { id: existingEmployee.departmentId, tenantId },
+      });
+    }
+
+    const dept = department as any;
+
+    // If department has fixed salary, override hourlyRate with department's rate
+    let finalHourlyRate = data.hourlyRate;
+    let finalSalarySYP = data.salarySYP;
+    if (dept && dept.hasFixedSalary && dept.calculatedHourlyRateSYP) {
+      finalHourlyRate = Number(dept.calculatedHourlyRateSYP);
+      finalSalarySYP = finalHourlyRate * (dept.workHoursPerMonth ?? 160);
     }
 
     // If updating userId, verify the user exists and belongs to the tenant
@@ -314,9 +353,9 @@ export class EmployeeService {
         position: data.position,
         departmentId: data.departmentId,
         hireDate: data.hireDate,
-        salarySYP: data.salarySYP,
+        salarySYP: finalSalarySYP,
         salaryUSD: data.salaryUSD,
-        hourlyRate: data.hourlyRate,
+        hourlyRate: finalHourlyRate,
         contractType: data.contractType,
         status: data.status,
         phone: data.phone,
@@ -336,6 +375,7 @@ export class EmployeeService {
         hireDate: true,
         salarySYP: true,
         salaryUSD: true,
+        hourlyRate: true,
         contractType: true,
         status: true,
         phone: true,
@@ -351,6 +391,8 @@ export class EmployeeService {
       ...employee,
       salarySYP: Number(employee.salarySYP),
       salaryUSD: employee.salaryUSD ? Number(employee.salaryUSD) : undefined,
+      hourlyRate: employee.hourlyRate ? Number(employee.hourlyRate) : undefined,
+      departmentHasFixedSalary: dept ? (dept.hasFixedSalary ?? false) : false,
     };
   }
 

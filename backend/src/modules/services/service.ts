@@ -105,11 +105,33 @@ export class ServiceService {
   async createService(tenantId: string, data: CreateServiceInput): Promise<ServiceResponse> {
     const categoryId = await this.resolveCategoryId(tenantId, data.category);
 
+    // Auto-calculate laborCost if departmentId is provided
+    let laborCostSYP = data.laborCostSYP ?? 0;
+    let laborCostUSD = data.laborCostUSD ?? 0;
+    if (data.departmentId && data.estimatedDurationMinutes) {
+      const department = await prisma.department.findFirst({
+        where: { id: data.departmentId, tenantId },
+      });
+      if (department) {
+        const dept = department as any;
+        if (dept.hasFixedSalary && dept.calculatedHourlyRateSYP) {
+          laborCostSYP = Number(dept.calculatedHourlyRateSYP) * (data.estimatedDurationMinutes / 60);
+        } else if (data.assignedEmployeeId) {
+          const employee = await prisma.employee.findFirst({
+            where: { id: data.assignedEmployeeId, tenantId },
+          });
+          if (employee && (employee as any).hourlyRate) {
+            laborCostSYP = Number((employee as any).hourlyRate) * (data.estimatedDurationMinutes / 60);
+          }
+        }
+      }
+    }
+
     // Service price calculation:
     // If profitType = 'percentage': Price = (Direct Costs) × (1 + Profit Margin)
     // If profitType = 'fixed': Price = Direct Costs + Profit Amount
-    const directCostSYP = (data.laborCostSYP ?? 0) + (data.materialCostSYP ?? 0);
-    const directCostUSD = (data.laborCostUSD ?? 0) + (data.materialCostUSD ?? 0);
+    const directCostSYP = laborCostSYP + (data.materialCostSYP ?? 0);
+    const directCostUSD = laborCostUSD + (data.materialCostUSD ?? 0);
 
     let calculatedPriceSYP = 0;
     let calculatedPriceUSD = 0;
@@ -144,8 +166,8 @@ export class ServiceService {
         categoryId,
         duration: data.duration,
         basePrice: data.basePrice,
-        laborCostSYP: data.laborCostSYP,
-        laborCostUSD: data.laborCostUSD,
+        laborCostSYP: laborCostSYP,
+        laborCostUSD: laborCostUSD,
         materialCostSYP: data.materialCostSYP,
         materialCostUSD: data.materialCostUSD,
         profitAmountSYP: computedProfitSYP,
@@ -160,6 +182,8 @@ export class ServiceService {
         priceUSD: finalPriceUSD,
         estimatedDurationMinutes: data.estimatedDurationMinutes,
         isActive: data.isActive ?? true,
+        departmentId: data.departmentId,
+        assignedEmployeeId: data.assignedEmployeeId,
       },
     });
 
@@ -186,6 +210,33 @@ export class ServiceService {
     let computedProfitSYP = Number(existingService.profitAmountSYP || 0);
     let computedProfitUSD = Number(existingService.profitAmountUSD || 0);
 
+    // Auto-calculate laborCost if departmentId changed or estimatedDurationMinutes changed
+    let laborCostSYP = data.laborCostSYP ?? Number(existingService.laborCostSYP || 0);
+    let laborCostUSD = data.laborCostUSD ?? Number(existingService.laborCostUSD || 0);
+    if ((data.departmentId || data.estimatedDurationMinutes) && data.departmentId !== '') {
+      const deptId = data.departmentId ?? (existingService as any).departmentId;
+      const durationMin = data.estimatedDurationMinutes ?? existingService.estimatedDurationMinutes;
+      if (deptId && durationMin) {
+        const department = await prisma.department.findFirst({
+          where: { id: deptId, tenantId },
+        });
+        if (department) {
+          const dept = department as any;
+          if (dept.hasFixedSalary && dept.calculatedHourlyRateSYP) {
+            laborCostSYP = Number(dept.calculatedHourlyRateSYP) * (durationMin / 60);
+          } else if (data.assignedEmployeeId || (existingService as any).assignedEmployeeId) {
+            const empId = data.assignedEmployeeId ?? (existingService as any).assignedEmployeeId;
+            const employee = await prisma.employee.findFirst({
+              where: { id: empId, tenantId },
+            });
+            if (employee && (employee as any).hourlyRate) {
+              laborCostSYP = Number((employee as any).hourlyRate) * (durationMin / 60);
+            }
+          }
+        }
+      }
+    }
+
     const costsUpdated =
       data.laborCostSYP !== undefined ||
       data.materialCostSYP !== undefined ||
@@ -193,12 +244,14 @@ export class ServiceService {
       data.materialCostUSD !== undefined ||
       data.profitMargin !== undefined ||
       data.profitAmountSYP !== undefined ||
-      data.profitType !== undefined;
+      data.profitType !== undefined ||
+      data.departmentId !== undefined ||
+      data.estimatedDurationMinutes !== undefined;
 
     if (costsUpdated) {
-      const newLaborCostSYP = data.laborCostSYP ?? Number(existingService.laborCostSYP || 0);
+      const newLaborCostSYP = laborCostSYP;
       const newMaterialCostSYP = data.materialCostSYP ?? Number(existingService.materialCostSYP || 0);
-      const newLaborCostUSD = data.laborCostUSD ?? Number(existingService.laborCostUSD || 0);
+      const newLaborCostUSD = laborCostUSD;
       const newMaterialCostUSD = data.materialCostUSD ?? Number(existingService.materialCostUSD || 0);
 
       const directCostSYP = newLaborCostSYP + newMaterialCostSYP;
@@ -244,8 +297,8 @@ export class ServiceService {
         ...(categoryId !== undefined ? { categoryId } : {}),
         duration: data.duration,
         basePrice: data.basePrice,
-        laborCostSYP: data.laborCostSYP,
-        laborCostUSD: data.laborCostUSD,
+        laborCostSYP: laborCostSYP,
+        laborCostUSD: laborCostUSD,
         materialCostSYP: data.materialCostSYP,
         materialCostUSD: data.materialCostUSD,
         profitAmountSYP: computedProfitSYP,
@@ -260,6 +313,8 @@ export class ServiceService {
         priceUSD: finalPriceUSD,
         estimatedDurationMinutes: data.estimatedDurationMinutes,
         isActive: data.isActive,
+        ...(data.departmentId !== undefined ? { departmentId: data.departmentId } : {}),
+        ...(data.assignedEmployeeId !== undefined ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
     });
 
@@ -415,6 +470,8 @@ export class ServiceService {
       priceUSD: service.priceUSD ? Number(service.priceUSD) : null,
       estimatedDurationMinutes: service.estimatedDurationMinutes,
       isActive: service.isActive,
+      departmentId: (service as any).departmentId || null,
+      assignedEmployeeId: (service as any).assignedEmployeeId || null,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
     };

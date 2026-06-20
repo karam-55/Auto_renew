@@ -72,6 +72,25 @@ export class DepartmentsScreen {
               <label class="block font-label-sm text-label-sm text-text-secondary mb-1">الوصف</label>
               <textarea name="description" rows="3" class="w-full bg-surface-container-high border border-outline-variant rounded-lg px-4 py-2 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none" placeholder="وصف القسم"></textarea>
             </div>
+            <div class="flex items-center gap-3">
+              <input type="checkbox" id="has-fixed-salary" name="hasFixedSalary" class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary">
+              <label for="has-fixed-salary" class="font-body-md text-on-surface cursor-pointer select-none">راتب ثابت للقسم كامل</label>
+            </div>
+            <div id="fixed-salary-fields" class="hidden space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-secondary mb-1">الراتب الشهري (ل.س)</label>
+                  <input type="number" name="fixedMonthlySalarySYP" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="500000">
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-secondary mb-1">ساعات العمل/شهر</label>
+                  <input type="number" name="workHoursPerMonth" value="160" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="160">
+                </div>
+              </div>
+              <div id="calculated-hourly-rate-display" class="bg-primary/10 rounded-lg p-3 text-body-sm text-primary font-semibold hidden">
+                أجر الساعة المحسوب: <span id="calculated-rate-value">0</span> ل.س
+              </div>
+            </div>
             <div class="flex items-center gap-3 pt-2">
               <button type="submit" class="h-[48px] bg-primary text-on-primary font-ibmPlexSans font-body-lg text-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center justify-center gap-2 px-6">
                 حفظ
@@ -201,6 +220,38 @@ export class DepartmentsScreen {
     newDeptBtn?.addEventListener('click', () => this.openModal())
     cancelModal?.addEventListener('click', () => this.closeModal())
 
+    // Fixed salary toggle
+    const hasFixedSalaryCheckbox = c.querySelector('#has-fixed-salary') as HTMLInputElement
+    const fixedSalaryFields = c.querySelector('#fixed-salary-fields') as HTMLElement
+    const calculatedRateDisplay = c.querySelector('#calculated-hourly-rate-display') as HTMLElement
+    const calculatedRateValue = c.querySelector('#calculated-rate-value') as HTMLElement
+    const salaryInput = c.querySelector('[name="fixedMonthlySalarySYP"]') as HTMLInputElement
+    const hoursInput = c.querySelector('[name="workHoursPerMonth"]') as HTMLInputElement
+
+    function updateCalculatedRate() {
+      const salary = Number(salaryInput?.value || 0)
+      const hours = Number(hoursInput?.value || 160)
+      if (salary > 0 && hours > 0) {
+        const rate = Math.round(salary / hours)
+        calculatedRateValue.textContent = String(rate)
+        calculatedRateDisplay.classList.remove('hidden')
+      } else {
+        calculatedRateDisplay.classList.add('hidden')
+      }
+    }
+
+    hasFixedSalaryCheckbox?.addEventListener('change', () => {
+      if (hasFixedSalaryCheckbox.checked) {
+        fixedSalaryFields.classList.remove('hidden')
+        updateCalculatedRate()
+      } else {
+        fixedSalaryFields.classList.add('hidden')
+      }
+    })
+
+    salaryInput?.addEventListener('input', updateCalculatedRate)
+    hoursInput?.addEventListener('input', updateCalculatedRate)
+
     form?.addEventListener('submit', async (e) => {
       e.preventDefault()
       const fd = new FormData(form)
@@ -210,6 +261,11 @@ export class DepartmentsScreen {
         nameEn: fd.get('nameEn') || undefined,
         description: fd.get('description') || undefined,
         isActive: true,
+        hasFixedSalary: hasFixedSalaryCheckbox?.checked ?? false,
+      }
+      if (hasFixedSalaryCheckbox?.checked) {
+        data.fixedMonthlySalarySYP = Number(fd.get('fixedMonthlySalarySYP')) || undefined
+        data.workHoursPerMonth = Number(fd.get('workHoursPerMonth')) || 160
       }
       try {
         if (id) {
@@ -243,6 +299,12 @@ export class DepartmentsScreen {
     const nameAr = document.querySelector('[name="nameAr"]') as HTMLInputElement
     const nameEn = document.querySelector('[name="nameEn"]') as HTMLInputElement
     const desc = document.querySelector('[name="description"]') as HTMLTextAreaElement
+    const hasFixedSalaryCheckbox = document.querySelector('#has-fixed-salary') as HTMLInputElement
+    const fixedSalaryFields = document.querySelector('#fixed-salary-fields') as HTMLElement
+    const calculatedRateDisplay = document.querySelector('#calculated-hourly-rate-display') as HTMLElement
+    const calculatedRateValue = document.querySelector('#calculated-rate-value') as HTMLElement
+    const salaryInput = document.querySelector('[name="fixedMonthlySalarySYP"]') as HTMLInputElement
+    const hoursInput = document.querySelector('[name="workHoursPerMonth"]') as HTMLInputElement
 
     if (dept) {
       title.textContent = 'تعديل قسم'
@@ -250,12 +312,32 @@ export class DepartmentsScreen {
       nameAr.value = dept.nameAr || ''
       nameEn.value = dept.nameEn || ''
       desc.value = dept.description || ''
+      hasFixedSalaryCheckbox.checked = dept.hasFixedSalary ?? false
+      if (dept.hasFixedSalary) {
+        fixedSalaryFields.classList.remove('hidden')
+        salaryInput.value = dept.fixedMonthlySalarySYP || ''
+        hoursInput.value = dept.workHoursPerMonth || '160'
+        if (dept.calculatedHourlyRateSYP) {
+          calculatedRateValue.textContent = String(Math.round(Number(dept.calculatedHourlyRateSYP)))
+          calculatedRateDisplay.classList.remove('hidden')
+        }
+      } else {
+        fixedSalaryFields.classList.add('hidden')
+        calculatedRateDisplay.classList.add('hidden')
+        salaryInput.value = ''
+        hoursInput.value = '160'
+      }
     } else {
       title.textContent = 'قسم جديد'
       idInput.value = ''
       nameAr.value = ''
       nameEn.value = ''
       desc.value = ''
+      hasFixedSalaryCheckbox.checked = false
+      fixedSalaryFields.classList.add('hidden')
+      calculatedRateDisplay.classList.add('hidden')
+      salaryInput.value = ''
+      hoursInput.value = '160'
     }
     modal?.classList.remove('hidden')
   }

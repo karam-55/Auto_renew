@@ -4,6 +4,10 @@ export interface CreateDepartmentInput {
   description?: string;
   managerId?: string;
   isActive?: boolean;
+  hasFixedSalary?: boolean;
+  fixedMonthlySalarySYP?: number;
+  fixedMonthlySalaryUSD?: number;
+  workHoursPerMonth?: number;
 }
 
 export interface UpdateDepartmentInput {
@@ -12,6 +16,10 @@ export interface UpdateDepartmentInput {
   description?: string;
   managerId?: string;
   isActive?: boolean;
+  hasFixedSalary?: boolean;
+  fixedMonthlySalarySYP?: number;
+  fixedMonthlySalaryUSD?: number;
+  workHoursPerMonth?: number;
 }
 
 export interface DepartmentResponse {
@@ -22,6 +30,11 @@ export interface DepartmentResponse {
   description?: string | null;
   managerId?: string | null;
   isActive: boolean;
+  hasFixedSalary: boolean;
+  fixedMonthlySalarySYP?: number | null;
+  fixedMonthlySalaryUSD?: number | null;
+  workHoursPerMonth?: number | null;
+  calculatedHourlyRateSYP?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -13,6 +13,11 @@ export class DepartmentService {
         description: true,
         managerId: true,
         isActive: true,
+        hasFixedSalary: true,
+        fixedMonthlySalarySYP: true,
+        fixedMonthlySalaryUSD: true,
+        workHoursPerMonth: true,
+        calculatedHourlyRateSYP: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -39,6 +44,11 @@ export class DepartmentService {
         description: true,
         managerId: true,
         isActive: true,
+        hasFixedSalary: true,
+        fixedMonthlySalarySYP: true,
+        fixedMonthlySalaryUSD: true,
+        workHoursPerMonth: true,
+        calculatedHourlyRateSYP: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -64,6 +74,11 @@ export class DepartmentService {
         description: true,
         managerId: true,
         isActive: true,
+        hasFixedSalary: true,
+        fixedMonthlySalarySYP: true,
+        fixedMonthlySalaryUSD: true,
+        workHoursPerMonth: true,
+        calculatedHourlyRateSYP: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -85,6 +100,12 @@ export class DepartmentService {
       }
     }
 
+    // Calculate hourly rate if fixed salary is enabled
+    let calculatedHourlyRateSYP: number | null = null;
+    if (data.hasFixedSalary && data.fixedMonthlySalarySYP && data.workHoursPerMonth) {
+      calculatedHourlyRateSYP = Number(data.fixedMonthlySalarySYP) / Number(data.workHoursPerMonth);
+    }
+
     const department = await prisma.department.create({
       data: {
         tenantId,
@@ -93,6 +114,11 @@ export class DepartmentService {
         description: data.description,
         managerId: data.managerId,
         isActive: data.isActive ?? true,
+        hasFixedSalary: data.hasFixedSalary ?? false,
+        fixedMonthlySalarySYP: data.fixedMonthlySalarySYP,
+        fixedMonthlySalaryUSD: data.fixedMonthlySalaryUSD,
+        workHoursPerMonth: data.workHoursPerMonth ?? 160,
+        calculatedHourlyRateSYP,
       },
       select: {
         id: true,
@@ -102,6 +128,11 @@ export class DepartmentService {
         description: true,
         managerId: true,
         isActive: true,
+        hasFixedSalary: true,
+        fixedMonthlySalarySYP: true,
+        fixedMonthlySalaryUSD: true,
+        workHoursPerMonth: true,
+        calculatedHourlyRateSYP: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -131,15 +162,42 @@ export class DepartmentService {
       }
     }
 
+    // Recalculate hourly rate if salary fields updated
+    let updateData: any = {
+      nameAr: data.nameAr,
+      nameEn: data.nameEn,
+      description: data.description,
+      managerId: data.managerId,
+      isActive: data.isActive,
+    };
+
+    if (data.hasFixedSalary !== undefined) {
+      updateData.hasFixedSalary = data.hasFixedSalary;
+    }
+    if (data.fixedMonthlySalarySYP !== undefined) {
+      updateData.fixedMonthlySalarySYP = data.fixedMonthlySalarySYP;
+    }
+    if (data.fixedMonthlySalaryUSD !== undefined) {
+      updateData.fixedMonthlySalaryUSD = data.fixedMonthlySalaryUSD;
+    }
+    if (data.workHoursPerMonth !== undefined) {
+      updateData.workHoursPerMonth = data.workHoursPerMonth;
+    }
+
+    // Recalculate hourly rate if fixed salary config changed
+    const existing = existingDepartment as any;
+    const hasFixedSalary = data.hasFixedSalary ?? existing.hasFixedSalary;
+    const fixedMonthlySalarySYP = data.fixedMonthlySalarySYP ?? existing.fixedMonthlySalarySYP;
+    const workHoursPerMonth = data.workHoursPerMonth ?? existing.workHoursPerMonth;
+    if (hasFixedSalary && fixedMonthlySalarySYP && workHoursPerMonth) {
+      updateData.calculatedHourlyRateSYP = Number(fixedMonthlySalarySYP) / Number(workHoursPerMonth);
+    } else if (data.hasFixedSalary === false) {
+      updateData.calculatedHourlyRateSYP = null;
+    }
+
     const department = await prisma.department.update({
       where: { id: departmentId },
-      data: {
-        nameAr: data.nameAr,
-        nameEn: data.nameEn,
-        description: data.description,
-        managerId: data.managerId,
-        isActive: data.isActive,
-      },
+      data: updateData,
       select: {
         id: true,
         tenantId: true,
@@ -148,6 +206,11 @@ export class DepartmentService {
         description: true,
         managerId: true,
         isActive: true,
+        hasFixedSalary: true,
+        fixedMonthlySalarySYP: true,
+        fixedMonthlySalaryUSD: true,
+        workHoursPerMonth: true,
+        calculatedHourlyRateSYP: true,
         createdAt: true,
         updatedAt: true,
       },
