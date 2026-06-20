@@ -1,3 +1,8 @@
+export interface ServicePartInput {
+  partId: string;
+  quantity: number;
+}
+
 export interface CreateServiceInput {
   name: string;
   nameAr?: string;
@@ -24,6 +29,7 @@ export interface CreateServiceInput {
   isActive?: boolean;
   departmentId?: string;
   assignedEmployeeId?: string;
+  parts?: ServicePartInput[];
 }
 
 export interface UpdateServiceInput {
@@ -52,6 +58,16 @@ export interface UpdateServiceInput {
   isActive?: boolean;
   departmentId?: string;
   assignedEmployeeId?: string;
+  parts?: ServicePartInput[];
+}
+
+export interface ServicePartResponse {
+  id: string;
+  partId: string;
+  partName: string;
+  quantity: number;
+  unitCostSYP: number;
+  totalCostSYP: number;
 }
 
 export interface ServiceResponse {
@@ -82,6 +98,7 @@ export interface ServiceResponse {
   isActive: boolean;
   departmentId: string | null;
   assignedEmployeeId: string | null;
+  parts: ServicePartResponse[];
   createdAt: Date;
   updatedAt: Date;
 }

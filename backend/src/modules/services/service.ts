@@ -153,8 +153,49 @@ export class ServiceService {
       computedProfitUSD = calculatedPriceUSD - directCostUSD;
     }
 
-    const finalPriceSYP = data.priceSYP ?? (calculatedPriceSYP > 0 ? calculatedPriceSYP : 0);
-    const finalPriceUSD = data.priceUSD ?? (calculatedPriceUSD > 0 ? calculatedPriceUSD : undefined);
+    // Calculate material cost from parts if provided
+    let materialCostSYP = data.materialCostSYP ?? 0;
+    let materialCostUSD = data.materialCostUSD ?? 0;
+    if (data.parts && data.parts.length > 0) {
+      const partIds = data.parts.map(p => p.partId);
+      const partsData = await prisma.part.findMany({
+        where: { id: { in: partIds }, tenantId },
+      });
+      const partMap = new Map(partsData.map(p => [p.id, p]));
+      materialCostSYP = data.parts.reduce((sum, p) => {
+        const part = partMap.get(p.partId);
+        return sum + (p.quantity * Number((part as any)?.costSYP ?? 0));
+      }, 0);
+      materialCostUSD = data.parts.reduce((sum, p) => {
+        const part = partMap.get(p.partId);
+        return sum + (p.quantity * Number((part as any)?.costUSD ?? 0));
+      }, 0);
+    }
+
+    // Recalculate with updated material cost
+    const finalDirectCostSYP = laborCostSYP + materialCostSYP;
+    const finalDirectCostUSD = laborCostUSD + materialCostUSD;
+
+    let finalCalculatedPriceSYP = 0;
+    let finalCalculatedPriceUSD = 0;
+    let finalComputedProfitSYP = 0;
+    let finalComputedProfitUSD = 0;
+
+    if (data.profitType === 'fixed' && (data.profitAmountSYP !== undefined || data.profitAmountUSD !== undefined)) {
+      finalCalculatedPriceSYP = finalDirectCostSYP + (data.profitAmountSYP ?? 0);
+      finalCalculatedPriceUSD = finalDirectCostUSD + (data.profitAmountUSD ?? 0);
+      finalComputedProfitSYP = data.profitAmountSYP ?? 0;
+      finalComputedProfitUSD = data.profitAmountUSD ?? 0;
+    } else {
+      const profitMargin = (data.profitMargin ?? 25) / 100;
+      finalCalculatedPriceSYP = finalDirectCostSYP * (1 + profitMargin);
+      finalCalculatedPriceUSD = finalDirectCostUSD * (1 + profitMargin);
+      finalComputedProfitSYP = finalCalculatedPriceSYP - finalDirectCostSYP;
+      finalComputedProfitUSD = finalCalculatedPriceUSD - finalDirectCostUSD;
+    }
+
+    const finalPriceSYP = data.priceSYP ?? (finalCalculatedPriceSYP > 0 ? finalCalculatedPriceSYP : 0);
+    const finalPriceUSD = data.priceUSD ?? (finalCalculatedPriceUSD > 0 ? finalCalculatedPriceUSD : undefined);
 
     const service = await prisma.service.create({
       data: {
@@ -168,10 +209,10 @@ export class ServiceService {
         basePrice: data.basePrice,
         laborCostSYP: laborCostSYP,
         laborCostUSD: laborCostUSD,
-        materialCostSYP: data.materialCostSYP,
-        materialCostUSD: data.materialCostUSD,
-        profitAmountSYP: computedProfitSYP,
-        profitAmountUSD: computedProfitUSD,
+        materialCostSYP: materialCostSYP,
+        materialCostUSD: materialCostUSD,
+        profitAmountSYP: finalComputedProfitSYP,
+        profitAmountUSD: finalComputedProfitUSD,
         profitType: data.profitType ?? 'percentage',
         profitMargin: data.profitType === 'percentage' ? (data.profitMargin ?? 25) : null,
         hasWarranty: data.hasWarranty ?? false,
@@ -186,6 +227,17 @@ export class ServiceService {
         ...(data.assignedEmployeeId ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
     });
+
+    // Create ServicePart records if parts provided
+    if (data.parts && data.parts.length > 0) {
+      await prisma.servicePart.createMany({
+        data: data.parts.map(p => ({
+          serviceId: service.id,
+          partId: p.partId,
+          quantity: p.quantity,
+        })),
+      });
+    }
 
     return this.mapToServiceResponse(service);
   }
@@ -237,6 +289,25 @@ export class ServiceService {
       }
     }
 
+    // Calculate material cost from parts if provided
+    let materialCostSYP = data.materialCostSYP ?? Number(existingService.materialCostSYP || 0);
+    let materialCostUSD = data.materialCostUSD ?? Number(existingService.materialCostUSD || 0);
+    if (data.parts && data.parts.length > 0) {
+      const partIds = data.parts.map(p => p.partId);
+      const partsData = await prisma.part.findMany({
+        where: { id: { in: partIds }, tenantId },
+      });
+      const partMap = new Map(partsData.map(p => [p.id, p]));
+      materialCostSYP = data.parts.reduce((sum, p) => {
+        const part = partMap.get(p.partId);
+        return sum + (p.quantity * Number((part as any)?.costSYP ?? 0));
+      }, 0);
+      materialCostUSD = data.parts.reduce((sum, p) => {
+        const part = partMap.get(p.partId);
+        return sum + (p.quantity * Number((part as any)?.costUSD ?? 0));
+      }, 0);
+    }
+
     const costsUpdated =
       data.laborCostSYP !== undefined ||
       data.materialCostSYP !== undefined ||
@@ -246,13 +317,14 @@ export class ServiceService {
       data.profitAmountSYP !== undefined ||
       data.profitType !== undefined ||
       data.departmentId !== undefined ||
-      data.estimatedDurationMinutes !== undefined;
+      data.estimatedDurationMinutes !== undefined ||
+      data.parts !== undefined;
 
     if (costsUpdated) {
       const newLaborCostSYP = laborCostSYP;
-      const newMaterialCostSYP = data.materialCostSYP ?? Number(existingService.materialCostSYP || 0);
+      const newMaterialCostSYP = materialCostSYP;
       const newLaborCostUSD = laborCostUSD;
-      const newMaterialCostUSD = data.materialCostUSD ?? Number(existingService.materialCostUSD || 0);
+      const newMaterialCostUSD = materialCostUSD;
 
       const directCostSYP = newLaborCostSYP + newMaterialCostSYP;
       const directCostUSD = newLaborCostUSD + newMaterialCostUSD;
@@ -299,8 +371,8 @@ export class ServiceService {
         basePrice: data.basePrice,
         laborCostSYP: laborCostSYP,
         laborCostUSD: laborCostUSD,
-        materialCostSYP: data.materialCostSYP,
-        materialCostUSD: data.materialCostUSD,
+        materialCostSYP: materialCostSYP,
+        materialCostUSD: materialCostUSD,
         profitAmountSYP: computedProfitSYP,
         profitAmountUSD: computedProfitUSD,
         ...(data.profitType !== undefined ? { profitType: data.profitType } : {}),
@@ -317,6 +389,22 @@ export class ServiceService {
         ...(data.assignedEmployeeId !== undefined ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
     });
+
+    // Update ServicePart records if parts provided
+    if (data.parts && data.parts.length > 0) {
+      // Delete existing service parts
+      await prisma.servicePart.deleteMany({
+        where: { serviceId },
+      });
+      // Create new service parts
+      await prisma.servicePart.createMany({
+        data: data.parts.map(p => ({
+          serviceId,
+          partId: p.partId,
+          quantity: p.quantity,
+        })),
+      });
+    }
 
     return this.mapToServiceResponse(service);
   }
@@ -472,6 +560,14 @@ export class ServiceService {
       isActive: service.isActive,
       departmentId: (service as any).departmentId || null,
       assignedEmployeeId: (service as any).assignedEmployeeId || null,
+      parts: (service.serviceParts || []).map((sp: any) => ({
+        id: sp.id,
+        partId: sp.partId,
+        partName: sp.part?.name || sp.part?.nameAr || 'غير مسمى',
+        quantity: sp.quantity,
+        unitCostSYP: sp.part?.costSYP ? Number(sp.part.costSYP) : 0,
+        totalCostSYP: sp.quantity * (sp.part?.costSYP ? Number(sp.part.costSYP) : 0),
+      })),
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
     };

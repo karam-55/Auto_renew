@@ -170,6 +170,21 @@ export class ServicesScreen {
                 <option value="">اختر الموظف</option>
               </select>
             </div>
+            <div id="parts-section" class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/10 space-y-3">
+              <div class="flex items-center justify-between">
+                <p class="text-xs text-text-tertiary font-medium">قطع الغيار المستخدمة</p>
+                <button type="button" id="add-part-btn" class="h-[32px] bg-primary text-on-primary font-ibmPlexSans font-body-sm rounded-lg shadow-sm hover:shadow-lg transition-all flex items-center justify-center gap-1 px-3 text-body-sm">
+                  <span class="material-symbols-outlined text-[16px]">add</span>
+                  إضافة مادة
+                </button>
+              </div>
+              <div id="parts-list" class="space-y-2">
+                <!-- Parts rows will be added here dynamically -->
+              </div>
+              <div id="parts-total-display" class="bg-primary/10 rounded-lg p-2 text-body-sm text-primary font-semibold hidden">
+                إجمالي تكلفة المواد: <span id="parts-total-value">0</span> ل.س
+              </div>
+            </div>
             <div class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/10">
               <p class="text-xs text-text-tertiary mb-2 font-medium">السعر = تكلفة العمل + تكلفة المواد + الربح</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -700,6 +715,105 @@ export class ServicesScreen {
     })
   }
 
+  private partsData: any[] = []
+
+  private async loadPartsForService(el: HTMLElement) {
+    try {
+      const res: any = await this.api.get('/api/parts')
+      this.partsData = res.data?.data || res.data || []
+    } catch { /* ignore */ }
+  }
+
+  private createPartRowHtml(partId: string = '', quantity: string = '1'): string {
+    const options = this.partsData.map((p: any) =>
+      `<option value="${p.id}" ${p.id === partId ? 'selected' : ''} data-cost="${p.costSYP || 0}">${p.name || p.nameAr || 'غير مسمى'} (${p.partNumber || ''})</option>`
+    ).join('')
+    return `
+      <div class="part-row flex items-center gap-2 bg-surface-subtle rounded-lg p-2 border border-outline-variant/10">
+        <select class="part-select flex-1 h-[36px] bg-surface-container-high border border-outline-variant rounded-lg px-2 text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all">
+          <option value="">اختر المادة</option>
+          ${options}
+        </select>
+        <input type="number" min="1" value="${quantity}" class="part-qty w-[70px] h-[36px] bg-surface-container-high border border-outline-variant rounded-lg px-2 text-body-sm text-on-surface text-center focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="1" />
+        <span class="part-cost text-body-xs text-text-tertiary whitespace-nowrap"></span>
+        <button type="button" class="remove-part-btn w-[28px] h-[28px] rounded-full hover:bg-error/10 text-error flex items-center justify-center transition-all">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+    `
+  }
+
+  private updatePartsTotal(el: HTMLElement) {
+    const materialCostSYP = el.querySelector('#svc-material-cost-syp') as HTMLInputElement
+    const totalDisplay = el.querySelector('#parts-total-display') as HTMLElement
+    const totalValue = el.querySelector('#parts-total-value') as HTMLElement
+    let total = 0
+
+    el.querySelectorAll('.part-row').forEach((row) => {
+      const select = row.querySelector('.part-select') as HTMLSelectElement
+      const qtyInput = row.querySelector('.part-qty') as HTMLInputElement
+      const costSpan = row.querySelector('.part-cost') as HTMLElement
+      if (select.value) {
+        const part = this.partsData.find((p: any) => p.id === select.value)
+        const cost = part?.costSYP ? Number(part.costSYP) : 0
+        const qty = parseInt(qtyInput?.value) || 1
+        const lineTotal = cost * qty
+        total += lineTotal
+        if (costSpan) costSpan.textContent = `${lineTotal} ل.س`
+      }
+    })
+
+    if (total > 0) {
+      totalValue.textContent = String(total)
+      totalDisplay.classList.remove('hidden')
+      if (materialCostSYP) {
+        materialCostSYP.value = String(total)
+        materialCostSYP.dispatchEvent(new Event('input'))
+      }
+    } else {
+      totalDisplay.classList.add('hidden')
+    }
+  }
+
+  private setupPartsLogic(el: HTMLElement) {
+    const addPartBtn = el.querySelector('#add-part-btn')
+    const partsList = el.querySelector('#parts-list')
+
+    addPartBtn?.addEventListener('click', () => {
+      const row = document.createElement('div')
+      row.innerHTML = this.createPartRowHtml()
+      partsList?.appendChild(row.firstElementChild!)
+      this.bindPartRowEvents(el, partsList?.lastElementChild as HTMLElement)
+      this.updatePartsTotal(el)
+    })
+  }
+
+  private bindPartRowEvents(el: HTMLElement, row: HTMLElement) {
+    const select = row.querySelector('.part-select')
+    const qty = row.querySelector('.part-qty')
+    const removeBtn = row.querySelector('.remove-part-btn')
+
+    select?.addEventListener('change', () => this.updatePartsTotal(el))
+    qty?.addEventListener('input', () => this.updatePartsTotal(el))
+    removeBtn?.addEventListener('click', () => {
+      row.remove()
+      this.updatePartsTotal(el)
+    })
+  }
+
+  private populateParts(el: HTMLElement, parts: any[]) {
+    const partsList = el.querySelector('#parts-list')
+    if (!partsList) return
+    partsList.innerHTML = ''
+    parts?.forEach((p: any) => {
+      const row = document.createElement('div')
+      row.innerHTML = this.createPartRowHtml(p.partId, String(p.quantity))
+      partsList.appendChild(row.firstElementChild!)
+      this.bindPartRowEvents(el, partsList.lastElementChild as HTMLElement)
+    })
+    this.updatePartsTotal(el)
+  }
+
   private openModal(el: HTMLElement, service: any | null, editingId?: string) {
     const modal = el.querySelector('#service-modal') as HTMLElement
     const title = el.querySelector('#modal-title') as HTMLElement
@@ -754,6 +868,20 @@ export class ServicesScreen {
     })
     this.setupDepartmentEmployeeLogic(el)
 
+    // Load parts and setup parts logic
+    this.loadPartsForService(el).then(() => {
+      this.setupPartsLogic(el)
+      if (service?.parts && service.parts.length > 0) {
+        this.populateParts(el, service.parts)
+      } else {
+        // Clear parts list for new service
+        const partsList = el.querySelector('#parts-list')
+        if (partsList) partsList.innerHTML = ''
+        const totalDisplay = el.querySelector('#parts-total-display')
+        if (totalDisplay) totalDisplay.classList.add('hidden')
+      }
+    })
+
     // Setup auto-calculation listeners
     this.setupAutoCalculation(el)
 
@@ -797,6 +925,19 @@ export class ServicesScreen {
     const departmentId = (el.querySelector('#svc-department') as HTMLSelectElement).value || undefined
     const assignedEmployeeId = (el.querySelector('#svc-employee') as HTMLSelectElement).value || undefined
 
+    // Collect parts from UI
+    const parts: { partId: string; quantity: number }[] = []
+    el.querySelectorAll('.part-row').forEach((row) => {
+      const select = row.querySelector('.part-select') as HTMLSelectElement
+      const qtyInput = row.querySelector('.part-qty') as HTMLInputElement
+      if (select.value && qtyInput.value) {
+        parts.push({
+          partId: select.value,
+          quantity: parseInt(qtyInput.value) || 1,
+        })
+      }
+    })
+
     if (!name) {
       alert('اسم الخدمة مطلوب')
       return
@@ -828,6 +969,7 @@ export class ServicesScreen {
       isActive,
       departmentId,
       assignedEmployeeId,
+      parts: parts.length > 0 ? parts : undefined,
     }
 
     try {
