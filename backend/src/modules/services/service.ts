@@ -182,8 +182,8 @@ export class ServiceService {
         priceUSD: finalPriceUSD,
         estimatedDurationMinutes: data.estimatedDurationMinutes,
         isActive: data.isActive ?? true,
-        departmentId: data.departmentId,
-        assignedEmployeeId: data.assignedEmployeeId,
+        ...(data.departmentId ? { departmentId: data.departmentId } : {}),
+        ...(data.assignedEmployeeId ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
     });
 

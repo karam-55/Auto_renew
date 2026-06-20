@@ -2,6 +2,16 @@ import prisma from '../../config/database';
 import { CreateDepartmentInput, UpdateDepartmentInput, DepartmentResponse } from './types';
 
 export class DepartmentService {
+  private mapDepartment(dept: any): DepartmentResponse {
+    return {
+      ...dept,
+      fixedMonthlySalarySYP: dept.fixedMonthlySalarySYP ? Number(dept.fixedMonthlySalarySYP) : null,
+      fixedMonthlySalaryUSD: dept.fixedMonthlySalaryUSD ? Number(dept.fixedMonthlySalaryUSD) : null,
+      workHoursPerMonth: dept.workHoursPerMonth ? Number(dept.workHoursPerMonth) : null,
+      calculatedHourlyRateSYP: dept.calculatedHourlyRateSYP ? Number(dept.calculatedHourlyRateSYP) : null,
+    };
+  }
+
   async getAllDepartments(tenantId: string, skip?: number, limit?: number): Promise<DepartmentResponse[]> {
     const departments = await prisma.department.findMany({
       where: { tenantId },
@@ -26,7 +36,7 @@ export class DepartmentService {
       take: limit || undefined,
     });
 
-    return departments;
+    return departments.map(d => this.mapDepartment(d));
   }
 
   async getDepartmentsCount(tenantId: string): Promise<number> {
@@ -54,7 +64,7 @@ export class DepartmentService {
       },
     });
 
-    return department;
+    return department ? this.mapDepartment(department) : null;
   }
 
   async searchDepartments(tenantId: string, query: string): Promise<DepartmentResponse[]> {
@@ -85,7 +95,7 @@ export class DepartmentService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return departments;
+    return departments.map(d => this.mapDepartment(d));
   }
 
   async createDepartment(tenantId: string, data: CreateDepartmentInput): Promise<DepartmentResponse> {
@@ -138,7 +148,7 @@ export class DepartmentService {
       },
     });
 
-    return department;
+    return this.mapDepartment(department);
   }
 
   async updateDepartment(tenantId: string, departmentId: string, data: UpdateDepartmentInput): Promise<DepartmentResponse> {
@@ -216,7 +226,7 @@ export class DepartmentService {
       },
     });
 
-    return department;
+    return this.mapDepartment(department);
   }
 
   async deleteDepartment(tenantId: string, departmentId: string): Promise<void> {
