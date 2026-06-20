@@ -254,8 +254,9 @@ export class BookingPrintTicketScreen {
 
       // QR Code
       const publicToken = b.publicToken || b.public_token || ''
+      const baseDomain = window.location.port === '1420' ? 'http://178.105.209.59' : window.location.origin
       const qrUrl = publicToken
-        ? `/customer/?token=${publicToken}`
+        ? `${baseDomain}/customer/?token=${publicToken}`
         : window.location.href
 
       const qrContainer = el.querySelector('#qrcode') as HTMLElement
