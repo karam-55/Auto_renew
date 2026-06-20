@@ -49,18 +49,36 @@ export class InventoryScreen {
         </div>
       </div>
       <!-- Create Part Modal -->
-      <div id="create-part-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
-        <div class="glass-card rounded-2xl shadow-xl border border-glass-border max-w-lg w-full p-6 space-y-4">
-          <h2 class="font-headline-md text-lg text-on-surface font-beVietnamPro">مادة جديدة</h2>
-          <div class="space-y-3">
-            <div><label class="block font-label-sm text-on-surface-variant mb-1">الاسم</label><input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl px-4 font-body-md text-on-surface input-glow transition-all" id="part-name"/></div>
-            <div><label class="block font-label-sm text-on-surface-variant mb-1">الرمز</label><input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl px-4 font-body-md text-on-surface input-glow transition-all" id="part-code"/></div>
-            <div><label class="block font-label-sm text-on-surface-variant mb-1">الكمية</label><input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl px-4 font-body-md text-on-surface input-glow transition-all" id="part-quantity" type="number"/></div>
-            <div><label class="block font-label-sm text-on-surface-variant mb-1">السعر</label><input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl px-4 font-body-md text-on-surface input-glow transition-all" id="part-price" type="number"/></div>
+      <div id="create-part-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] hidden items-center justify-center p-4" style="position:fixed;top:0;right:0;bottom:0;left:0;">
+        <div class="bg-white/95 rounded-2xl shadow-2xl border border-white/50 max-w-md w-full p-6 space-y-5" style="max-height:90vh;overflow-y:auto;">
+          <h2 class="font-headline-md text-xl text-on-surface font-beVietnamPro text-center pb-2 border-b border-outline/20">إضافة مادة جديدة</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block font-label-sm text-on-surface-variant mb-2">اسم المادة</label>
+              <input class="w-full h-12 bg-surface-container border border-outline/30 rounded-xl px-4 font-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" id="part-name" placeholder="أدخل اسم المادة"/>
+            </div>
+            <div>
+              <label class="block font-label-sm text-on-surface-variant mb-2">رمز المادة</label>
+              <input class="w-full h-12 bg-surface-container border border-outline/30 rounded-xl px-4 font-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" id="part-code" placeholder="أدخل الرمز"/>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-label-sm text-on-surface-variant mb-2">الكمية</label>
+                <input class="w-full h-12 bg-surface-container border border-outline/30 rounded-xl px-4 font-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" id="part-quantity" type="number" placeholder="0"/>
+              </div>
+              <div>
+                <label class="block font-label-sm text-on-surface-variant mb-2">الحد الأدنى</label>
+                <input class="w-full h-12 bg-surface-container border border-outline/30 rounded-xl px-4 font-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" id="part-min-qty" type="number" placeholder="0"/>
+              </div>
+            </div>
+            <div>
+              <label class="block font-label-sm text-on-surface-variant mb-2">سعر البيع (ل.س)</label>
+              <input class="w-full h-12 bg-surface-container border border-outline/30 rounded-xl px-4 font-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" id="part-price" type="number" placeholder="0"/>
+            </div>
           </div>
-          <div class="flex justify-end gap-3 pt-2">
-            <button class="h-10 px-4 font-body-md rounded-xl border border-glass-border hover:bg-white/80 transition-all" id="create-part-cancel">إلغاء</button>
-            <button class="h-10 px-6 btn-primary-gradient text-white font-body-md rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all" id="save-part-btn">حفظ</button>
+          <div class="flex justify-end gap-3 pt-3 border-t border-outline/20">
+            <button class="h-11 px-5 font-body-md rounded-xl border border-outline/40 hover:bg-surface-container/80 transition-all text-on-surface-variant" id="create-part-cancel">إلغاء</button>
+            <button class="h-11 px-7 btn-primary-gradient text-white font-body-md rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all" id="save-part-btn">حفظ المادة</button>
           </div>
         </div>
       </div>
@@ -79,18 +97,35 @@ export class InventoryScreen {
     c.querySelector('#new-part-btn')?.addEventListener('click', () => this.openCreateModal(c))
     c.querySelector('#inventory-fab')?.addEventListener('click', () => this.openCreateModal(c))
     c.querySelector('#create-part-cancel')?.addEventListener('click', closeModal)
+    
+    // Close on backdrop click
+    const modalEl = c.querySelector('#create-part-modal') as HTMLElement
+    modalEl?.addEventListener('click', (e) => { if (e.target === modalEl) closeModal() })
+    
+    // Keyboard support
+    modalEl?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal()
+    })
     c.querySelector('#save-part-btn')?.addEventListener('click', async () => {
       const nameIn = c.querySelector('#part-name') as HTMLInputElement
       const codeIn = c.querySelector('#part-code') as HTMLInputElement
       const qtyIn = c.querySelector('#part-quantity') as HTMLInputElement
+      const minQtyIn = c.querySelector('#part-min-qty') as HTMLInputElement
       const priceIn = c.querySelector('#part-price') as HTMLInputElement
-      if (!nameIn) return
+      if (!nameIn || !nameIn.value.trim()) { alert('اسم المادة مطلوب'); nameIn?.focus(); return }
       try {
         const price = parseInt(priceIn?.value || '0') || 0
-        const res = await this.api.post('/api/parts', { name: nameIn.value, partNumber: codeIn?.value || '', quantity: parseInt(qtyIn?.value || '0') || 0, sellingPriceSYP: price, costSYP: price })
+        const res = await this.api.post('/api/parts', {
+          name: nameIn.value.trim(),
+          partNumber: codeIn?.value?.trim() || '',
+          quantity: parseInt(qtyIn?.value || '0') || 0,
+          minQuantity: parseInt(minQtyIn?.value || '0') || 0,
+          sellingPriceSYP: price,
+          costSYP: price
+        })
         if (res.success || (res as any).id) { closeModal(); this.load(c) }
-        else { alert('فشل الإنشاء') }
-      } catch { alert('حدث خطأ أثناء الإنشاء') }
+        else { alert('فشل الإنشاء: ' + (res.message || 'خطأ غير معروف')) }
+      } catch (e) { alert('حدث خطأ أثناء الإنشاء: ' + (e as Error).message) }
     })
 
     return layout.render(c)
@@ -100,10 +135,12 @@ export class InventoryScreen {
     const nameIn = el.querySelector('#part-name') as HTMLInputElement
     const codeIn = el.querySelector('#part-code') as HTMLInputElement
     const qtyIn = el.querySelector('#part-quantity') as HTMLInputElement
+    const minQtyIn = el.querySelector('#part-min-qty') as HTMLInputElement
     const priceIn = el.querySelector('#part-price') as HTMLInputElement
     if (!modal || !nameIn) return
-    nameIn.value = ''; if (codeIn) codeIn.value = ''; if (qtyIn) qtyIn.value = ''; if (priceIn) priceIn.value = ''
+    nameIn.value = ''; if (codeIn) codeIn.value = ''; if (qtyIn) qtyIn.value = ''; if (minQtyIn) minQtyIn.value = ''; if (priceIn) priceIn.value = ''
     modal.classList.remove('hidden'); modal.classList.add('flex')
+    setTimeout(() => nameIn.focus(), 100)
   }
   private async load(el: HTMLElement) {
     try {
