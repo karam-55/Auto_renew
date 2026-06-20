@@ -1,0 +1,55 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 178.105.209.59 >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        env:
+          SERVER_IP: 178.105.209.59
+        run: |
+          echo "=== Syncing code to server ==="
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            --exclude='venv311' \
+            --exclude='*.log' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            --exclude='.windsurf/' \
+            --exclude='.devin/' \
+            --exclude='graphify-out/' \
+            ./ root@$SERVER_IP:/opt/auto-renew/
+
+          echo "=== Building and deploying ==="
+          ssh root@$SERVER_IP "
+            cd /opt/auto-renew/deploy
+            docker compose -f docker-compose.prod.yml build backend
+            docker compose -f docker-compose.prod.yml up -d backend
+            sleep 10
+            docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || true
+            docker compose -f docker-compose.prod.yml ps
+          "
+
+      - name: Cleanup
+        run: rm -rf ~/.ssh
