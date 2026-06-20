@@ -252,11 +252,11 @@ export class BookingPrintTicketScreen {
         }
       }
 
-      // QR Code
+      // QR Code — always use public server domain, never Tauri localhost
       const publicToken = b.publicToken || b.public_token || ''
-      const baseDomain = window.location.port === '1420' ? 'http://178.105.209.59' : window.location.origin
+      const SERVER_DOMAIN = 'http://178.105.209.59'
       const qrUrl = publicToken
-        ? `${baseDomain}/customer/?token=${publicToken}`
+        ? `${SERVER_DOMAIN}/customer/?token=${publicToken}`
         : window.location.href
 
       const qrContainer = el.querySelector('#qrcode') as HTMLElement
