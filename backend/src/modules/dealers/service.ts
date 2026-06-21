@@ -1,9 +1,64 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, DealerStatus } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
+import { WhatsAppService } from '../whatsapp/service';
+import { generateWarrantyPdf } from './pdf-generator';
 
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export class DealerService {
+  async register(data: { name: string; phone: string; companyName: string; address?: string; tenantId: string }) {
+    const existing = await prisma.dealer.findFirst({
+      where: { phone: data.phone, deletedAt: null },
+    });
+    if (existing) {
+      throw new Error('Phone already registered');
+    }
+
+    const dealer = await prisma.dealer.create({
+      data: {
+        name: data.name,
+        phone: data.phone,
+        companyName: data.companyName,
+        address: data.address,
+        tenantId: data.tenantId,
+        status: DealerStatus.ACTIVE,
+        isActive: true,
+      },
+    });
+
+    const token = jwt.sign(
+      { dealerId: dealer.id, tenantId: dealer.tenantId },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return { dealer, token };
+  }
+
+  async login(data: { phone: string }) {
+    const dealer = await prisma.dealer.findFirst({
+      where: { phone: data.phone, deletedAt: null },
+    });
+
+    if (!dealer) {
+      throw new Error('Dealer not found');
+    }
+
+    if (dealer.status !== DealerStatus.ACTIVE) {
+      throw new Error('Account is not active');
+    }
+
+    const token = jwt.sign(
+      { dealerId: dealer.id, tenantId: dealer.tenantId },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return { dealer, token };
+  }
+
   async createDealer(tenantId: string, data: any) {
     return prisma.dealer.create({
       data: { ...data, tenantId },
@@ -15,12 +70,24 @@ export class DealerService {
     if (filters?.status) where.status = filters.status;
     if (filters?.isActive !== undefined) where.isActive = filters.isActive;
 
-    return prisma.dealer.findMany({
+    const dealers = await prisma.dealer.findMany({
       where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
     });
+
+    const counts = await prisma.dealerWarranty.groupBy({
+      by: ['dealerId'],
+      where: { dealerId: { in: dealers.map((d: any) => d.id) }, deletedAt: null },
+      _count: { id: true },
+    });
+    const countMap = new Map(counts.map((c: any) => [c.dealerId, c._count.id]));
+
+    return dealers.map((d: any) => ({
+      ...d,
+      warrantyCount: countMap.get(d.id) || 0,
+    }));
   }
 
   async getDealersCount(tenantId: string, filters: any) {
@@ -32,9 +99,16 @@ export class DealerService {
   }
 
   async getDealerById(id: string, tenantId: string) {
-    return prisma.dealer.findFirst({
+    const dealer = await prisma.dealer.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
+    if (!dealer) return null;
+
+    const warrantyCount = await prisma.dealerWarranty.count({
+      where: { dealerId: id, deletedAt: null },
+    });
+
+    return { ...dealer, warrantyCount };
   }
 
   async updateDealer(id: string, tenantId: string, data: any) {
@@ -60,9 +134,128 @@ export class DealerService {
           { name: { contains: query, mode: 'insensitive' } },
           { phone: { contains: query, mode: 'insensitive' } },
           { address: { contains: query, mode: 'insensitive' } },
+          { companyName: { contains: query, mode: 'insensitive' } },
         ],
       },
       take: 20,
     });
+  }
+
+  // ===== Warranty Methods =====
+
+  async createWarranty(dealerId: string, data: {
+    customerName: string;
+    customerPhone: string;
+    manufacturer: string;
+    vehicleModel: string;
+    vehicleYear: number;
+    chassisNumber: string;
+    plateNumber: string;
+    mileage: number;
+    color: string;
+    durationMonths: number;
+    amountPaid: number;
+    pdfUrl?: string;
+  }) {
+    const dealer = await prisma.dealer.findFirst({
+      where: { id: dealerId, deletedAt: null },
+    });
+    if (!dealer) {
+      throw new Error('Dealer not found');
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + data.durationMonths);
+
+    const warranty = await prisma.dealerWarranty.create({
+      data: {
+        tenantId: dealer.tenantId,
+        dealerId,
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        manufacturer: data.manufacturer,
+        vehicleModel: data.vehicleModel,
+        vehicleYear: data.vehicleYear,
+        chassisNumber: data.chassisNumber,
+        plateNumber: data.plateNumber,
+        mileage: data.mileage,
+        color: data.color,
+        durationMonths: data.durationMonths,
+        amountPaid: data.amountPaid,
+        startDate,
+        endDate,
+        pdfUrl: data.pdfUrl,
+      },
+    });
+
+    // Generate PDF and send WhatsApp notification
+    try {
+      const pdfResult = await generateWarrantyPdf(warranty, dealer);
+
+      // Update warranty with PDF URL
+      await prisma.dealerWarranty.update({
+        where: { id: warranty.id },
+        data: { pdfUrl: pdfResult.pdfUrl },
+      });
+
+      // Send WhatsApp notification
+      const whatsappService = new WhatsAppService();
+      const waResult = await whatsappService.sendWarrantyNotification({
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        vehicleModel: data.vehicleModel,
+        plateNumber: data.plateNumber,
+        durationMonths: data.durationMonths,
+        pdfBase64: pdfResult.base64,
+      });
+
+      if (!waResult.success) {
+        Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
+      }
+    } catch (err) {
+      Logger.error('Error generating PDF or sending WhatsApp for warranty', err);
+    }
+
+    return prisma.dealerWarranty.findUnique({
+      where: { id: warranty.id },
+    });
+  }
+
+  async getDealerWarranties(dealerId: string) {
+    return prisma.dealerWarranty.findMany({
+      where: { dealerId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      include: { dealer: { select: { name: true, companyName: true } } },
+    });
+  }
+
+  async getWarrantyById(id: string, dealerId: string) {
+    return prisma.dealerWarranty.findFirst({
+      where: { id, dealerId, deletedAt: null },
+      include: { dealer: { select: { name: true, companyName: true, phone: true } } },
+    });
+  }
+
+  async getDealerStats(dealerId: string) {
+    const [totalWarranties, activeWarranties, uniqueCustomers, totalRevenue] = await Promise.all([
+      prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null } }),
+      prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null, endDate: { gte: new Date() } } }),
+      prisma.dealerWarranty.groupBy({
+        by: ['customerPhone'],
+        where: { dealerId, deletedAt: null },
+      }),
+      prisma.dealerWarranty.aggregate({
+        where: { dealerId, deletedAt: null },
+        _sum: { amountPaid: true },
+      }),
+    ]);
+
+    return {
+      totalWarranties,
+      activeWarranties,
+      totalCustomers: uniqueCustomers.length,
+      totalRevenue: totalRevenue._sum.amountPaid || 0,
+    };
   }
 }

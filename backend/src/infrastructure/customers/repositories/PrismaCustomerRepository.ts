@@ -17,12 +17,11 @@ export class PrismaCustomerRepository implements CustomerRepository {
   }
 
   async findByPhoneAndTenantId(phone: PhoneNumber, tenantId: string): Promise<Customer | null> {
-    const customer = await prisma.customer.findUnique({
+    const customer = await prisma.customer.findFirst({
       where: {
-        tenantId_phone: {
-          tenantId,
-          phone: phone.getValue(),
-        },
+        tenantId,
+        phone: phone.getValue(),
+        deletedAt: null,
       },
     });
 

@@ -29,6 +29,7 @@
     "@bull-board/api": "^7.1.5",
     "@bull-board/express": "^7.1.5",
     "@prisma/client": "^5.22.0",
+    "@tauri-apps/plugin-http": "^2.5.9",
     "@types/compression": "^1.8.1",
     "@types/multer": "^2.1.0",
     "@types/pdfkit": "^0.17.6",

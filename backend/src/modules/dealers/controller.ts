@@ -10,6 +10,26 @@ export class DealerController {
     this.dealerService = new DealerService();
   }
 
+  register = async (req: Request, res: Response) => {
+    try {
+      const result = await this.dealerService.register(req.body);
+      res.status(201).json(result);
+    } catch (error: any) {
+      Logger.error('Dealer register error', error);
+      res.status(400).json({ error: error.message || 'Failed to register dealer' });
+    }
+  };
+
+  login = async (req: Request, res: Response) => {
+    try {
+      const result = await this.dealerService.login(req.body);
+      res.json(result);
+    } catch (error: any) {
+      Logger.error('Dealer login error', error);
+      res.status(400).json({ error: error.message || 'Login failed' });
+    }
+  };
+
   createDealer = async (req: AuthRequest, res: Response) => {
     try {
       const dealer = await this.dealerService.createDealer(req.user!.tenantId, req.body);
@@ -51,10 +71,21 @@ export class DealerController {
       if (!dealer) {
         return res.status(404).json({ error: 'Dealer not found' });
       }
-      res.json({ dealer });
+      res.json(dealer);
     } catch (error) {
       Logger.error('Get dealer error', error);
       res.status(500).json({ error: 'Failed to fetch dealer' });
+    }
+  };
+
+  getDealerWarranties = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const warranties = await this.dealerService.getDealerWarranties(id);
+      res.json({ data: warranties });
+    } catch (error: any) {
+      Logger.error('Get dealer warranties error', error);
+      res.status(500).json({ error: 'Failed to fetch warranties' });
     }
   };
 
@@ -91,6 +122,66 @@ export class DealerController {
     } catch (error) {
       Logger.error('Search dealers error', error);
       res.status(500).json({ error: 'Failed to search dealers' });
+    }
+  };
+
+  createWarranty = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const warranty = await this.dealerService.createWarranty(dealerId, req.body);
+      res.status(201).json({ warranty });
+    } catch (error: any) {
+      Logger.error('Create warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to create warranty' });
+    }
+  };
+
+  getMyWarranties = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const warranties = await this.dealerService.getDealerWarranties(dealerId);
+      res.json({ warranties });
+    } catch (error: any) {
+      Logger.error('Get warranties error', error);
+      res.status(500).json({ error: 'Failed to fetch warranties' });
+    }
+  };
+
+  getWarrantyById = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const { id } = req.params;
+      const warranty = await this.dealerService.getWarrantyById(id, dealerId);
+      if (!warranty) {
+        return res.status(404).json({ error: 'Warranty not found' });
+      }
+      res.json({ warranty });
+    } catch (error: any) {
+      Logger.error('Get warranty error', error);
+      res.status(500).json({ error: 'Failed to fetch warranty' });
+    }
+  };
+
+  getDealerStats = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const stats = await this.dealerService.getDealerStats(dealerId);
+      res.json(stats);
+    } catch (error: any) {
+      Logger.error('Get dealer stats error', error);
+      res.status(500).json({ error: 'Failed to fetch stats' });
     }
   };
 }

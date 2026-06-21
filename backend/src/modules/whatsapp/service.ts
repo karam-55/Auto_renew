@@ -56,11 +56,13 @@ export class WhatsAppService {
       return { success: false, error: 'WhatsApp not enabled' };
     }
 
+    const formattedNumber = this.formatPhoneNumber(message.to);
+
     try {
       const response = await axios.post(
         `${this.config.apiUrl}/message/sendText/${this.config.instanceName}`,
         {
-          number: message.to,
+          number: formattedNumber,
           text: message.message,
         },
         {
@@ -339,16 +341,107 @@ ${reminder.garageName}`;
   // HELPER METHODS
   // ============================================
 
-  private formatPhoneNumber(phone: string): string {
+  private formatPhoneNumber(phone: string | null | undefined): string {
+    if (!phone) {
+      throw new Error('Phone number is required but was not provided');
+    }
+
     // Remove any non-digit characters
     let cleaned = phone.replace(/\D/g, '');
-    
+
+    if (!cleaned || cleaned.length < 7) {
+      throw new Error(`Invalid phone number: ${phone}`);
+    }
+
+    // Remove leading 0 if present (local format: 09xx → international: 9639xx)
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+
     // Add country code if not present (assuming Syria: +963)
     if (!cleaned.startsWith('963')) {
       cleaned = '963' + cleaned;
     }
-    
+
     return cleaned;
+  }
+
+  async sendMedia(data: { to: string; mediaBase64: string; fileName: string; caption?: string; mimeType?: string }): Promise<WhatsAppNotificationResult> {
+    if (!this.isEnabled()) {
+      Logger.debug('WhatsApp is not enabled or not configured');
+      return { success: false, error: 'WhatsApp not enabled' };
+    }
+
+    const formattedNumber = this.formatPhoneNumber(data.to);
+
+    try {
+      const response = await axios.post(
+        `${this.config.apiUrl}/message/sendMedia/${this.config.instanceName}`,
+        {
+          number: formattedNumber,
+          mediatype: 'document',
+          media: data.mediaBase64,
+          fileName: data.fileName,
+          caption: data.caption || '',
+          mimetype: data.mimeType || 'application/pdf',
+        },
+        {
+          headers: {
+            'apikey': this.config.apiKey,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data && response.data.key) {
+        Logger.debug('WhatsApp media sent successfully', { messageId: response.data.key.id });
+        return { success: true, messageId: response.data.key.id };
+      }
+
+      return { success: false, error: 'Invalid response from WhatsApp API' };
+    } catch (error) {
+      Logger.error('Error sending WhatsApp media', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async sendWarrantyNotification(data: {
+    customerName: string;
+    customerPhone: string;
+    vehicleModel: string;
+    plateNumber: string;
+    durationMonths: number;
+    pdfBase64: string;
+  }): Promise<WhatsAppNotificationResult> {
+    const textMessage = `🛡️ *تم تسجيل كفالتك بنجاح*
+
+مرحباً ${data.customerName}،
+
+تم تسجيل كفالة سيارتك (${data.vehicleModel} - ${data.plateNumber}) لمدة ${data.durationMonths} شهر.
+
+تجد ملف الكفالة مرفق أدناه.
+
+شكراً لثقتك بـ Auto Renew 🚗`;
+
+    const textResult = await this.sendMessage({
+      to: data.customerPhone,
+      message: textMessage,
+    });
+
+    const mediaResult = await this.sendMedia({
+      to: data.customerPhone,
+      mediaBase64: data.pdfBase64,
+      fileName: 'warranty_certificate.pdf',
+      caption: 'شهادة كفالة Auto Renew',
+    });
+
+    return {
+      success: textResult.success || mediaResult.success,
+      messageId: mediaResult.messageId || textResult.messageId,
+      error: !textResult.success && !mediaResult.success
+        ? `Text: ${textResult.error}, Media: ${mediaResult.error}`
+        : undefined,
+    };
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {

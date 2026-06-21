@@ -103,7 +103,7 @@ model Customer {
   bookings Booking[]
   invoices Invoice[]
 
-  @@unique([tenantId, phone])
+  @@index([tenantId, phone])
   @@index([tenantId])
   @@index([phone])
 }

@@ -448,20 +448,28 @@ export class BookingService {
     }
 
     // Send WhatsApp notification for booking confirmation
-    try {
-      await this.whatsappService.sendBookingConfirmation({
-        customerName: customer.fullName,
-        customerPhone: customer.phone,
+    const customerPhone = booking.customer?.phone || customer.phone;
+    if (customerPhone) {
+      try {
+        await this.whatsappService.sendBookingConfirmation({
+          customerName: booking.customer?.fullName || customer.fullName,
+          customerPhone,
+          bookingId: booking.id,
+          vehicleMake: vehicle.make,
+          vehicleModel: vehicle.model,
+          scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
+          status: booking.status,
+          garageName: 'Garage Go',
+        });
+      } catch (error) {
+        Logger.error('Error sending WhatsApp booking confirmation:', error);
+        // Don't fail the booking creation if WhatsApp fails
+      }
+    } else {
+      Logger.warn('Cannot send WhatsApp notification: customer phone is missing', {
         bookingId: booking.id,
-        vehicleMake: vehicle.make,
-        vehicleModel: vehicle.model,
-        scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
-        status: booking.status,
-        garageName: 'Garage Go',
+        customerId: booking.customerId,
       });
-    } catch (error) {
-      Logger.error('Error sending WhatsApp booking confirmation:', error);
-      // Don't fail the booking creation if WhatsApp fails
     }
 
     // Send FCM notification to assigned mechanic

@@ -22,6 +22,7 @@ model Tenant {
   companySettings          CompanySettings?
   customers                Customer[]
   dealers                  Dealer[]
+  dealerWarranties         DealerWarranty[]
   departments              Department[]
   documents                Document[]
   employees                Employee[]
@@ -107,7 +108,7 @@ model Customer {
   customerWallet           CustomerWallet?
   deletedAt                DateTime?
 
-  @@unique([tenantId, phone])
+  @@index([tenantId, phone])
   @@index([tenantId])
   @@index([phone])
   @@index([fullName])
@@ -2769,23 +2770,56 @@ model RolePermission {
 }
 
 model Dealer {
-  id          String        @id @default(uuid())
+  id          String          @id @default(uuid())
   tenantId    String
   name        String
   phone       String
+  companyName String
   address     String?
   city        String?
   taxId       String?
   notes       String?
-  status      DealerStatus  @default(ACTIVE)
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status      DealerStatus    @default(ACTIVE)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warranties  DealerWarranty[]
   deletedAt   DateTime?
 
   @@index([tenantId])
   @@index([status])
+  @@index([isActive])
+}
+
+model DealerWarranty {
+  id              String   @id @default(uuid())
+  tenantId        String
+  dealerId        String
+  customerName    String
+  customerPhone   String
+  manufacturer    String
+  vehicleModel    String
+  vehicleYear     Int
+  chassisNumber   String
+  plateNumber     String
+  mileage         Int
+  color           String
+  durationMonths  Int
+  amountPaid      Decimal  @db.Decimal(12, 2)
+  startDate       DateTime @default(now())
+  endDate         DateTime
+  pdfUrl          String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  dealer          Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deletedAt       DateTime?
+
+  @@index([tenantId])
+  @@index([dealerId])
+  @@index([customerPhone])
   @@index([isActive])
 }
 

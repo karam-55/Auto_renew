@@ -15,6 +15,7 @@ import membershipRoutes from './membership.routes';
 import branchRoutes from './branch.routes';
 import analyticsRoutes from './analytics.routes';
 import aiRoutes from './ai.routes';
+import rbacRoutes from './rbac.routes';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/memberships', membershipRoutes);
 router.use('/branches', branchRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/ai', aiRoutes);
+router.use('/rbac', rbacRoutes);
 
 export default router;

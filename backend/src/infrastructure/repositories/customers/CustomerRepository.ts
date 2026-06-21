@@ -22,12 +22,11 @@ export class CustomerRepository implements ICustomerRepository {
   async findByPhoneAndTenantId(phone: PhoneNumber, tenantId: string): Promise<Customer | null> {
     try {
       const prisma = PrismaService.getInstance();
-      const customer = await prisma.customer.findUnique({
+      const customer = await prisma.customer.findFirst({
         where: {
-          tenantId_phone: {
-            tenantId,
-            phone: phone.getValue(),
-          },
+          tenantId,
+          phone: phone.getValue(),
+          deletedAt: null,
         },
       });
       if (!customer) return null;
