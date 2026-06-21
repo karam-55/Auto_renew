@@ -1,4 +1,5 @@
 import { PrismaClient, DealerStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
@@ -8,7 +9,7 @@ const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export class DealerService {
-  async register(data: { name: string; phone: string; companyName: string; address?: string; tenantId: string }) {
+  async register(data: { name: string; phone: string; password: string; companyName: string; address?: string; tenantId: string }) {
     const existing = await prisma.dealer.findFirst({
       where: { phone: data.phone, deletedAt: null },
     });
@@ -16,10 +17,13 @@ export class DealerService {
       throw new Error('Phone already registered');
     }
 
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
     const dealer = await prisma.dealer.create({
       data: {
         name: data.name,
         phone: data.phone,
+        password: hashedPassword,
         companyName: data.companyName,
         address: data.address,
         tenantId: data.tenantId,
@@ -28,35 +32,42 @@ export class DealerService {
       },
     });
 
+    const { password: _, ...dealerWithoutPassword } = dealer as any;
     const token = jwt.sign(
       { dealerId: dealer.id, tenantId: dealer.tenantId },
       JWT_SECRET,
       { expiresIn: '30d' }
     );
 
-    return { dealer, token };
+    return { dealer: dealerWithoutPassword, token };
   }
 
-  async login(data: { phone: string }) {
+  async login(data: { phone: string; password: string }) {
     const dealer = await prisma.dealer.findFirst({
       where: { phone: data.phone, deletedAt: null },
     });
 
     if (!dealer) {
-      throw new Error('Dealer not found');
+      throw new Error('Invalid phone or password');
+    }
+
+    const valid = await bcrypt.compare(data.password, dealer.password);
+    if (!valid) {
+      throw new Error('Invalid phone or password');
     }
 
     if (dealer.status !== DealerStatus.ACTIVE) {
       throw new Error('Account is not active');
     }
 
+    const { password: _, ...dealerWithoutPassword } = dealer as any;
     const token = jwt.sign(
       { dealerId: dealer.id, tenantId: dealer.tenantId },
       JWT_SECRET,
       { expiresIn: '30d' }
     );
 
-    return { dealer, token };
+    return { dealer: dealerWithoutPassword, token };
   }
 
   async createDealer(tenantId: string, data: any) {

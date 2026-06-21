@@ -13,6 +13,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   final _companyCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   bool _loading = false;
@@ -20,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (_nameCtrl.text.isEmpty ||
         _phoneCtrl.text.isEmpty ||
+        _passwordCtrl.text.isEmpty ||
         _companyCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('يرجى ملء جميع الحقول المطلوبة')),
@@ -31,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await ApiService.register({
         'name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
+        'password': _passwordCtrl.text,
         'companyName': _companyCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),
         'tenantId': 'default',
@@ -77,6 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _buildField(_nameCtrl, 'اسم الوكيل', Icons.person),
                 const SizedBox(height: 12),
                 _buildField(_phoneCtrl, 'رقم الهاتف', Icons.phone, type: TextInputType.phone),
+                const SizedBox(height: 12),
+                _buildField(_passwordCtrl, 'كلمة المرور', Icons.lock, obscure: true),
                 const SizedBox(height: 12),
                 _buildField(_companyCtrl, 'اسم الشركة / المكتب', Icons.business),
                 const SizedBox(height: 12),

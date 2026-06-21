@@ -2773,7 +2773,8 @@ model Dealer {
   id          String          @id @default(uuid())
   tenantId    String
   name        String
-  phone       String
+  phone       String          @unique
+  password    String
   companyName String
   address     String?
   city        String?

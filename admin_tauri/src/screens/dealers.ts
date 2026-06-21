@@ -122,7 +122,8 @@ export class DealersScreen {
           <h3 class="font-headline-md text-on-surface font-semibold mb-4">وكيل جديد</h3>
           <input id="dealer-name" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="اسم الوكيل *" required />
           <input id="dealer-company" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="اسم الشركة *" />
-          <input id="dealer-phone" type="tel" pattern="^09[0-9]{8}$" title="09XXXXXXXX" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="رقم الهاتف" />
+          <input id="dealer-phone" type="tel" pattern="^09[0-9]{8}$" title="09XXXXXXXX" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="رقم الهاتف *" />
+          <input id="dealer-password" type="password" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="كلمة المرور *" />
           <input id="dealer-address" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-4" placeholder="العنوان" />
           <div class="flex justify-end gap-2">
             <button id="dealer-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>
@@ -136,12 +137,15 @@ export class DealersScreen {
         const name = (modal!.querySelector('#dealer-name') as HTMLInputElement)?.value.trim()
         const companyName = (modal!.querySelector('#dealer-company') as HTMLInputElement)?.value.trim()
         const phone = (modal!.querySelector('#dealer-phone') as HTMLInputElement)?.value.trim()
+        const password = (modal!.querySelector('#dealer-password') as HTMLInputElement)?.value
         const address = (modal!.querySelector('#dealer-address') as HTMLInputElement)?.value.trim()
         if (!name) { ;(window as any).toast?.show?.({ message: 'اسم الوكيل مطلوب', type: 'warning' }); return }
         if (!companyName) { ;(window as any).toast?.show?.({ message: 'اسم الشركة مطلوب', type: 'warning' }); return }
-        if (phone && !isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف غير صالح', type: 'warning' }); return }
+        if (!phone) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف مطلوب', type: 'warning' }); return }
+        if (!password) { ;(window as any).toast?.show?.({ message: 'كلمة المرور مطلوبة', type: 'warning' }); return }
+        if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف غير صالح', type: 'warning' }); return }
         try {
-          const res: any = await this.api.post('/api/dealers', { name, companyName, phone: phone || undefined, address: address || undefined, tenantId: 'default' })
+          const res: any = await this.api.post('/api/dealers', { name, companyName, phone, password, address: address || undefined, tenantId: 'default' })
           if (res.success || res.id) {
             modal!.classList.add('hidden'); modal!.classList.remove('flex')
             modal!.querySelectorAll('input').forEach(i => i.value = '')
@@ -162,10 +166,10 @@ export class DealersScreen {
         this.renderStats(el)
         this.renderRows(el, this.items)
       } else {
-        el.querySelector('#table-tbody')!.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-error font-body-md">لا توجد بيانات</td></tr>'
+        el.querySelector('#table-tbody')!.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-error font-body-md">لا توجد بيانات</td></tr>'
       }
     } catch {
-      el.querySelector('#table-tbody')!.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ في الاتصال</td></tr>'
+      el.querySelector('#table-tbody')!.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ في الاتصال</td></tr>'
     }
   }
 

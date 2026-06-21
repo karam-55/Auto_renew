@@ -12,18 +12,19 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _loading = false;
 
   Future<void> _login() async {
-    if (_phoneCtrl.text.isEmpty) {
+    if (_phoneCtrl.text.isEmpty || _passwordCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال رقم الهاتف')),
+        const SnackBar(content: Text('يرجى ملء جميع الحقول')),
       );
       return;
     }
     setState(() => _loading = true);
     try {
-      await ApiService.login(_phoneCtrl.text.trim());
+      await ApiService.login(_phoneCtrl.text.trim(), _passwordCtrl.text);
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -65,6 +66,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 32),
                   _buildField(_phoneCtrl, 'رقم الهاتف', Icons.phone, TextInputType.phone),
+                  const SizedBox(height: 16),
+                  _buildField(_passwordCtrl, 'كلمة المرور', Icons.lock, TextInputType.text, obscure: true),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,

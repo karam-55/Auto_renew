@@ -57,11 +57,11 @@ class ApiService {
     throw Exception(body['error'] ?? 'Registration failed');
   }
 
-  static Future<Map<String, dynamic>> login(String phone) async {
+  static Future<Map<String, dynamic>> login(String phone, String password) async {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.dealerLogin}'),
       headers: _headers(auth: false),
-      body: jsonEncode({'phone': phone}),
+      body: jsonEncode({'phone': phone, 'password': password}),
     );
     final body = jsonDecode(response.body);
     if (response.statusCode == 200) {
