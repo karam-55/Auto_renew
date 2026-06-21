@@ -74,7 +74,45 @@ export class LoyaltyScreen {
     `
     this.loadData(content)
     content.querySelector('#add-points-btn')?.addEventListener('click', () => {
-      alert('سيتم فتح نموذج إضافة النقاط قريباً')
+      let modal = content.querySelector('#loyalty-modal') as HTMLElement
+      if (!modal) {
+        modal = document.createElement('div')
+        modal.id = 'loyalty-modal'
+        modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+        modal.innerHTML = `
+          <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm p-6 m-4">
+            <h3 class="font-headline-md text-on-surface font-semibold mb-4">إضافة نقاط ولاء</h3>
+            <input id="loyalty-customer" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="اسم العميل أو رقم الموبايل" />
+            <input id="loyalty-points" type="number" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-4" placeholder="عدد النقاط" min="1" />
+            <div class="flex justify-end gap-2">
+              <button id="loyalty-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>
+              <button id="loyalty-save" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md hover:bg-primary-dark transition-colors">حفظ</button>
+            </div>
+          </div>
+        `
+        content.appendChild(modal)
+        modal.querySelector('#loyalty-cancel')?.addEventListener('click', () => { modal!.classList.add('hidden'); modal!.classList.remove('flex') })
+        modal.querySelector('#loyalty-save')?.addEventListener('click', async () => {
+          const customer = (modal!.querySelector('#loyalty-customer') as HTMLInputElement)?.value.trim()
+          const points = parseInt((modal!.querySelector('#loyalty-points') as HTMLInputElement)?.value || '0')
+          if (!customer) { ;(window as any).toast?.show?.({ message: 'يرجى إدخال اسم العميل', type: 'warning' }); return }
+          if (isNaN(points) || points <= 0) { ;(window as any).toast?.show?.({ message: 'النقاط يجب أن تكون أكبر من صفر', type: 'warning' }); return }
+          try {
+            const res: any = await this.api.post('/api/loyalty/add-points', { customerQuery: customer, points })
+            if (res.success) {
+              modal!.classList.add('hidden'); modal!.classList.remove('flex')
+              ;(modal!.querySelector('#loyalty-customer') as HTMLInputElement).value = ''
+              ;(modal!.querySelector('#loyalty-points') as HTMLInputElement).value = ''
+              this.loadData(content)
+              ;(window as any).toast?.show?.({ message: `تم إضافة ${points} نقطة بنجاح`, type: 'success' })
+            } else {
+              ;(window as any).toast?.show?.({ message: res.message || 'فشل الإضافة', type: 'error' })
+            }
+          } catch { ;(window as any).toast?.show?.({ message: 'حدث خطأ في الاتصال', type: 'error' }) }
+        })
+      }
+      modal.classList.remove('hidden')
+      modal.classList.add('flex')
     })
     return layout.render(content)
   }

@@ -102,7 +102,7 @@ export class BalanceSheetScreen {
         if (section?.accounts && section.accounts.length) {
           tb.innerHTML = section.accounts.map((a: any) => `
             <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-              <td class="px-4 py-3 font-body-md text-on-surface">${a.accountNameAr || a.accountName}</td>
+              <td class="px-4 py-3 font-body-md text-on-surface">${a.name || a.accountNameAr || '-'}</td>
               <td class="px-4 py-3 font-body-md text-on-surface">${fmt(a.balance)}</td>
             </tr>
           `).join('')

@@ -250,6 +250,15 @@ export class NotificationsScreen {
       this.showNewTaskModal(content)
     })
 
+    // Event delegation for mark-read buttons (performance fix)
+    content.querySelector('#alerts-list')?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.mark-read-btn') as HTMLButtonElement | null
+      if (btn) {
+        e.stopPropagation()
+        const id = btn.getAttribute('data-id')
+        if (id) this.markAsRead(content, id)
+      }
+    })
     // Load tasks when tab is clicked (lazy load)
     content.querySelectorAll('#notif-tabs button[data-tab]').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -353,10 +362,10 @@ export class NotificationsScreen {
               </div>
               <div class="flex-1">
                 <div class="flex justify-between items-start mb-1">
-                  <h3 class="font-headline-md text-lg text-on-surface">${n.title || n.titleAr || '-'}</h3>
+                  <h3 class="font-headline-md text-lg text-on-surface">${n.title || '-'}</h3>
                   <span class="text-xs text-text-tertiary">${time}</span>
                 </div>
-                <p class="text-text-secondary font-body-md text-sm mb-3">${n.body || n.bodyAr || '-'}</p>
+                <p class="text-text-secondary font-body-md text-sm mb-3">${n.body || '-'}</p>
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     <span class="bg-${cfg.color}/10 text-${cfg.color} px-2.5 py-1 rounded-full font-label-sm text-xs flex items-center gap-1">
@@ -372,15 +381,6 @@ export class NotificationsScreen {
       }).join('')
 
       this.updateSidebarSummary(content, highCount, medCount, infoCount)
-
-      // Bind mark-as-read buttons
-      list.querySelectorAll('.mark-read-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation()
-          const id = btn.getAttribute('data-id')
-          if (id) await this.markAsRead(content, id)
-        })
-      })
 
     } catch (e) {
       console.error('Failed to load notifications:', e)
@@ -577,7 +577,48 @@ export class NotificationsScreen {
     }
   }
 
-  private showNewTaskModal(_content: HTMLElement) {
-    alert('سيتم فتح نموذج إنشاء مهمة جديدة (يتطلب تطوير backend)')
+  private showNewTaskModal(content: HTMLElement) {
+    let modal = content.querySelector('#task-modal') as HTMLElement
+    if (!modal) {
+      modal = document.createElement('div')
+      modal.id = 'task-modal'
+      modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm p-6 m-4">
+          <h3 class="font-headline-md text-on-surface font-semibold mb-4">مهمة جديدة</h3>
+          <input id="task-title" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-4" placeholder="عنوان المهمة" required />
+          <div class="flex justify-end gap-2">
+            <button id="task-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>
+            <button id="task-save" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md hover:bg-primary-dark transition-colors">حفظ</button>
+          </div>
+        </div>
+      `
+      content.appendChild(modal)
+      modal.querySelector('#task-cancel')?.addEventListener('click', () => {
+        modal!.classList.add('hidden')
+        modal!.classList.remove('flex')
+      })
+      modal.querySelector('#task-save')?.addEventListener('click', async () => {
+        const title = (modal!.querySelector('#task-title') as HTMLInputElement)?.value.trim()
+        if (!title) { ;(window as any).toast?.show?.({ message: 'عنوان المهمة مطلوب', type: 'warning' }); return }
+        try {
+          const res: any = await this.api.post('/api/tasks', { title, status: 'PENDING' })
+          if (res.success || res.id) {
+            modal!.classList.add('hidden'); modal!.classList.remove('flex')
+            ;(modal!.querySelector('#task-title') as HTMLInputElement).value = ''
+            this.loadTasks(content, this.getActiveTab(content))
+          } else {
+            ;(window as any).toast?.show?.({ message: res.message || 'فشل الإنشاء', type: 'error' })
+          }
+        } catch { ;(window as any).toast?.show?.({ message: 'حدث خطأ في الاتصال', type: 'error' }) }
+      })
+    }
+    modal.classList.remove('hidden')
+    modal.classList.add('flex')
+  }
+
+  private getActiveTab(content: HTMLElement): string {
+    const activeBtn = content.querySelector('[data-task-tab].bg-primary\/10') as HTMLElement
+    return activeBtn?.dataset.taskTab || 'pending'
   }
 }

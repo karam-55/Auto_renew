@@ -45,7 +45,7 @@ export const step1Template = `
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">رقم الهاتف</label>
-          <input id="step1-phone" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="09xxxxxxxx" dir="ltr" />
+          <input id="step1-phone" type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="09xxxxxxxx" dir="ltr" />
         </div>
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">الرقم الضريبي</label>
@@ -267,14 +267,18 @@ export const step6Template = `
       <p class="text-body-md text-text-secondary mt-1">أضف مستخدمي النظام الأساسيين</p>
     </div>
     <div class="bg-surface rounded-xl shadow-sm border border-border p-6 space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">الاسم الكامل <span class="text-error">*</span></label>
-          <input id="user-fullName" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="اسم المستخدم" />
+          <input id="user-fullName" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="اسم المستخدم" required />
         </div>
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">رقم الموبايل <span class="text-error">*</span></label>
-          <input id="user-phone" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="09xxxxxxxx" dir="ltr" />
+          <input id="user-phone" type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="09xxxxxxxx" dir="ltr" required />
+        </div>
+        <div>
+          <label class="block font-label-sm text-text-tertiary mb-2">كلمة المرور <span class="text-error">*</span></label>
+          <input id="user-password" type="password" minlength="6" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="******" required />
         </div>
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">الدور</label>

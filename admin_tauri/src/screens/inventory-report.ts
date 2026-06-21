@@ -96,7 +96,7 @@ export class InventoryReportScreen {
       if (fastTB && d.fastMovingItems && d.fastMovingItems.length) {
         fastTB.innerHTML = d.fastMovingItems.map((item: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${item.partName}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${item.name || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(item.totalSold)}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(item.totalRevenueSYP)}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${(item.turnoverRate || 0).toFixed(1)}%</td>
@@ -110,8 +110,8 @@ export class InventoryReportScreen {
       if (lowTB && d.lowStockItems && d.lowStockItems.length) {
         lowTB.innerHTML = d.lowStockItems.map((item: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${item.partName}</td>
-            <td class="px-4 py-3 font-body-md text-on-surface">${item.partCode}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${item.name || '-'}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${item.partNumber || '-'}</td>
             <td class="px-4 py-3 font-body-md text-error">${fmt(item.currentQuantity)}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(item.minQuantity)}</td>
           </tr>

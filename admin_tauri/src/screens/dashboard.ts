@@ -52,7 +52,7 @@ export class DashboardScreen {
             <div class="flex justify-between items-start mb-4">
               <div>
                 <p class="font-label-sm text-on-surface-variant mb-1">إجمالي الحجوزات</p>
-                <h3 class="font-headline-lg text-on-surface" id="kpi-bookings"><span class="skeleton-shimmer inline-block w-16 h-8 rounded"></span></h3>
+                <h3 class="font-headline-lg text-on-surface" id="kpi-bookings"><span class="skeleton skeleton-text-lg inline-block w-16"></span></h3>
               </div>
               <div class="w-14 h-14 rounded-2xl bg-primary-container/10 flex items-center justify-center text-primary">
                 <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
@@ -60,9 +60,10 @@ export class DashboardScreen {
             </div>
             <div class="flex items-center gap-2 text-sm" id="kpi-bookings-trend">
               <span class="flex items-center gap-1 text-tertiary font-semibold bg-tertiary/10 px-3 py-1 rounded-full">
-                <span class="material-symbols-outlined text-[16px]">trending_up</span> --
+                <span class="material-symbols-outlined text-[16px]" id="kpi-bookings-trend-icon">trending_up</span>
+                <span id="kpi-bookings-trend-val">--</span>
               </span>
-              <span class="text-on-surface-variant">مقارنة بالشهر الماضي</span>
+              <span class="text-on-surface-variant">مقارنة بالأمس</span>
             </div>
           </div>
           <!-- KPI 2: Revenue -->
@@ -70,7 +71,7 @@ export class DashboardScreen {
             <div class="flex justify-between items-start mb-4">
               <div>
                 <p class="font-label-sm text-on-surface-variant mb-1">إيرادات اليوم</p>
-                <h3 class="text-financial-data font-headline-lg text-on-surface" id="kpi-revenue"><span class="skeleton-shimmer inline-block w-20 h-8 rounded"></span></h3>
+                <h3 class="text-financial-data font-headline-lg text-on-surface" id="kpi-revenue"><span class="skeleton skeleton-text-lg inline-block w-20"></span></h3>
                 <span class="text-on-surface-variant text-sm">ل.س</span>
               </div>
               <div class="w-14 h-14 rounded-2xl bg-secondary-container/10 flex items-center justify-center text-secondary">
@@ -79,17 +80,18 @@ export class DashboardScreen {
             </div>
             <div class="flex items-center gap-2 text-sm" id="kpi-revenue-trend">
               <span class="flex items-center gap-1 text-tertiary font-semibold bg-tertiary/10 px-3 py-1 rounded-full">
-                <span class="material-symbols-outlined text-[16px]">trending_up</span> --
+                <span class="material-symbols-outlined text-[16px]" id="kpi-revenue-trend-icon">trending_up</span>
+                <span id="kpi-revenue-trend-val">--</span>
               </span>
               <span class="text-on-surface-variant">مقارنة بالأمس</span>
             </div>
           </div>
-          <!-- KPI 3: Mechanics -->
-          <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-info hover-lift-8 stagger-entry stagger-entry-3">
+          <!-- KPI 3: Technicians -->
+          <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-info hover-lift-8 cursor-pointer stagger-entry stagger-entry-3" data-route="/hr">
             <div class="flex justify-between items-start mb-4">
               <div>
-                <p class="font-label-sm text-on-surface-variant mb-1">الميكانيكيون النشطون</p>
-                <h3 class="font-headline-lg text-on-surface" id="kpi-mechanics"><span class="skeleton-shimmer inline-block w-16 h-8 rounded"></span></h3>
+                <p class="font-label-sm text-on-surface-variant mb-1">الفنيون</p>
+                <h3 class="font-headline-lg text-on-surface" id="kpi-mechanics"><span class="skeleton skeleton-text-lg inline-block w-16"></span></h3>
               </div>
               <div class="w-14 h-14 rounded-2xl bg-info/10 flex items-center justify-center text-info">
                 <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">engineering</span>
@@ -98,14 +100,14 @@ export class DashboardScreen {
             <div class="w-full bg-white/50 rounded-full h-2 mt-4 border border-glass-border">
               <div class="bg-info h-2 rounded-full transition-all duration-1000" id="kpi-mechanics-bar" style="width: 0%"></div>
             </div>
-            <p class="text-xs text-on-surface-variant mt-2" id="kpi-mechanics-trend">-- طاقة استيعابية</p>
+            <p class="text-xs text-on-surface-variant mt-2" id="kpi-mechanics-trend">-- نسبة التشغيل</p>
           </div>
           <!-- KPI 4: Overdue -->
           <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-error hover-lift-8 cursor-pointer stagger-entry stagger-entry-4" data-route="/invoices">
             <div class="flex justify-between items-start mb-4">
               <div>
                 <p class="font-label-sm text-on-surface-variant mb-1">الفواتير المتأخرة</p>
-                <h3 class="font-headline-lg text-error" id="kpi-overdue"><span class="skeleton-shimmer inline-block w-12 h-8 rounded"></span></h3>
+                <h3 class="font-headline-lg text-error" id="kpi-overdue"><span class="skeleton skeleton-text-lg inline-block w-12"></span></h3>
               </div>
               <div class="w-14 h-14 rounded-2xl bg-error/10 flex items-center justify-center text-error">
                 <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">warning</span>
@@ -146,17 +148,17 @@ export class DashboardScreen {
             <div class="mt-6 flex flex-col gap-3">
               <div class="flex items-center justify-between text-sm">
                 <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(5,150,105,0.5)]" style="background:#059669"></div>
-                  <span class="text-on-surface-variant">مكتمل (مدفوع)</span>
-                </div>
-                <span class="text-financial-data font-semibold" id="status-complete">65%</span>
-              </div>
-              <div class="flex items-center justify-between text-sm">
-                <div class="flex items-center gap-2">
                   <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(217,119,6,0.5)]" style="background:#D97706"></div>
                   <span class="text-on-surface-variant">قيد الانتظار</span>
                 </div>
-                <span class="text-financial-data font-semibold" id="status-pending">25%</span>
+                <span class="text-financial-data font-semibold" id="status-pending">0%</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(113,42,226,0.5)]" style="background:#712ae2"></div>
+                  <span class="text-on-surface-variant">مؤكد</span>
+                </div>
+                <span class="text-financial-data font-semibold" id="status-confirmed">0%</span>
               </div>
               <div class="flex items-center justify-between text-sm">
                 <div class="flex items-center gap-2">
@@ -164,6 +166,27 @@ export class DashboardScreen {
                   <span class="text-on-surface-variant">قيد العمل</span>
                 </div>
                 <span class="text-financial-data font-semibold" id="status-inprogress">0%</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.5)]" style="background:#F59E0B"></div>
+                  <span class="text-on-surface-variant">بانتظار المواد</span>
+                </div>
+                <span class="text-financial-data font-semibold" id="status-waiting">0%</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.5)]" style="background:#06B6D4"></div>
+                  <span class="text-on-surface-variant">جاهز</span>
+                </div>
+                <span class="text-financial-data font-semibold" id="status-ready">0%</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(5,150,105,0.5)]" style="background:#059669"></div>
+                  <span class="text-on-surface-variant">مكتمل</span>
+                </div>
+                <span class="text-financial-data font-semibold" id="status-complete">0%</span>
               </div>
               <div class="flex items-center justify-between text-sm">
                 <div class="flex items-center gap-2">
@@ -239,16 +262,19 @@ export class DashboardScreen {
       </button>
     `
 
-    this.loadData(content)
-
-    content.querySelectorAll('[data-route]').forEach(el => {
-      el.addEventListener('click', (e) => {
+    // Single event delegation for [data-route] elements (performance fix)
+    content.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest('[data-route]') as HTMLElement | null
+      if (target) {
         e.preventDefault()
         e.stopPropagation()
-        const route = el.getAttribute('data-route')
+        const route = target.getAttribute('data-route')
         if (route) this.router.navigate(route)
-      })
+      }
     })
+
+    this.loadData(content)
+
     content.querySelector('#revenue-more')?.addEventListener('click', () => this.router.navigate('/reports/revenue'))
     content.querySelector('#status-more')?.addEventListener('click', () => this.router.navigate('/bookings'))
     content.querySelector('#view-all-activity')?.addEventListener('click', () => this.router.navigate('/notifications'))
@@ -275,8 +301,11 @@ export class DashboardScreen {
         this.api.get<any>('/api/bookings?limit=5'),
       ])
 
+      console.log('[Dashboard] kpiRes:', kpiRes)
+      console.log('[Dashboard] bookingsRes:', bookingsRes)
+
       if (!kpiRes.success || !kpiRes.data) {
-        throw new Error('Failed to load KPI data')
+        throw new Error(`Failed to load KPI data: ${kpiRes.message || 'unknown'}`)
       }
 
       const d = kpiRes.data
@@ -294,7 +323,11 @@ export class DashboardScreen {
       const barWidth = Math.round(((d.activeMechanics || 0) / totalMech) * 100)
       const bar = el.querySelector('#kpi-mechanics-bar') as HTMLElement
       if (bar) bar.style.width = `${barWidth}%`
-      this.setText(el, 'kpi-mechanics-trend', `${barWidth}% طاقة استيعابية`)
+      this.setText(el, 'kpi-mechanics-trend', `${barWidth}% نسبة التشغيل`)
+
+      // Real day-over-day trends from 7-day arrays
+      this._updateTrend(el, 'bookings', d.bookingsByDay)
+      this._updateTrend(el, 'revenue', d.revenueByDay, true)
 
       // KPI: Overdue
       this.setText(el, 'kpi-overdue', d.overdueInvoices?.toString() || '0')
@@ -320,15 +353,22 @@ export class DashboardScreen {
                     PENDING: { label: 'قيد الانتظار', color: 'text-warning bg-warning/10' },
                     CONFIRMED: { label: 'مؤكد', color: 'text-info bg-info/10' },
                     IN_PROGRESS: { label: 'قيد العمل', color: 'text-primary bg-primary/10' },
+                    WAITING_PARTS: { label: 'بانتظار المواد', color: 'text-amber-600 bg-amber-50' },
+                    READY: { label: 'جاهز', color: 'text-cyan-600 bg-cyan-50' },
+                    INVOICED: { label: 'تمت الفوترة', color: 'text-indigo-600 bg-indigo-50' },
+                    PAID: { label: 'مدفوع', color: 'text-emerald-600 bg-emerald-50' },
+                    DELIVERED: { label: 'تم التسليم', color: 'text-teal-600 bg-teal-50' },
                     COMPLETED: { label: 'مكتمل', color: 'text-tertiary bg-tertiary/10' },
                     CANCELLED: { label: 'ملغى', color: 'text-error bg-error/10' },
+                    NO_SHOW: { label: 'لم يحضر', color: 'text-gray-600 bg-gray-50' },
+                    NO_INVOICE_REQUIRED: { label: 'بدون فاتورة', color: 'text-slate-600 bg-slate-50' },
                   }
                   const s = statusMap[b.status] || { label: b.status, color: 'text-text-tertiary bg-surface-container' }
                   const date = b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('ar-SY') : '-'
                   return `
                     <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50 transition-colors cursor-pointer" data-route="/bookings">
-                      <td class="px-4 py-3 font-medium text-on-surface">${b.customer?.name || b.customerName || '-'}</td>
-                      <td class="px-4 py-3 text-text-tertiary">${b.vehicle?.plateNumber || b.vehiclePlate || '-'}</td>
+                      <td class="px-4 py-3 font-medium text-on-surface">${b.customer?.fullName || '-'}</td>
+                      <td class="px-4 py-3 text-text-tertiary">${b.vehicle?.licensePlate || '-'}</td>
                       <td class="px-4 py-3"><span class="${s.color} px-2 py-0.5 rounded-full text-xs font-medium">${s.label}</span></td>
                       <td class="px-4 py-3 text-text-tertiary">${date}</td>
                     </tr>
@@ -337,13 +377,6 @@ export class DashboardScreen {
               </tbody>
             </table>
           `
-          // Re-bind click handlers for the new rows
-          bookingsList.querySelectorAll('[data-route]').forEach(row => {
-            row.addEventListener('click', () => {
-              const route = row.getAttribute('data-route')
-              if (route) this.router.navigate(route)
-            })
-          })
         } else {
           bookingsList.innerHTML = `
             <div class="p-8 text-center">
@@ -352,7 +385,6 @@ export class DashboardScreen {
               <button class="mt-3 text-primary font-medium text-sm" data-route="/bookings/new">إنشاء حجز جديد</button>
             </div>
           `
-          bookingsList.querySelector('[data-route]')?.addEventListener('click', () => this.router.navigate('/bookings/new'))
         }
       }
 
@@ -463,13 +495,13 @@ export class DashboardScreen {
 
     // Define ALL known statuses with their labels and colors
     const statusDefs: { key: string; label: string; color: string }[] = [
-      { key: 'COMPLETED', label: 'مكتمل', color: '#059669' },
       { key: 'PENDING', label: 'قيد الانتظار', color: '#D97706' },
-      { key: 'IN_PROGRESS', label: 'قيد العمل', color: '#003594' },
-      { key: 'CANCELLED', label: 'ملغى', color: '#ba1a1a' },
       { key: 'CONFIRMED', label: 'مؤكد', color: '#712ae2' },
-      { key: 'DRAFT', label: 'مسودة', color: '#737685' },
-      { key: 'OVERDUE', label: 'متأخر', color: '#751f00' },
+      { key: 'IN_PROGRESS', label: 'قيد العمل', color: '#003594' },
+      { key: 'WAITING_PARTS', label: 'بانتظار المواد', color: '#F59E0B' },
+      { key: 'READY', label: 'جاهز', color: '#06B6D4' },
+      { key: 'COMPLETED', label: 'مكتمل', color: '#059669' },
+      { key: 'CANCELLED', label: 'ملغى', color: '#ba1a1a' },
     ]
 
     // Build chart data arrays preserving color→status binding
@@ -518,23 +550,14 @@ export class DashboardScreen {
       }
     })
 
-    // Update HTML legend percentages and hide items with 0 count
-    this.updateStatusLabel('status-complete', statusMap['COMPLETED'] || 0, total)
+    // Update HTML legend percentages (keep all visible even at 0%)
     this.updateStatusLabel('status-pending', statusMap['PENDING'] || 0, total)
+    this.updateStatusLabel('status-confirmed', statusMap['CONFIRMED'] || 0, total)
     this.updateStatusLabel('status-inprogress', statusMap['IN_PROGRESS'] || 0, total)
+    this.updateStatusLabel('status-waiting', statusMap['WAITING_PARTS'] || 0, total)
+    this.updateStatusLabel('status-ready', statusMap['READY'] || 0, total)
+    this.updateStatusLabel('status-complete', statusMap['COMPLETED'] || 0, total)
     this.updateStatusLabel('status-cancelled', statusMap['CANCELLED'] || 0, total)
-    this.toggleStatusItem('status-complete', statusMap['COMPLETED'] || 0)
-    this.toggleStatusItem('status-pending', statusMap['PENDING'] || 0)
-    this.toggleStatusItem('status-inprogress', statusMap['IN_PROGRESS'] || 0)
-    this.toggleStatusItem('status-cancelled', statusMap['CANCELLED'] || 0)
-  }
-
-  private toggleStatusItem(id: string, count: number) {
-    const el = document.getElementById(id)
-    if (el) {
-      const row = el.closest('div.flex.items-center.justify-between') as HTMLElement
-      if (row) row.style.display = count > 0 ? 'flex' : 'none'
-    }
   }
 
   private updateStatusLabel(id: string, val: number, total: number) {
@@ -544,11 +567,49 @@ export class DashboardScreen {
 
   private setText(el: HTMLElement, id: string, text: string) {
     const node = el.querySelector(`#${id}`)
-    if (node) node.textContent = text
+    if (node) {
+      node.textContent = text
+      node.querySelectorAll('.skeleton').forEach((sk: any) => {
+        sk.classList.remove('skeleton', 'skeleton-text', 'skeleton-text-sm', 'skeleton-text-lg', 'skeleton-title', 'skeleton-circle', 'skeleton-card', 'skeleton-row')
+      })
+    }
   }
 
   private fmtNumber(n: number): string {
     return n.toLocaleString('ar-SA')
+  }
+
+  private _updateTrend(
+    el: HTMLElement,
+    prefix: string,
+    arr: { date: string; amount?: number; count?: number }[] | undefined,
+    isAmount = false
+  ) {
+    if (!arr || arr.length < 2) return
+    const prev = arr[arr.length - 2]
+    const curr = arr[arr.length - 1]
+    const prevVal = isAmount ? (prev.amount || 0) : (prev.count || 0)
+    const currVal = isAmount ? (curr.amount || 0) : (curr.count || 0)
+
+    const iconEl = el.querySelector(`#kpi-${prefix}-trend-icon`) as HTMLElement
+    const valEl = el.querySelector(`#kpi-${prefix}-trend-val`) as HTMLElement
+    if (!iconEl || !valEl) return
+
+    if (prevVal === 0 && currVal === 0) {
+      iconEl.textContent = 'trending_flat'
+      valEl.textContent = '0%'
+      return
+    }
+
+    let pct = 0
+    if (prevVal === 0) {
+      pct = currVal > 0 ? 100 : 0
+    } else {
+      pct = Math.round(((currVal - prevVal) / prevVal) * 100)
+    }
+
+    iconEl.textContent = pct >= 0 ? 'trending_up' : 'trending_down'
+    valEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`
   }
 
 }

@@ -112,7 +112,7 @@ export class IncomeStatementScreen {
       if (revTB && d.revenue?.accounts && d.revenue.accounts.length) {
         revTB.innerHTML = d.revenue.accounts.map((a: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${a.accountNameAr || a.accountName}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${a.name || a.accountNameAr || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(a.amount)}</td>
           </tr>
         `).join('')
@@ -124,7 +124,7 @@ export class IncomeStatementScreen {
       if (expTB && d.expenses?.accounts && d.expenses.accounts.length) {
         expTB.innerHTML = d.expenses.accounts.map((a: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${a.accountNameAr || a.accountName}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${a.name || a.accountNameAr || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(a.amount)}</td>
           </tr>
         `).join('')
@@ -136,7 +136,7 @@ export class IncomeStatementScreen {
       if (cogsTB && d.cogs?.accounts && d.cogs.accounts.length) {
         cogsTB.innerHTML = d.cogs.accounts.map((a: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${a.accountNameAr || a.accountName}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${a.name || a.accountNameAr || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(a.amount)}</td>
           </tr>
         `).join('')

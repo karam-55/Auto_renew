@@ -117,7 +117,7 @@ export class RolesScreen {
                 <span class="material-symbols-outlined">shield</span>
               </div>
               <div>
-                <h3 class="font-headline-md text-on-surface font-semibold">${r.name || r.role || '-'}</h3>
+                <h3 class="font-headline-md text-on-surface font-semibold">${r.name || '-'}</h3>
                 <p class="text-text-tertiary text-xs">${r.description || ''}</p>
               </div>
             </div>
@@ -159,13 +159,13 @@ export class RolesScreen {
     overlay.innerHTML = `
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">
-          <h2 class="font-headline-md text-on-surface font-bold">تعديل الدور: ${role.name || role.role || ''}</h2>
+          <h2 class="font-headline-md text-on-surface font-bold">تعديل الدور: ${role.name || ''}</h2>
           <button class="text-text-tertiary hover:text-error transition-colors" id="modal-close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="space-y-3">
           <div>
             <label class="block font-label-sm text-text-tertiary mb-1">الاسم</label>
-            <input id="modal-name" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${role.name || role.role || ''}" readonly />
+            <input id="modal-name" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${role.name || ''}" readonly />
           </div>
           <div>
             <label class="block font-label-sm text-text-tertiary mb-1">الوصف</label>
@@ -202,11 +202,11 @@ export class RolesScreen {
           close()
           await this.loadRoles(content)
         } else {
-          alert(res.message || 'فشل الحفظ')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الحفظ', type: 'error' })
           if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ' }
         }
       } catch (err: any) {
-        alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
         if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ' }
       }
     })
@@ -224,8 +224,8 @@ export class RolesScreen {
         </div>
         <div class="space-y-3">
           <div>
-            <label class="block font-label-sm text-text-tertiary mb-1">الاسم</label>
-            <input id="role-name" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="مثال: SUPERVISOR" />
+            <label class="block font-label-sm text-text-tertiary mb-1">الاسم *</label>
+            <input id="role-name" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="مثال: SUPERVISOR" required />
           </div>
           <div>
             <label class="block font-label-sm text-text-tertiary mb-1">الوصف</label>
@@ -248,6 +248,8 @@ export class RolesScreen {
       const name = (overlay.querySelector('#role-name') as HTMLInputElement)?.value?.trim() || ''
       const description = (overlay.querySelector('#modal-desc') as HTMLInputElement)?.value?.trim() || ''
 
+      if (!name) { ;(window as any).toast?.show?.({ message: 'اسم الدور مطلوب', type: 'warning' }); return }
+
       const btn = overlay.querySelector('#save-role-btn') as HTMLButtonElement
       if (btn) { btn.disabled = true; btn.innerHTML = 'جاري الحفظ...' }
 
@@ -257,11 +259,11 @@ export class RolesScreen {
           close()
           await this.loadRoles(content)
         } else {
-          alert(res.message || 'فشل الإنشاء')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الإنشاء', type: 'error' })
           if (btn) { btn.disabled = false; btn.innerHTML = 'إنشاء' }
         }
       } catch (err: any) {
-        alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
         if (btn) { btn.disabled = false; btn.innerHTML = 'إنشاء' }
       }
     })

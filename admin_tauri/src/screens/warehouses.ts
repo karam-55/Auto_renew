@@ -39,9 +39,72 @@ export class WarehousesScreen {
     `
     this.loadData(content)
     content.querySelector('#new-warehouse-btn')?.addEventListener('click', () => {
-      this.router.navigate('/inventory/warehouses/new')
+      this.showAddModal(content)
     })
     return layout.render(content)
+  }
+
+  private showAddModal(el: HTMLElement) {
+    const existing = el.querySelector('#warehouse-modal')
+    if (existing) existing.remove()
+    const modal = document.createElement('div')
+    modal.id = 'warehouse-modal'
+    modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm'
+    modal.innerHTML = `
+      <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm mx-4 p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-headline-md text-on-surface font-bold">مستودع جديد</h2>
+          <button class="text-text-tertiary hover:text-error transition-colors" id="wh-modal-close"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">الاسم *</label>
+            <input id="wh-name" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" required />
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">العنوان</label>
+            <input id="wh-address" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">السعة</label>
+            <input id="wh-capacity" type="number" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="0" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button class="px-4 py-2 bg-surface-subtle text-on-surface rounded-lg text-sm font-medium border border-border" id="wh-modal-cancel">إلغاء</button>
+          <button class="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium" id="wh-save-btn">حفظ</button>
+        </div>
+      </div>
+    `
+    el.appendChild(modal)
+    const close = () => modal.remove()
+    modal.querySelector('#wh-modal-close')?.addEventListener('click', close)
+    modal.querySelector('#wh-modal-cancel')?.addEventListener('click', close)
+    modal.addEventListener('click', (e) => { if (e.target === modal) close() })
+    modal.querySelector('#wh-save-btn')?.addEventListener('click', async () => {
+      const name = (modal.querySelector('#wh-name') as HTMLInputElement)?.value?.trim() || ''
+      if (!name) { ;(window as any).toast?.show?.({ message: 'الاسم مطلوب', type: 'warning' }); return }
+      const btn = modal.querySelector('#wh-save-btn') as HTMLButtonElement
+      btn.disabled = true; btn.textContent = 'جاري...'
+      try {
+        const res = await this.api.post('/api/warehouses', {
+          name,
+          address: (modal.querySelector('#wh-address') as HTMLInputElement)?.value?.trim() || undefined,
+          capacity: parseInt((modal.querySelector('#wh-capacity') as HTMLInputElement)?.value || '0') || 0,
+        })
+        if (res.success) {
+          close()
+          ;(window as any).toast?.show?.({ message: 'تم إنشاء المستودع بنجاح', type: 'success' })
+          this.loadData(el)
+        } else {
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الإنشاء', type: 'error' })
+          btn.disabled = false; btn.textContent = 'حفظ'
+        }
+      } catch {
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ في الاتصال', type: 'error' })
+        btn.disabled = false; btn.textContent = 'حفظ'
+      }
+    })
   }
 
   private async loadData(el: HTMLElement) {

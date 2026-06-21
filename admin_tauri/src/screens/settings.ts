@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { isPhone } from '../utils/validation'
 
 export class SettingsScreen {
   private auth: AuthService
@@ -33,16 +34,16 @@ export class SettingsScreen {
           </div>
           <div class="p-6 space-y-4">
             <div>
-              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم المرآب</label>
-              <input id="setting-garage-name" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="اسم المرآب" />
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم المرآب *</label>
+              <input id="setting-garage-name" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="اسم المرآب" required />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">العنوان</label>
               <input id="setting-address" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="العنوان" />
             </div>
             <div>
-              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الهاتف</label>
-              <input id="setting-phone" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" dir="ltr" placeholder="+963 ..." />
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الهاتف *</label>
+              <input id="setting-phone" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" dir="ltr" placeholder="09XXXXXXXX" required type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" />
             </div>
           </div>
         </div>
@@ -63,11 +64,11 @@ export class SettingsScreen {
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر صرف الدولار (ل.س)</label>
-              <input id="setting-exchange-rate" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" placeholder="15000" />
+              <input id="setting-exchange-rate" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" placeholder="15000" />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">نسبة الضريبة (%)</label>
-              <input id="setting-tax" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" placeholder="5" />
+              <input id="setting-tax" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" max="100" placeholder="5" />
             </div>
           </div>
         </div>
@@ -123,6 +124,13 @@ export class SettingsScreen {
     const exchangeRate = (c.querySelector('#setting-exchange-rate') as HTMLInputElement)?.value
     const tax = (c.querySelector('#setting-tax') as HTMLInputElement)?.value
 
+    if (!name) { ;(window as any).toast?.show?.({ message: 'اسم المرآب مطلوب', type: 'warning' }); return }
+    if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
+    const erNum = exchangeRate !== '' && exchangeRate != null ? Number(exchangeRate) : null
+    if (erNum != null && erNum < 0) { ;(window as any).toast?.show?.({ message: 'سعر الصرف لا يمكن أن يكون سالباً', type: 'warning' }); return }
+    const taxNum = tax !== '' && tax != null ? Number(tax) : null
+    if (taxNum != null && (taxNum < 0 || taxNum > 100)) { ;(window as any).toast?.show?.({ message: 'نسبة الضريبة يجب أن تكون بين 0 و 100', type: 'warning' }); return }
+
     const btn = c.querySelector('#settings-save') as HTMLButtonElement
     if (btn) {
       btn.disabled = true
@@ -141,12 +149,12 @@ export class SettingsScreen {
 
       const res = await this.api.put<any>('/api/settings', payload)
       if (res.success) {
-        alert('تم حفظ الإعدادات بنجاح')
+        ;(window as any).toast?.show?.({ message: 'تم حفظ الإعدادات بنجاح', type: 'success' })
       } else {
-        alert(res.message || 'فشل حفظ الإعدادات')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل حفظ الإعدادات', type: 'error' })
       }
     } catch (err: any) {
-      alert('حدث خطأ أثناء الحفظ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء الحفظ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     } finally {
       if (btn) {
         btn.disabled = false

@@ -179,10 +179,10 @@ export class CustomerDetailScreen {
         this.loadData(el)
       } else {
         const msg = res.message || (res.data as any)?.error || 'فشل حذف المركبة'
-        alert(msg)
+        ;(window as any).toast?.show?.({ message: msg, type: 'error' })
       }
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء حذف المركبة')
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء حذف المركبة', type: 'error' })
     }
   }
 }

@@ -7,6 +7,7 @@ export class PosScreen {
   private auth: AuthService
   private api: ApiClient
   private router: Router
+  private cart: { id: string; name: string; price: number; qty: number }[] = []
 
   constructor(auth: AuthService, api: ApiClient, router: Router) {
     this.auth = auth
@@ -75,24 +76,109 @@ export class PosScreen {
                 <span class="material-symbols-outlined text-[20px]">payments</span>
                 إتمام الدفع
               </button>
+              <button class="w-full mt-2 h-10 bg-surface-subtle text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-low transition-all flex items-center justify-center gap-2 text-sm" id="clear-cart-btn">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+                إفراغ السلة
+              </button>
             </div>
           </div>
         </div>
       </div>
     `
+    // Event delegation on product grid (performance fix)
+    const grid = content.querySelector('#pos-products') as HTMLElement
+    if (grid) {
+      grid.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest('button[data-product-id]') as HTMLButtonElement | null
+        if (btn) {
+          const id = btn.getAttribute('data-product-id')!
+          const name = btn.getAttribute('data-product-name') || '-'
+          const price = parseFloat(btn.getAttribute('data-product-price') || '0')
+          this.addToCart(id, name, price)
+          this.renderCart(content)
+        }
+      })
+    }
     this.loadProducts(content)
     content.querySelector('#quick-invoice-btn')?.addEventListener('click', () => {
       this.router.navigate('/invoices/new')
     })
     content.querySelector('#checkout-btn')?.addEventListener('click', () => {
-      alert('يرجى إضافة منتجات إلى السلة أولاً')
+      this.checkout()
+    })
+    content.querySelector('#clear-cart-btn')?.addEventListener('click', () => {
+      this.cart = []
+      this.renderCart(content)
     })
     return layout.render(content)
   }
 
+  private addToCart(id: string, name: string, price: number) {
+    const existing = this.cart.find(item => item.id === id)
+    if (existing) {
+      existing.qty++
+    } else {
+      this.cart.push({ id, name, price, qty: 1 })
+    }
+  }
+
+  private renderCart(el: HTMLElement) {
+    const cartContainer = el.querySelector('.lg\\:col-span-1 .space-y-3') as HTMLElement
+    const subtotalEl = el.querySelector('.lg\\:col-span-1 .border-t .flex:nth-child(1) .text-financial-data') as HTMLElement
+    const taxEl = el.querySelector('.lg\\:col-span-1 .border-t .flex:nth-child(2) .text-financial-data') as HTMLElement
+    const totalEl = el.querySelector('.lg\\:col-span-1 .border-t .flex:nth-child(3) .text-financial-data') as HTMLElement
+
+    if (!cartContainer) return
+
+    if (this.cart.length === 0) {
+      cartContainer.innerHTML = '<p class="text-on-surface-variant text-sm text-center">السلة فارغة</p>'
+    } else {
+      cartContainer.innerHTML = this.cart.map((item, idx) => `
+        <div class="flex items-center justify-between bg-surface-subtle rounded-lg p-3 border border-border">
+          <div>
+            <p class="font-body-md text-on-surface">${item.name}</p>
+            <p class="text-sm text-text-secondary">${item.qty} × ${item.price.toLocaleString('ar-SA')} ل.س</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="font-body-md font-bold text-on-surface">${(item.qty * item.price).toLocaleString('ar-SA')}</span>
+            <button class="w-6 h-6 rounded hover:bg-error/10 text-error flex items-center justify-center" data-remove="${idx}">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+        </div>
+      `).join('')
+
+      cartContainer.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-remove')!)
+          this.cart.splice(idx, 1)
+          this.renderCart(el)
+        })
+      })
+    }
+
+    const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
+    const tax = Math.round(subtotal * 0.05)
+    const total = subtotal + tax
+
+    if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س`
+    if (taxEl) taxEl.textContent = `${tax.toLocaleString('ar-SA')} ل.س`
+    if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س`
+  }
+
+  private checkout() {
+    if (this.cart.length === 0) {
+      ;(window as any).toast?.show?.({ message: 'يرجى إضافة منتجات إلى السلة أولاً', type: 'warning' })
+      return
+    }
+    // Navigate to manual invoice with cart data (stored in session for now)
+    sessionStorage.setItem('pos-cart', JSON.stringify(this.cart))
+    this.router.navigate('/invoices/new')
+  }
+
   private async loadProducts(el: HTMLElement) {
     try {
-      const res = await this.api.get<any>('/api/parts')
+      const res = await this.api.get<any>('/api/parts?limit=50')
       const grid = el.querySelector('#pos-products')!
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.data || []
@@ -114,24 +200,18 @@ export class PosScreen {
             info: 'rgba(8,145,178,0.3)', warning: 'rgba(217,119,6,0.3)',
           }
           return `
-            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${item.id}" data-product-name="${item.name || item.partName || '-'}" data-product-price="${item.sellingPriceSYP || item.unitPrice || item.price || 0}">
+            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${item.id}" data-product-name="${item.name || '-'}" data-product-price="${item.sellingPriceSYP || 0}">
               <div class="absolute inset-x-0 top-0 h-1 bg-${color}"></div>
               <div class="w-12 h-12 rounded-xl ${colorCls[color]} flex items-center justify-center transition-all group-hover:scale-110" style="box-shadow:0 4px 12px ${glow[color]}">
                 <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">${icon}</span>
               </div>
               <div class="text-center">
-                <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${item.name || item.partName || '-'}</h4>
-                <p class="text-financial-data text-primary font-bold">${(item.sellingPriceSYP || item.unitPrice || item.price || 0).toLocaleString('ar-SA')} ل.س</p>
+                <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${item.name || '-'}</h4>
+                <p class="text-financial-data text-primary font-bold">${(item.sellingPriceSYP || 0).toLocaleString('ar-SA')} ل.س</p>
               </div>
             </button>
           `
         }).join('')
-        grid.querySelectorAll('button[data-product-id]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const name = btn.getAttribute('data-product-name')
-            alert(`تم إضافة ${name} إلى السلة`)
-          })
-        })
       }
     } catch { el.querySelector('#pos-products')!.innerHTML = '<div class="col-span-full text-center py-12 text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</div>' }
   }

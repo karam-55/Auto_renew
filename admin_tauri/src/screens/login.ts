@@ -163,7 +163,8 @@ export class LoginScreen {
         }))
 
         // Full page reload with new hash — auth service will load token on init
-        window.location.href = window.location.origin + window.location.pathname + '#admin/setup'
+        // Using replace() to avoid leaking referrer in history
+        window.location.replace(window.location.origin + window.location.pathname + '#admin/setup')
       } catch (err: any) {
         errorText.textContent = err.message || 'حدث خطأ أثناء الإعداد'
         errorBox.classList.remove('hidden')
@@ -197,7 +198,7 @@ export class LoginScreen {
         <div class="space-y-stack-sm">
           <div class="flex justify-between items-center">
             <label class="font-label-sm text-on-surface-variant" for="password">كلمة المرور</label>
-            <a class="font-label-sm text-primary hover:text-secondary transition-colors" href="#">نسيت كلمة المرور؟</a>
+            <button type="button" class="font-label-sm text-primary hover:text-secondary transition-colors bg-transparent border-0 cursor-pointer" id="forgot-password-btn">نسيت كلمة المرور؟</button>
           </div>
           <div class="relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors" id="toggle-password">visibility_off</span>
@@ -219,7 +220,7 @@ export class LoginScreen {
         </div>
       </form>
       <div class="mt-stack-lg pt-stack-md border-t border-glass-border text-center">
-        <p class="font-label-sm text-on-surface-variant">تواجه مشكلة في الدخول؟ <a class="text-primary hover:underline" href="#">تواصل مع الدعم الفني</a></p>
+        <p class="font-label-sm text-on-surface-variant">تواجه مشكلة في الدخول؟ <button type="button" class="text-primary hover:underline bg-transparent border-0 cursor-pointer" id="support-btn">تواصل مع الدعم الفني</button></p>
       </div>
     `
 
@@ -239,6 +240,14 @@ export class LoginScreen {
       toggleBtn.textContent = type === 'password' ? 'visibility_off' : 'visibility'
     })
 
+    container.querySelector('#forgot-password-btn')?.addEventListener('click', () => {
+      ;(window as any).toast?.show?.({ message: 'يرجى التواصل مع مدير النظام لإعادة تعيين كلمة المرور', type: 'info', duration: 4000 })
+    })
+
+    container.querySelector('#support-btn')?.addEventListener('click', () => {
+      ;(window as any).toast?.show?.({ message: 'الدعم الفني: +963900000000', type: 'info', duration: 4000 })
+    })
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
 
@@ -252,6 +261,22 @@ export class LoginScreen {
         this.api.setBranchId(selectedBranch)
         localStorage.setItem('branchId', selectedBranch)
         this.router.navigate('/')
+        return
+      }
+
+      // Validation
+      const unameVal = username.value.trim()
+      const passVal = password.value
+      if (unameVal.length < 3) {
+        errorText.textContent = 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل'
+        errorBox.classList.remove('hidden')
+        loginBtn.disabled = false
+        return
+      }
+      if (passVal.length < 6) {
+        errorText.textContent = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'
+        errorBox.classList.remove('hidden')
+        loginBtn.disabled = false
         return
       }
 
@@ -289,8 +314,23 @@ export class LoginScreen {
         return
       }
 
-      const branchesRes = await this.api.get<any>('/api/branches')
-      const branches = branchesRes.data?.branches || branchesRes.data || []
+      // Try cached branches first (5-min TTL)
+      let branches: any[] = []
+      try {
+        const cached = localStorage.getItem('branches_cache')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed.expiry > Date.now()) branches = parsed.data
+        }
+      } catch { /* ignore */ }
+
+      if (!branches.length) {
+        const branchesRes = await this.api.get<any>('/api/branches')
+        branches = branchesRes.data?.branches || branchesRes.data || []
+        try {
+          localStorage.setItem('branches_cache', JSON.stringify({ data: branches, expiry: Date.now() + 5 * 60 * 1000 }))
+        } catch { /* ignore */ }
+      }
 
       if (!Array.isArray(branches) || branches.length === 0) {
         errorText.textContent = 'لا توجد فروع متاحة'

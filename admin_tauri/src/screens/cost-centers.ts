@@ -116,11 +116,11 @@ export class CostCentersScreen {
     try {
       const res = await this.api.post<any>('/api/cost-centers/initialize', {})
       if (res.success) {
-        alert('تمت التهيئة بنجاح!')
+        ;(window as any).toast?.show?.({ message: 'تمت التهيئة بنجاح!', type: 'success' })
         this.loadCenters(el)
       }
     } catch (e: any) {
-      alert('خطأ: ' + (e.message || 'فشل التهيئة'))
+      ;(window as any).toast?.show?.({ message: e.message || 'فشل التهيئة', type: 'error' })
     }
   }
 
@@ -144,7 +144,7 @@ export class CostCentersScreen {
         `).join('')
       }
     } catch {
-      alert('خطأ في تحميل المعدلات')
+      ;(window as any).toast?.show?.({ message: 'خطأ في تحميل المعدلات', type: 'error' })
     }
   }
 

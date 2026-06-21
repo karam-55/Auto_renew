@@ -52,7 +52,7 @@ export class PurchaseOrdersScreen {
         tbody.innerHTML = items.map((item: any) => `
           <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
             <td class="px-6 py-4 font-body-md text-on-surface" dir="ltr">${item.orderNumber || item.id?.slice(0,8) || '-'}</td>
-            <td class="px-6 py-4 font-body-md text-on-surface">${item.supplier?.name || item.supplierName || '-'}</td>
+            <td class="px-6 py-4 font-body-md text-on-surface">${item.supplier?.name || '-'}</td>
             <td class="px-6 py-4 font-body-md text-text-secondary">${item.orderDate?.split('T')[0] || '-'}</td>
             <td class="px-6 py-4"><span class="inline-flex items-center px-3 py-1 rounded-full font-label-sm text-label-sm ${statusCls[item.status] || statusCls.DRAFT}">${statusMap[item.status] || item.status || 'مسودة'}</span></td>
           </tr>

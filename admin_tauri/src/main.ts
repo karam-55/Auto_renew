@@ -1,5 +1,11 @@
 import './style.css'
 import { App } from './app.ts'
+import { toast } from './services/toast'
+import Chart from 'chart.js/auto'
+
+// Expose toast and Chart.js globally for screens to use without importing
+;(window as any).toast = toast
+;(window as any).Chart = Chart
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[DEBUG] DOMContentLoaded fired')

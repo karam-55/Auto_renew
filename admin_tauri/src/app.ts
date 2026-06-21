@@ -10,8 +10,9 @@ export class App {
 
   constructor() {
     console.log('[DEBUG] App constructor start')
-    const baseUrl = 'http://178.105.209.59'
-    console.log('[DEBUG] baseUrl:', baseUrl, 'port:', window.location.port)
+    const isDev = window.location.port === '1420'
+    const baseUrl = isDev ? '' : 'http://178.105.209.59'
+    console.log('[DEBUG] baseUrl:', baseUrl, 'port:', window.location.port, 'isDev:', isDev)
     this.api = new ApiClient(baseUrl)
     this.auth = new AuthService(this.api)
     this.router = new Router(this.auth, this.api)

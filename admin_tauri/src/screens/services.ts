@@ -95,13 +95,15 @@ export class ServicesScreen {
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">الربح</th>
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">نقاط الولاء</th>
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">كفالة</th>
+                  <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">وصف الكفالة</th>
+                  <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">شروط الكفالة</th>
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">المدة (دقيقة)</th>
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">الحالة</th>
                   <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">إجراءات</th>
                 </tr>
               </thead>
               <tbody id="services-tbody">
-                <tr><td colspan="12" class="px-6 py-8 text-center text-text-secondary">
+                <tr><td colspan="14" class="px-6 py-8 text-center text-text-secondary">
                   <div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div>
                 </td></tr>
               </tbody>
@@ -146,7 +148,7 @@ export class ServicesScreen {
           <div class="p-6 space-y-4">
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم الخدمة *</label>
-              <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-name" placeholder="اسم الخدمة" />
+              <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-name" placeholder="اسم الخدمة" required />
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -239,11 +241,11 @@ export class ServicesScreen {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">السعر النهائي (ل.س) *</label>
-                  <input type="number" class="w-full h-[48px] bg-surface-container-high border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-price-syp" placeholder="0" />
+                  <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-container-high border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-price-syp" placeholder="0" required />
                 </div>
                 <div>
                   <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">السعر النهائي ($)</label>
-                  <input type="number" class="w-full h-[48px] bg-surface-container-high border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-price-usd" placeholder="0" />
+                  <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-container-high border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-price-usd" placeholder="0" />
                 </div>
               </div>
               <button type="button" class="w-full h-[40px] mt-2 bg-secondary text-on-secondary font-ibmPlexSans font-body-md rounded-lg shadow-sm hover:shadow-lg transition-all flex items-center justify-center gap-2" id="calc-cost-btn">
@@ -258,8 +260,8 @@ export class ServicesScreen {
                 <input type="number" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="svc-loyalty" placeholder="0" />
               </div>
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المدة (دقيقة)</label>
-                <input type="number" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="svc-duration" placeholder="30" />
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المدة (دقيقة) *</label>
+                <input type="number" min="1" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="svc-duration" placeholder="30" required />
               </div>
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الفئة</label>
@@ -277,13 +279,15 @@ export class ServicesScreen {
                 <input type="checkbox" id="svc-warranty" class="w-5 h-5 rounded border-border text-primary focus:ring-primary" />
                 <label for="svc-warranty" class="font-body-md text-on-surface">تتضمن كفالة</label>
               </div>
-              <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وصف الكفالة</label>
-                <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="svc-warranty-desc" placeholder="وصف الكفالة" />
-              </div>
-              <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">شروط الكفالة</label>
-                <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="svc-warranty-terms" rows="2" placeholder="شروط الكفالة..."></textarea>
+              <div id="warranty-detail-fields" class="space-y-3">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وصف الكفالة</label>
+                  <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="svc-warranty-desc" placeholder="وصف الكفالة" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">شروط الكفالة</label>
+                  <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="svc-warranty-terms" rows="2" placeholder="شروط الكفالة..."></textarea>
+                </div>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -322,7 +326,9 @@ export class ServicesScreen {
         filtered = filtered.filter((s: any) => {
           const name = (s.name || '').toLowerCase()
           const category = (s.category || '').toLowerCase()
-          return name.includes(searchTerm) || category.includes(searchTerm)
+          const warrantyDesc = (s.warrantyDescription || '').toLowerCase()
+          const warrantyTerms = (s.warrantyTerms || '').toLowerCase()
+          return name.includes(searchTerm) || category.includes(searchTerm) || warrantyDesc.includes(searchTerm) || warrantyTerms.includes(searchTerm)
         })
       }
       this.renderServices(content, filtered)
@@ -373,7 +379,7 @@ export class ServicesScreen {
       const name = (content.querySelector('#cat-name') as HTMLInputElement)?.value.trim()
       const description = (content.querySelector('#cat-description') as HTMLTextAreaElement)?.value.trim()
       if (!name) {
-        alert('اسم الفئة مطلوب')
+        ;(window as any).toast?.show?.({ message: 'اسم الفئة مطلوب', type: 'warning' })
         return
       }
       try {
@@ -387,12 +393,12 @@ export class ServicesScreen {
           ;(content.querySelector('#cat-name') as HTMLInputElement).value = ''
           ;(content.querySelector('#cat-description') as HTMLTextAreaElement).value = ''
           await this.loadCategories()
-          alert('تم إضافة الفئة بنجاح')
+          ;(window as any).toast?.show?.({ message: 'تم إضافة الفئة بنجاح', type: 'success' })
         } else {
-          alert(res.message || 'فشل إضافة الفئة')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل إضافة الفئة', type: 'error' })
         }
       } catch {
-        alert('حدث خطأ أثناء إضافة الفئة')
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء إضافة الفئة', type: 'error' })
       }
     })
 
@@ -426,18 +432,18 @@ export class ServicesScreen {
         }
         this.renderServices(el, services)
       } else {
-        tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد خدمات</td></tr>`
+        tbody.innerHTML = `<tr><td colspan="14" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد خدمات</td></tr>`
       }
     } catch {
       const tbody = el.querySelector('#services-tbody')!
-      tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ أثناء التحميل</td></tr>`
+      tbody.innerHTML = `<tr><td colspan="14" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ أثناء التحميل</td></tr>`
     }
   }
 
   private renderServices(el: HTMLElement, services: any[]) {
     const tbody = el.querySelector('#services-tbody')!
     if (services.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد خدمات</td></tr>`
+      tbody.innerHTML = `<tr><td colspan="14" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد خدمات</td></tr>`
       return
     }
     tbody.innerHTML = services.map((s: any) => `
@@ -453,7 +459,9 @@ export class ServicesScreen {
         <td class="px-6 py-4 font-body-md text-on-surface">${s.materialCostSYP ? Number(s.materialCostSYP).toLocaleString() + ' ل.س' : '-'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.profitAmountSYP ? Number(s.profitAmountSYP).toLocaleString() + ' ل.س' : '-'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.loyaltyPoints || 0}</td>
-        <td class="px-6 py-4">${s.hasWarranty ? '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-tertiary/10 text-tertiary">نعم</span>' : '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-surface-container-high text-text-secondary">لا</span>'}</td>
+        <td class="px-6 py-4" title="${s.hasWarranty ? ((s.warrantyDescription || '') + (s.warrantyTerms ? ' | ' + s.warrantyTerms : '')) : ''}">${s.hasWarranty ? '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-tertiary/10 text-tertiary">نعم</span>' : '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-surface-container-high text-text-secondary">لا</span>'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.hasWarranty ? (s.warrantyDescription || '-') : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.hasWarranty ? (s.warrantyTerms || '-') : '-'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.estimatedDurationMinutes || s.duration || '-'}</td>
         <td class="px-6 py-4">${this.statusBadge(s.isActive)}</td>
         <td class="px-6 py-4">
@@ -487,10 +495,10 @@ export class ServicesScreen {
             if (res.success !== false) {
               this.loadServices(el, (services) => this.renderServices(el, services))
             } else {
-              alert(res.message || 'فشل الحذف')
+              ;(window as any).toast?.show?.({ message: res.message || 'فشل الحذف', type: 'error' })
             }
           } catch {
-            alert('حدث خطأ أثناء الحذف')
+            ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء الحذف', type: 'error' })
           }
         }
       })
@@ -642,6 +650,21 @@ export class ServicesScreen {
     loading?.classList.add('hidden')
   }
 
+  private setupWarrantyToggle(el: HTMLElement) {
+    const checkbox = el.querySelector('#svc-warranty') as HTMLInputElement
+    const fields = el.querySelector('#warranty-detail-fields') as HTMLElement
+    if (!checkbox || !fields) return
+    const update = () => {
+      if (checkbox.checked) {
+        fields.classList.remove('hidden')
+      } else {
+        fields.classList.add('hidden')
+      }
+    }
+    checkbox.addEventListener('change', update)
+    update()
+  }
+
   private setupDepartmentEmployeeLogic(el: HTMLElement) {
     const deptSelect = el.querySelector('#svc-department') as HTMLSelectElement
     const empSelectRow = el.querySelector('#employee-select-row') as HTMLElement
@@ -717,7 +740,7 @@ export class ServicesScreen {
 
   private partsData: any[] = []
 
-  private async loadPartsForService(el: HTMLElement) {
+  private async loadPartsForService(_el: HTMLElement) {
     try {
       const res: any = await this.api.get('/api/parts')
       this.partsData = res.data?.data || res.data || []
@@ -884,6 +907,7 @@ export class ServicesScreen {
 
     // Setup auto-calculation listeners
     this.setupAutoCalculation(el)
+    this.setupWarrantyToggle(el)
 
     if (editingId) {
       modal.dataset.editingId = editingId
@@ -919,8 +943,12 @@ export class ServicesScreen {
     const category = (el.querySelector('#svc-category') as HTMLInputElement).value.trim() || undefined
     const description = (el.querySelector('#svc-description') as HTMLTextAreaElement).value.trim() || undefined
     const hasWarranty = (el.querySelector('#svc-warranty') as HTMLInputElement).checked
-    const warrantyDescription = (el.querySelector('#svc-warranty-desc') as HTMLInputElement).value.trim() || undefined
-    const warrantyTerms = (el.querySelector('#svc-warranty-terms') as HTMLTextAreaElement).value.trim() || undefined
+    const warrantyDescription = hasWarranty
+      ? (el.querySelector('#svc-warranty-desc') as HTMLInputElement).value.trim() || undefined
+      : undefined
+    const warrantyTerms = hasWarranty
+      ? (el.querySelector('#svc-warranty-terms') as HTMLTextAreaElement).value.trim() || undefined
+      : undefined
     const isActive = (el.querySelector('#svc-active') as HTMLInputElement).checked
     const departmentId = (el.querySelector('#svc-department') as HTMLSelectElement).value || undefined
     const assignedEmployeeId = (el.querySelector('#svc-employee') as HTMLSelectElement).value || undefined
@@ -939,11 +967,11 @@ export class ServicesScreen {
     })
 
     if (!name) {
-      alert('اسم الخدمة مطلوب')
+      ;(window as any).toast?.show?.({ message: 'اسم الخدمة مطلوب', type: 'warning' })
       return
     }
     if (priceSYP <= 0) {
-      alert('السعر بالليرة السورية مطلوب')
+      ;(window as any).toast?.show?.({ message: 'السعر بالليرة السورية يجب أن يكون أكبر من صفر', type: 'warning' })
       return
     }
 
@@ -985,10 +1013,10 @@ export class ServicesScreen {
         this.closeModal(el)
         onDone()
       } else {
-        alert(res.message || res.error || 'فشل الحفظ')
+        ;(window as any).toast?.show?.({ message: res.message || res.error || 'فشل الحفظ', type: 'error' })
       }
     } catch {
-      alert('حدث خطأ أثناء الحفظ')
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء الحفظ', type: 'error' })
     }
   }
 

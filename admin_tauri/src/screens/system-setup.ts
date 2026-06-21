@@ -2,11 +2,16 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { SetupWizardService } from '../services/setup-wizard.service'
+import { isPhone } from '../utils/validation'
 
 export class SystemSetupScreen {
   private addedUsers: any[] = []
+  private svc: SetupWizardService
 
-  constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
+  constructor(private auth: AuthService, private api: ApiClient, private router: Router) {
+    this.svc = new SetupWizardService(api)
+  }
 
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'إعدادات النظام الأولية', 'settings', this.api)
@@ -73,14 +78,18 @@ export class SystemSetupScreen {
               <span class="badge-status bg-surface-container-high text-text-secondary px-3 py-1 rounded-full font-label-sm text-sm">قيد الانتظار</span>
             </div>
             <div class="p-6 space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الاسم الكامل</label>
-                  <input id="user-fullName" class="w-full h-[40px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="اسم المستخدم" />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الاسم الكامل *</label>
+                  <input id="user-fullName" class="w-full h-[40px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="اسم المستخدم" required />
                 </div>
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الموبايل</label>
-                  <input id="user-phone" class="w-full h-[40px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="09..." dir="ltr" />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الموبايل *</label>
+                  <input id="user-phone" class="w-full h-[40px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="09XXXXXXXX" dir="ltr" required type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">كلمة المرور *</label>
+                  <input id="user-password" type="password" class="w-full h-[40px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="******" required minlength="6" />
                 </div>
                 <div class="flex gap-2 items-end">
                   <div class="flex-1">
@@ -206,19 +215,24 @@ export class SystemSetupScreen {
   private addUser(c: HTMLElement) {
     const fullName = (c.querySelector('#user-fullName') as HTMLInputElement)?.value?.trim() || ''
     const phone = (c.querySelector('#user-phone') as HTMLInputElement)?.value?.trim() || ''
+    const password = (c.querySelector('#user-password') as HTMLInputElement)?.value || ''
     const role = (c.querySelector('#user-role') as HTMLSelectElement)?.value || 'RECEPTIONIST'
 
-    if (!fullName) { alert('يرجى إدخال اسم المستخدم'); return }
-    if (!phone) { alert('يرجى إدخال رقم الموبايل'); return }
+    if (!fullName) { ;(window as any).toast?.show?.({ message: 'يرجى إدخال اسم المستخدم', type: 'warning' }); return }
+    if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الموبايل يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
+    if (password.length < 6) { ;(window as any).toast?.show?.({ message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل', type: 'warning' }); return }
+    if (password === phone) { ;(window as any).toast?.show?.({ message: 'كلمة المرور يجب أن تكون مختلفة عن رقم الموبايل', type: 'warning' }); return }
 
-    const user = { fullName, phone, role, username: phone, password: phone }
+    const user = { fullName, phone, role, username: phone, password }
     this.addedUsers.push(user)
 
     // Clear inputs
     const nameInput = c.querySelector('#user-fullName') as HTMLInputElement
     const phoneInput = c.querySelector('#user-phone') as HTMLInputElement
+    const passwordInput = c.querySelector('#user-password') as HTMLInputElement
     if (nameInput) nameInput.value = ''
     if (phoneInput) phoneInput.value = ''
+    if (passwordInput) passwordInput.value = ''
 
     this.refreshUsersList(c)
     this.updateBadges(c)
@@ -266,7 +280,7 @@ export class SystemSetupScreen {
     const address = (c.querySelector('#setup-address') as HTMLInputElement)?.value?.trim() || ''
     const currency = (c.querySelector('#setup-currency') as HTMLSelectElement)?.value || ''
 
-    if (!name) { alert('يرجى إدخال اسم المرآب'); return }
+    if (!name) { ;(window as any).toast?.show?.({ message: 'يرجى إدخال اسم المرآب', type: 'warning' }); return }
 
     const btn = c.querySelector('#setup-save') as HTMLButtonElement
     if (btn) {
@@ -274,32 +288,57 @@ export class SystemSetupScreen {
       btn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري الحفظ...`
     }
 
-    // 1. Save company settings
+    // 1. Save company settings (try SetupWizardService first, fallback to direct API)
+    let settingsSaved = false
     try {
-      const settingsRes = await this.api.put<any>('/api/settings', {
-        companyName: name,
-        address: address || undefined,
-        currency: currency || 'SYP',
-      })
-      if (!settingsRes.success) {
-        alert(settingsRes.message || 'فشل حفظ الإعدادات')
+      await this.svc.saveStep(1, { companyName: name, address: address || null, currency: currency || 'SYP' })
+      settingsSaved = true
+    } catch {
+      /* service endpoint unavailable, fallback below */
+    }
+    if (!settingsSaved) {
+      try {
+        const settingsRes = await this.api.put<any>('/api/settings', {
+          companyName: name,
+          address: address || null,
+          currency: currency || 'SYP',
+        })
+        if (!settingsRes.success) {
+          ;(window as any).toast?.show?.({ message: settingsRes.message || 'فشل حفظ الإعدادات', type: 'error' })
+          if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ ومتابعة' }
+          return
+        }
+      } catch (err: any) {
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء حفظ الإعدادات: ' + (err.message || 'فشل الاتصال'), type: 'error' })
         if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ ومتابعة' }
         return
       }
-    } catch (err: any) {
-      alert('حدث خطأ أثناء حفظ الإعدادات: ' + (err.message || 'فشل الاتصال'))
-      if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ ومتابعة' }
-      return
     }
 
-    // 2. Create users
+    // 2. Create users (try SetupWizardService first, fallback to direct API)
     let usersCreated = 0
-    for (const user of this.addedUsers) {
+    if (this.addedUsers.length > 0) {
       try {
-        const userRes = await this.api.post<any>('/api/users', user)
-        if (userRes.success || (userRes.data && userRes.data.user)) usersCreated++
+        await this.svc.saveStep(6, { users: this.addedUsers })
+        usersCreated = this.addedUsers.length
       } catch {
-        // ignore individual user errors
+        // fallback to individual user creation
+        const errors: string[] = []
+        for (const user of this.addedUsers) {
+          try {
+            const userRes = await this.api.post<any>('/api/users', user)
+            if (userRes.success || (userRes.data && userRes.data.user)) {
+              usersCreated++
+            } else {
+              errors.push(user.fullName + ': ' + (userRes.message || 'فشل إنشاء المستخدم'))
+            }
+          } catch (err: any) {
+            errors.push(user.fullName + ': ' + (err.message || 'فشل الاتصال'))
+          }
+        }
+        if (errors.length > 0) {
+          ;(window as any).toast?.show?.({ message: errors.join(' • '), type: 'error', duration: 6000 })
+        }
       }
     }
 
@@ -308,7 +347,7 @@ export class SystemSetupScreen {
     const msg = usersCreated > 0
       ? `تم حفظ الإعدادات وإنشاء ${usersCreated} مستخدم بنجاح`
       : 'تم حفظ الإعدادات بنجاح'
-    alert(msg)
+    ;(window as any).toast?.show?.({ message: msg, type: 'success' })
     this.router.navigate('/dashboard')
   }
 }

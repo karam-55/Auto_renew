@@ -1,6 +1,7 @@
 import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
+import QRCode from 'qrcode'
 
 export class BookingPrintTicketScreen {
   private api: ApiClient
@@ -199,17 +200,8 @@ export class BookingPrintTicketScreen {
       this.router.navigate('/bookings')
     })
 
-    this.loadQrLibrary(() => this.loadData(el))
+    this.loadData(el)
     return el
-  }
-
-  private loadQrLibrary(callback: () => void) {
-    if ((window as any).QRCode) { callback(); return }
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
-    script.onload = callback
-    script.onerror = callback
-    document.head.appendChild(script)
   }
 
   private async loadData(el: HTMLElement) {
@@ -260,18 +252,13 @@ export class BookingPrintTicketScreen {
         : window.location.href
 
       const qrContainer = el.querySelector('#qrcode') as HTMLElement
-      if (qrContainer && (window as any).QRCode) {
-        qrContainer.innerHTML = ''
-        new (window as any).QRCode(qrContainer, {
-          text: qrUrl,
-          width: 96,
-          height: 96,
-          colorDark: '#1e293b',
-          colorLight: '#ffffff',
-          correctLevel: (window as any).QRCode.CorrectLevel.M,
-        })
-      } else if (qrContainer) {
-        qrContainer.innerHTML = '<p class="text-xs text-text-secondary text-center">QR</p>'
+      if (qrContainer) {
+        try {
+          const dataUrl = await QRCode.toDataURL(qrUrl, { width: 96, margin: 1, color: { dark: '#1e293b', light: '#ffffff' } })
+          qrContainer.innerHTML = `<img src="${dataUrl}" width="96" height="96" alt="QR" class="print-qr"/>`
+        } catch {
+          qrContainer.innerHTML = '<p class="text-xs text-text-secondary text-center">QR</p>'
+        }
       }
     } catch {
       this.showError(el, 'حدث خطأ أثناء تحميل البيانات')

@@ -13,6 +13,37 @@ export interface LoginCredentials {
   password: string
 }
 
+function safeJSONParse<T>(raw: string | null, fallback: T | null = null): T | null {
+  if (!raw) return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
+// Simple obfuscation wrapper for localStorage — prevents casual inspection
+// of sensitive tokens. Not a substitute for real encryption.
+const SecureStorage = {
+  _encode(v: string) { return btoa(unescape(encodeURIComponent(v))) },
+  _decode(v: string) { try { return decodeURIComponent(escape(atob(v))) } catch { return '' } },
+  setItem(key: string, value: string) { localStorage.setItem(key, this._encode(value)) },
+  getItem(key: string): string | null {
+    const raw = localStorage.getItem(key)
+    return raw ? this._decode(raw) : null
+  },
+  removeItem(key: string) { localStorage.removeItem(key) },
+}
+
+function isValidUser(u: any): u is User {
+  return (
+    u &&
+    typeof u.id === 'string' &&
+    typeof u.username === 'string' &&
+    typeof u.fullName === 'string'
+  )
+}
+
 export class AuthService {
   private api: ApiClient
   private user: User | null = null
@@ -24,15 +55,22 @@ export class AuthService {
   }
 
   private loadSession() {
-    const token = localStorage.getItem('token')
-    const user = localStorage.getItem('user')
-    const tenantId = localStorage.getItem('tenantId')
-    const branchId = localStorage.getItem('branchId')
-    if (token && user) {
+    const token = SecureStorage.getItem('token')
+    const rawUser = SecureStorage.getItem('user')
+    const tenantId = SecureStorage.getItem('tenantId')
+    const branchId = SecureStorage.getItem('branchId')
+    const parsedUser = safeJSONParse<User>(rawUser)
+    if (token && parsedUser && isValidUser(parsedUser)) {
       this.api.setToken(token)
       this.api.setTenantId(tenantId)
       this.api.setBranchId(branchId)
-      this.user = JSON.parse(user)
+      this.user = parsedUser
+    } else if (rawUser) {
+      // Invalid session — clear stale data
+      SecureStorage.removeItem('token')
+      SecureStorage.removeItem('user')
+      SecureStorage.removeItem('tenantId')
+      SecureStorage.removeItem('branchId')
     }
   }
 
@@ -45,8 +83,8 @@ export class AuthService {
     if (res.data?.user && res.data?.tokens?.accessToken) {
       this.user = res.data.user as User
       this.api.setToken(res.data.tokens.accessToken)
-      localStorage.setItem('token', res.data.tokens.accessToken)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
+      SecureStorage.setItem('token', res.data.tokens.accessToken)
+      SecureStorage.setItem('user', JSON.stringify(res.data.user))
       this.notify()
       return { success: true }
     }
@@ -58,10 +96,10 @@ export class AuthService {
     this.api.setToken(null)
     this.api.setTenantId(null)
     this.api.setBranchId(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('tenantId')
-    localStorage.removeItem('branchId')
+    SecureStorage.removeItem('token')
+    SecureStorage.removeItem('user')
+    SecureStorage.removeItem('tenantId')
+    SecureStorage.removeItem('branchId')
     this.notify()
   }
 

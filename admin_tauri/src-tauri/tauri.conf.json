@@ -27,7 +27,7 @@
     "publisher": "AUTO_Renew"
   },
   "productName": "AUTO_Renew Admin",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.autorenew.admin",
   "app": {
     "withGlobalTauri": false,
@@ -45,9 +45,9 @@
       }
     ],
     "security": {
-      "csp": null,
-      "dangerousDisableAssetCspModification": false,
-      "capabilities": []
+      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://178.105.209.59:* https://*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com;",
+      "dangerousDisableAssetCspModification": true,
+      "capabilities": ["default"]
     }
   },
   "plugins": {}

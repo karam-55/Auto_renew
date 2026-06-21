@@ -82,11 +82,11 @@ export class HrScreen {
       if (!confirm(`هل أنت متأكد من حذف ${this.selectedIds.size} موظف؟`)) return
       try {
         const res: any = await this.api.post('/api/employees/bulk-delete', { ids: Array.from(this.selectedIds) })
-        alert(res.message || `تم حذف ${res.deleted || 0} موظف`)
+        ;(window as any).toast?.show?.({ message: res.message || `تم حذف ${res.deleted || 0} موظف`, type: 'success' })
         this.selectedIds.clear()
         this.load(c)
       } catch (err: any) {
-        alert(err.message || 'فشل الحذف')
+        ;(window as any).toast?.show?.({ message: err.message || 'فشل الحذف', type: 'error' })
       }
     })
 
@@ -122,13 +122,13 @@ export class HrScreen {
                 <div class="w-8 h-8 rounded-full bg-secondary-fixed text-secondary flex items-center justify-center shrink-0">
                   <span class="material-symbols-outlined text-[16px]">person</span>
                 </div>
-                <span class="font-body-md text-on-surface truncate">${e.fullNameAr || e.fullName || e.name || '-'}</span>
+                <span class="font-body-md text-on-surface truncate">${e.fullNameAr || '-'}</span>
               </div>
             </td>
-            <td class="px-6 py-4 align-middle whitespace-nowrap">${this.roleBadge(e.role || e.position || 'MECHANIC')}</td>
+            <td class="px-6 py-4 align-middle whitespace-nowrap">${this.roleBadge(e.position || 'MECHANIC')}</td>
             <td class="px-6 py-4 align-middle font-body-md text-text-secondary whitespace-nowrap">${deptName}</td>
             <td class="px-6 py-4 align-middle font-body-md text-on-surface whitespace-nowrap text-right" dir="ltr">${e.phone || '-'}</td>
-            <td class="px-6 py-4 align-middle font-body-md text-on-surface whitespace-nowrap">${this.fmt(e.salarySYP || e.salary || 0)} ل.س</td>
+            <td class="px-6 py-4 align-middle font-body-md text-on-surface whitespace-nowrap">${this.fmt(e.salarySYP || 0)} ل.س</td>
             <td class="px-6 py-4 align-middle whitespace-nowrap">${this.statusBadge(e.status || 'ACTIVE')}</td>
             <td class="px-6 py-4 align-middle">
               <div class="flex items-center gap-2">
@@ -170,7 +170,7 @@ export class HrScreen {
               await this.api.delete(`/api/employees/${id}`)
               this.load(el)
             } catch (err: any) {
-              alert(err.message || 'فشل الحذف')
+              ;(window as any).toast?.show?.({ message: err.message || 'فشل الحذف', type: 'error' })
             }
           })
         })

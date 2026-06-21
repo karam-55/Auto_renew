@@ -55,7 +55,7 @@ export class JournalEntriesScreen {
           <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
             <td class="px-6 py-4 font-body-md text-on-surface">${item.date?.split('T')[0] || '-'}</td>
             <td class="px-6 py-4 font-body-md text-on-surface" dir="ltr">${item.reference || item.id?.slice(0,8) || '-'}</td>
-            <td class="px-6 py-4 font-body-md text-on-surface">${item.description || item.note || '-'}</td>
+            <td class="px-6 py-4 font-body-md text-on-surface">${item.description || '-'}</td>
             <td class="px-6 py-4 text-financial-data text-on-surface" dir="ltr">${item.debitAmount?.toLocaleString('ar-SA') || '0'}</td>
             <td class="px-6 py-4 text-financial-data text-on-surface" dir="ltr">${item.creditAmount?.toLocaleString('ar-SA') || '0'}</td>
             <td class="px-6 py-4"><span class="inline-flex items-center px-3 py-1 rounded-full font-label-sm text-label-sm ${item.status === 'POSTED' ? 'bg-tertiary/10 text-tertiary' : 'bg-warning/10 text-warning'}">${item.status === 'POSTED' ? 'مرحل' : 'مسودة'}</span></td>

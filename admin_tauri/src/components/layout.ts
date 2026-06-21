@@ -102,14 +102,14 @@ export class AppLayout {
           <p class="text-xs mt-1 text-on-surface-variant">الإدارة المتقدمة</p>
         </div>
         <!-- Navigation -->
-        <div class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar">
+        <nav class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar" role="navigation" aria-label="القائمة الرئيسية">
           ${MENU_GROUPS.map((group, gi) => `
             <div class="menu-group" data-group-index="${gi}">
-              <button class="menu-group-header w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors hover:bg-white/40 text-on-surface-variant" style="font-size:12px">
+              <button class="menu-group-header w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors hover:bg-white/40 text-on-surface-variant" style="font-size:12px" aria-expanded="true" aria-controls="menu-group-${gi}">
                 <span class="text-xs font-semibold">${group.label}</span>
-                <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
+                <span class="material-symbols-outlined text-[18px] transition-transform" aria-hidden="true">expand_more</span>
               </button>
-              <div class="menu-group-items flex flex-col gap-1 mt-1">
+              <div class="menu-group-items flex flex-col gap-1 mt-1" id="menu-group-${gi}">
                 ${group.items.map((item, ii) => {
                   const isActive = this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', '')
                   return `
@@ -140,8 +140,8 @@ export class AppLayout {
       <nav class="fixed top-[16px] left-[24px] right-[324px] z-40 glass-panel rounded-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] h-16 flex flex-row-reverse justify-between items-center px-6">
         <div class="flex items-center gap-4">
           <h1 class="font-bold text-xl hidden md:block text-on-surface font-beVietnamPro">${this.title}</h1>
-          <button class="md:hidden p-2 rounded-full transition-colors hover:bg-surface-container-high text-on-surface-variant">
-            <span class="material-symbols-outlined">menu</span>
+          <button class="md:hidden p-2 rounded-full transition-colors hover:bg-surface-container-high text-on-surface-variant" aria-label="فتح القائمة">
+            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
           </button>
         </div>
         <div class="flex items-center gap-4">
@@ -150,14 +150,14 @@ export class AppLayout {
             <input class="h-10 pl-4 pr-10 rounded-full border border-glass-border bg-white/50 outline-none text-base input-glow transition-all text-on-surface placeholder-on-surface-variant" style="width:16rem" placeholder="بحث..." type="text"/>
           </div>
           <div class="flex items-center gap-2">
-            <button class="p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications">
-              <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-variation-settings:'FILL' 0">notifications</span>
-              <span id="notif-badge" class="absolute top-2 right-2 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70"></span>
+            <button class="p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications" aria-label="التنبيهات">
+              <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-variation-settings:'FILL' 0" aria-hidden="true">notifications</span>
+              <span id="notif-badge" class="absolute top-2 right-2 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70" aria-hidden="true"></span>
             </button>
             <div class="h-8 w-[1px] mx-2 hidden sm:block bg-outline-variant/30"></div>
-            <button id="profile-btn" class="flex items-center gap-2 hover:bg-white/50 p-1 pr-3 rounded-full transition-all">
+            <button id="profile-btn" class="flex items-center gap-2 hover:bg-white/50 p-1 pr-3 rounded-full transition-all" aria-label="الملف الشخصي">
               <span class="text-base hidden sm:block text-on-surface font-semibold">${this.auth.getUser()?.fullName || 'المسؤول'}</span>
-              <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold overflow-hidden border-2 border-primary/20 bg-primary-fixed text-primary">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold overflow-hidden border-2 border-primary/20 bg-primary-fixed text-primary" aria-hidden="true">
                 <span class="material-symbols-outlined text-[18px]" style="font-variation-settings:'FILL' 1">person</span>
               </div>
             </button>

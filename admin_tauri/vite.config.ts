@@ -7,6 +7,7 @@ export default defineConfig(async () => ({
     strictPort: true,
     proxy: {
       '/api': {
+        // Use localhost for dev; update to production IP only for builds
         target: 'http://localhost:8080',
         changeOrigin: true,
       }

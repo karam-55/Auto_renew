@@ -39,12 +39,12 @@ export class PaymentScreen {
           <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-4">بيانات الدفعة</h3>
           <div class="space-y-4">
             <div>
-              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المبلغ (ل.س)</label>
-              <input type="number" id="pay-amount" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="0.00" />
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المبلغ (ل.س) *</label>
+              <input type="number" id="pay-amount" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="0.00" required min="0.01" step="0.01" />
             </div>
             <div>
-              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">تاريخ الدفع</label>
-              <input type="date" id="pay-date" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" />
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">تاريخ الدفع *</label>
+              <input type="date" id="pay-date" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" required />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">طريقة الدفع</label>
@@ -131,14 +131,21 @@ export class PaymentScreen {
   }
 
   private async savePayment(el: HTMLElement) {
-    if (!this.invoiceId) { alert('لم يتم تحديد فاتورة'); return }
+    if (!this.invoiceId) { ;(window as any).toast?.show?.({ message: 'لم يتم تحديد فاتورة', type: 'warning' }); return }
     const amount = parseFloat((el.querySelector('#pay-amount') as HTMLInputElement)?.value || '0')
     const dateVal = (el.querySelector('#pay-date') as HTMLInputElement)?.value
     const method = (el.querySelector('#pay-method') as HTMLSelectElement)?.value
     const notes = (el.querySelector('#pay-notes') as HTMLTextAreaElement)?.value
 
-    if (!amount || amount <= 0) { alert('يرجى إدخال مبلغ صحيح'); return }
-    if (!dateVal) { alert('يرجى اختيار تاريخ الدفع'); return }
+    if (!amount || amount <= 0) { ;(window as any).toast?.show?.({ message: 'يرجى إدخال مبلغ صحيح', type: 'warning' }); return }
+    if (!dateVal) { ;(window as any).toast?.show?.({ message: 'يرجى اختيار تاريخ الدفع', type: 'warning' }); return }
+    // Check amount doesn't exceed remaining balance (get from invoice card if loaded)
+    const card = el.querySelector('#invoice-card')!
+    const remainingMatch = card.textContent?.match(/المتبقي\s+([\d,]+)/)
+    if (remainingMatch) {
+      const remaining = parseFloat(remainingMatch[1].replace(/,/g, ''))
+      if (amount > remaining) { ;(window as any).toast?.show?.({ message: `المبلغ يتجاوز المتبقي (${remaining.toLocaleString('ar-SA')} ل.س)`, type: 'warning' }); return }
+    }
 
     const payload = {
       invoiceId: this.invoiceId,
@@ -158,16 +165,16 @@ export class PaymentScreen {
     try {
       const res = await this.api.post<any>('/api/payments', payload)
       if (res.success) {
-        alert('تم تسجيل الدفعة بنجاح')
+        ;(window as any).toast?.show?.({ message: 'تم تسجيل الدفعة بنجاح', type: 'success' })
         // Show print button after successful payment
         if (printBtn) printBtn.classList.remove('hidden')
         // Update invoice card
         this.loadInvoice(el, this.invoiceId!)
       } else {
-        alert(res.message || 'فشل تسجيل الدفعة')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل تسجيل الدفعة', type: 'error' })
       }
     } catch (err: any) {
-      alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false

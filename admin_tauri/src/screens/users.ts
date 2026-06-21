@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { isPhone } from '../utils/validation'
 
 export class UsersScreen {
   private auth: AuthService
@@ -88,11 +89,11 @@ export class UsersScreen {
             <table class="w-full text-sm" id="users-table">
               <thead class="bg-surface-subtle text-text-tertiary">
                 <tr>
-                  <th class="text-right px-4 py-3 font-medium">المستخدم</th>
-                  <th class="text-right px-4 py-3 font-medium">الدور</th>
-                  <th class="text-right px-4 py-3 font-medium">الحالة</th>
-                  <th class="text-right px-4 py-3 font-medium">تاريخ الإنشاء</th>
-                  <th class="text-right px-4 py-3 font-medium"></th>
+                  <th class="text-right px-4 py-3 font-medium" scope="col">المستخدم</th>
+                  <th class="text-right px-4 py-3 font-medium" scope="col">الدور</th>
+                  <th class="text-right px-4 py-3 font-medium" scope="col">الحالة</th>
+                  <th class="text-right px-4 py-3 font-medium" scope="col">تاريخ الإنشاء</th>
+                  <th class="text-right px-4 py-3 font-medium" scope="col">إجراءات</th>
                 </tr>
               </thead>
               <tbody id="users-table-body">
@@ -118,6 +119,15 @@ export class UsersScreen {
     content.querySelector('#users-role-filter')?.addEventListener('change', (e) => {
       const role = (e.target as HTMLSelectElement).value
       this.filterUsers(content, (content.querySelector('#users-search') as HTMLInputElement)?.value.toLowerCase() || '', role)
+    })
+    // Event delegation for user actions (performance fix)
+    content.querySelector('#users-table-body')?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.edit-user-btn') as HTMLButtonElement | null
+      if (btn) {
+        const id = btn.getAttribute('data-id')
+        const user = this.allUsers.find((u: any) => u.id === id)
+        if (user) this.showEditUserModal(content, user)
+      }
     })
 
     return layout.render(content)
@@ -193,14 +203,16 @@ export class UsersScreen {
       HR_MANAGER: { label: 'موارد بشرية', color: 'warning' },
     }
 
-    tbody.innerHTML = users.map((u: any) => {
+    const fragment = document.createDocumentFragment()
+    users.forEach((u: any) => {
       const r = roleMap[u.role] || { label: u.role, color: 'text-tertiary' }
       const statusClass = u.isActive !== false ? 'bg-tertiary/10 text-tertiary' : 'bg-error/10 text-error'
       const statusLabel = u.isActive !== false ? 'نشط' : 'غير نشط'
       const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-SY') : '-'
-      const name = u.fullName || u.name || u.username || '-'
-      return `
-        <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50 transition-colors">
+      const name = u.fullName || u.username || '-'
+      const tr = document.createElement('tr')
+      tr.className = 'border-b border-outline-variant/5 hover:bg-surface-subtle/50 transition-colors'
+      tr.innerHTML = `
           <td class="px-4 py-3">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
@@ -220,24 +232,18 @@ export class UsersScreen {
               <span class="material-symbols-outlined text-[18px]">edit</span>
             </button>
           </td>
-        </tr>
       `
-    }).join('')
-
-    tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id')
-        const user = this.allUsers.find((u: any) => u.id === id)
-        if (user) this.showEditUserModal(content, user)
-      })
+      fragment.appendChild(tr)
     })
+    tbody.innerHTML = ''
+    tbody.appendChild(fragment)
   }
 
   private filterUsers(content: HTMLElement, term: string, role: string) {
     let filtered = this.allUsers
     if (term) {
       filtered = filtered.filter((u: any) => {
-        const name = (u.fullName || u.name || u.username || '').toLowerCase()
+        const name = (u.fullName || u.username || '').toLowerCase()
         const phone = (u.phone || '').toLowerCase()
         return name.includes(term) || phone.includes(term)
       })
@@ -261,16 +267,16 @@ export class UsersScreen {
         </div>
         <div class="space-y-3">
           <div>
-            <label class="block font-label-sm text-text-tertiary mb-1">الاسم الكامل</label>
-            <input id="user-fullname" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.fullName || '') : ''}" />
+            <label class="block font-label-sm text-text-tertiary mb-1">الاسم الكامل *</label>
+            <input id="user-fullname" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.fullName || '') : ''}" required />
           </div>
           <div>
-            <label class="block font-label-sm text-text-tertiary mb-1">اسم المستخدم</label>
-            <input id="user-username" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.username || '') : ''}" ${isEdit ? 'readonly' : ''} />
+            <label class="block font-label-sm text-text-tertiary mb-1">اسم المستخدم *</label>
+            <input id="user-username" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.username || '') : ''}" ${isEdit ? 'readonly' : ''} required />
           </div>
           <div>
-            <label class="block font-label-sm text-text-tertiary mb-1">رقم الهاتف</label>
-            <input id="modal-phone" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.phone || '') : ''}" />
+            <label class="block font-label-sm text-text-tertiary mb-1">رقم الهاتف *</label>
+            <input id="modal-phone" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" value="${isEdit ? (user.phone || '') : ''}" required type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" />
           </div>
           <div>
             <label class="block font-label-sm text-text-tertiary mb-1">الدور</label>
@@ -284,8 +290,8 @@ export class UsersScreen {
             </select>
           </div>
           ${!isEdit ? `<div>
-            <label class="block font-label-sm text-text-tertiary mb-1">كلمة المرور</label>
-            <input id="modal-password" type="password" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="******" />
+            <label class="block font-label-sm text-text-tertiary mb-1">كلمة المرور *</label>
+            <input id="modal-password" type="password" class="w-full h-10 bg-surface-subtle border border-outline-variant/20 rounded-lg px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="******" required minlength="6" />
           </div>` : ''}
           <div class="flex items-center gap-2">
             <input type="checkbox" id="modal-active" class="w-4 h-4" ${!isEdit || user.isActive !== false ? 'checked' : ''} />
@@ -307,10 +313,15 @@ export class UsersScreen {
     overlay.querySelector('#save-user-btn')?.addEventListener('click', async () => {
       const fullName = (overlay.querySelector('#user-fullname') as HTMLInputElement)?.value?.trim() || ''
       const username = (overlay.querySelector('#user-username') as HTMLInputElement)?.value?.trim() || ''
-      const phone = (overlay.querySelector('#modal-phone') as HTMLInputElement)?.value?.trim() || '0999999999'
+      const phone = (overlay.querySelector('#modal-phone') as HTMLInputElement)?.value?.trim() || ''
       const role = (overlay.querySelector('#modal-role') as HTMLSelectElement)?.value || 'OWNER'
-      const password = (overlay.querySelector('#modal-password') as HTMLInputElement)?.value || 'password123'
+      const password = (overlay.querySelector('#modal-password') as HTMLInputElement)?.value || ''
       const isActive = (overlay.querySelector('#modal-active') as HTMLInputElement)?.checked ?? true
+
+      if (!fullName) { ;(window as any).toast?.show?.({ message: 'الاسم الكامل مطلوب', type: 'warning' }); return }
+      if (!username) { ;(window as any).toast?.show?.({ message: 'اسم المستخدم مطلوب', type: 'warning' }); return }
+      if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
+      if (!isEdit && password.length < 6) { ;(window as any).toast?.show?.({ message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل', type: 'warning' }); return }
 
       const btn = overlay.querySelector('#save-user-btn') as HTMLButtonElement
       if (btn) { btn.disabled = true; btn.innerHTML = 'جاري الحفظ...' }
@@ -332,11 +343,11 @@ export class UsersScreen {
           close()
           await this.loadUsers(content)
         } else {
-          alert(res.message || 'فشل الحفظ')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الحفظ', type: 'error' })
           if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ' }
         }
       } catch (err: any) {
-        alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
         if (btn) { btn.disabled = false; btn.innerHTML = 'حفظ' }
       }
     })

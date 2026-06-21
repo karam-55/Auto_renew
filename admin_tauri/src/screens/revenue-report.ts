@@ -126,7 +126,7 @@ export class RevenueReportScreen {
       if (custTB && d.topCustomers && d.topCustomers.length) {
         custTB.innerHTML = d.topCustomers.map((cust: any) => `
           <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50">
-            <td class="px-4 py-3 font-body-md text-on-surface">${cust.customerName || cust.customerId}</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${cust.customerName || cust.customer?.fullName || cust.customer?.name || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(cust.invoiceCount)}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${fmt(cust.totalRevenueSYP)}</td>
           </tr>

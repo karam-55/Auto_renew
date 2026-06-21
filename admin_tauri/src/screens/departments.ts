@@ -80,11 +80,11 @@ export class DepartmentsScreen {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block font-label-sm text-label-sm text-text-secondary mb-1">الراتب الشهري (ل.س)</label>
-                  <input type="number" name="fixedMonthlySalarySYP" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="500000">
+                  <input type="number" name="fixedMonthlySalarySYP" min="0" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="500000">
                 </div>
                 <div>
                   <label class="block font-label-sm text-label-sm text-text-secondary mb-1">ساعات العمل/شهر</label>
-                  <input type="number" name="workHoursPerMonth" value="160" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="160">
+                  <input type="number" name="workHoursPerMonth" value="160" min="1" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="160">
                 </div>
               </div>
               <div id="calculated-hourly-rate-display" class="bg-primary/10 rounded-lg p-3 text-body-sm text-primary font-semibold hidden">
@@ -130,7 +130,7 @@ export class DepartmentsScreen {
         <td class="px-4 py-4">
           <input type="checkbox" class="dept-checkbox w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" data-id="${d.id}">
         </td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${d.nameAr || d.name || '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${d.nameAr || '-'}</td>
         <td class="px-6 py-4 font-body-md text-text-secondary">${d.description || '-'}</td>
         <td class="px-6 py-4">
           <span class="inline-flex items-center px-3 py-1 rounded-full font-label-sm text-label-sm ${d.isActive ? 'bg-tertiary/10 text-tertiary' : 'bg-surface-container-high text-text-secondary'}">
@@ -180,7 +180,7 @@ export class DepartmentsScreen {
           await this.api.delete(`/api/departments/${id}`)
           this.load(document.body.querySelector('#dept-tbody')?.closest('.page-enter') as HTMLElement)
         } catch (err: any) {
-          alert(err.message || 'فشل الحذف')
+          ;(window as any).toast?.show?.({ message: err.message || 'فشل الحذف', type: 'error' })
         }
       })
     })
@@ -209,11 +209,11 @@ export class DepartmentsScreen {
       if (!confirm(`هل أنت متأكد من حذف ${this.selectedIds.size} قسم؟`)) return
       try {
         const res: any = await this.api.post('/api/departments/bulk-delete', { ids: Array.from(this.selectedIds) })
-        alert(res.message || `تم حذف ${res.deleted || 0} قسم`)
+        ;(window as any).toast?.show?.({ message: res.message || `تم حذف ${res.deleted || 0} قسم`, type: 'success' })
         this.selectedIds.clear()
         this.load(c)
       } catch (err: any) {
-        alert(err.message || 'فشل الحذف')
+        ;(window as any).toast?.show?.({ message: err.message || 'فشل الحذف', type: 'error' })
       }
     })
 
@@ -256,16 +256,25 @@ export class DepartmentsScreen {
       e.preventDefault()
       const fd = new FormData(form)
       const id = (c.querySelector('#dept-id') as HTMLInputElement)?.value
+      const nameAr = fd.get('nameAr') as string
+      if (!nameAr || !nameAr.toString().trim()) {
+        ;(window as any).toast?.show?.({ message: 'اسم القسم مطلوب', type: 'warning' })
+        return
+      }
       const data: any = {
-        nameAr: fd.get('nameAr'),
+        nameAr: nameAr.toString().trim(),
         nameEn: fd.get('nameEn') || undefined,
         description: fd.get('description') || undefined,
         isActive: true,
         hasFixedSalary: hasFixedSalaryCheckbox?.checked ?? false,
       }
       if (hasFixedSalaryCheckbox?.checked) {
-        data.fixedMonthlySalarySYP = Number(fd.get('fixedMonthlySalarySYP')) || undefined
-        data.workHoursPerMonth = Number(fd.get('workHoursPerMonth')) || 160
+        const salary = Number(fd.get('fixedMonthlySalarySYP'))
+        const hours = Number(fd.get('workHoursPerMonth'))
+        if (salary <= 0) { ;(window as any).toast?.show?.({ message: 'الراتب الثابت يجب أن يكون أكبر من صفر', type: 'warning' }); return }
+        if (hours <= 0) { ;(window as any).toast?.show?.({ message: 'ساعات العمل يجب أن تكون أكبر من صفر', type: 'warning' }); return }
+        data.fixedMonthlySalarySYP = salary
+        data.workHoursPerMonth = hours
       }
       try {
         if (id) {
@@ -276,7 +285,7 @@ export class DepartmentsScreen {
         this.closeModal()
         this.load(c)
       } catch (err: any) {
-        alert(err.message || 'فشل الحفظ')
+        ;(window as any).toast?.show?.({ message: err.message || 'فشل الحفظ', type: 'error' })
       }
     })
   }

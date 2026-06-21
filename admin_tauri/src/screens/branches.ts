@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { isPhone } from '../utils/validation'
 
 export class BranchesScreen {
   constructor(private _auth: AuthService, private api: ApiClient, private router: Router) {}
@@ -72,7 +73,7 @@ export class BranchesScreen {
             </div>
             <div>
               <label class="font-label-sm text-text-secondary block mb-1">الهاتف</label>
-              <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="b-phone" placeholder="رقم الهاتف"/>
+              <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="b-phone" placeholder="09XXXXXXXX" type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام"/>
             </div>
             <div>
               <label class="font-label-sm text-text-secondary block mb-1">الحالة</label>
@@ -107,7 +108,7 @@ export class BranchesScreen {
       if (res.success) {
         this.loadBranches(c)
       } else {
-        alert(res.message || 'فشل الحذف')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل الحذف', type: 'error' })
       }
       this.toggleModal(c, 'delete-modal', false)
       deleteId = null
@@ -125,16 +126,17 @@ export class BranchesScreen {
       const phone = (c.querySelector('#b-phone') as HTMLInputElement).value.trim()
       const isActive = (c.querySelector('#b-status') as HTMLSelectElement).value === 'ACTIVE'
 
-      if (!name) { alert('اسم الفرع مطلوب'); return }
+      if (!name) { ;(window as any).toast?.show?.({ message: 'اسم الفرع مطلوب', type: 'warning' }); return }
+      if (phone && !isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
 
       const payload = { name, address: address || undefined, phone: phone || undefined, isActive }
 
       if (editId) {
         const res = await this.api.put(`/api/branches/${editId}`, payload)
-        if (!res.success) { alert(res.message || 'فشل التحديث'); return }
+        if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل التحديث', type: 'error' }); return }
       } else {
         const res = await this.api.post('/api/branches', payload)
-        if (!res.success) { alert(res.message || 'فشل الإنشاء'); return }
+        if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل الإنشاء', type: 'error' }); return }
       }
 
       this.loadBranches(c)
@@ -211,7 +213,7 @@ export class BranchesScreen {
         if (res.success) {
           this.loadBranches(el)
         } else {
-          alert(res.message || 'فشل الحذف')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الحذف', type: 'error' })
         }
         this.toggleModal(el, 'delete-modal', false)
       })
@@ -237,16 +239,16 @@ export class BranchesScreen {
       const phone = (el.querySelector('#b-phone') as HTMLInputElement).value.trim()
       const isActive = (el.querySelector('#b-status') as HTMLSelectElement).value === 'ACTIVE'
 
-      if (!name) { alert('اسم الفرع مطلوب'); return }
+      if (!name) { ;(window as any).toast?.show?.({ message: 'اسم الفرع مطلوب', type: 'warning' }); return }
 
       const payload = { name, address: address || undefined, phone: phone || undefined, isActive }
 
       if (isEdit) {
         const res = await this.api.put(`/api/branches/${branch.id}`, payload)
-        if (!res.success) { alert(res.message || 'فشل التحديث'); return }
+        if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل التحديث', type: 'error' }); return }
       } else {
         const res = await this.api.post('/api/branches', payload)
-        if (!res.success) { alert(res.message || 'فشل الإنشاء'); return }
+        if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل الإنشاء', type: 'error' }); return }
       }
 
       this.loadBranches(el)

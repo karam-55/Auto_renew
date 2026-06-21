@@ -8,6 +8,7 @@ export class InvoiceDetailScreen {
   private api: ApiClient
   private router: Router
   private invoiceId: string
+  private invoiceData: any = null
 
   constructor(auth: AuthService, api: ApiClient, router: Router, invoiceId: string) {
     this.auth = auth
@@ -67,7 +68,14 @@ export class InvoiceDetailScreen {
   private async applyDiscount(el: HTMLElement) {
     const discountType = (el.querySelector('#discount-type') as HTMLSelectElement)?.value as 'FIXED' | 'PERCENTAGE'
     const discountValue = parseFloat((el.querySelector('#discount-value') as HTMLInputElement)?.value || '0')
-    if (!discountValue || discountValue < 0) { alert('قيمة الخصم غير صحيحة'); return }
+    if (!discountValue || discountValue < 0) { ;(window as any).toast?.show?.({ message: 'قيمة الخصم غير صحيحة', type: 'warning' }); return }
+    const subtotal = this.invoiceData?.subtotalSYP || 0
+    if (discountType === 'FIXED' && discountValue > subtotal) {
+      ;(window as any).toast?.show?.({ message: 'قيمة الخصم لا يمكن أن تتجاوز المجموع الفرعي', type: 'warning' }); return
+    }
+    if (discountType === 'PERCENTAGE' && discountValue > 100) {
+      ;(window as any).toast?.show?.({ message: 'نسبة الخصم لا يمكن أن تتجاوز 100%', type: 'warning' }); return
+    }
 
     const payload: any = {
       discountType,
@@ -80,13 +88,13 @@ export class InvoiceDetailScreen {
     try {
       const res = await this.api.put<any>(`/api/invoices/${this.invoiceId}`, payload)
       if (res.success) {
-        alert('تم تطبيق الخصم بنجاح')
+        ;(window as any).toast?.show?.({ message: 'تم تطبيق الخصم بنجاح', type: 'success' })
         this.loadInvoice(el)
       } else {
-        alert(res.message || 'فشل تطبيق الخصم')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل تطبيق الخصم', type: 'error' })
       }
     } catch (err: any) {
-      alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">discount</span> تطبيق الخصم` }
     }
@@ -97,13 +105,13 @@ export class InvoiceDetailScreen {
     try {
       const res = await this.api.post<any>(`/api/invoices/${this.invoiceId}/cancel`, {})
       if (res.success) {
-        alert('تم إلغاء الفاتورة')
+        ;(window as any).toast?.show?.({ message: 'تم إلغاء الفاتورة', type: 'success' })
         this.loadInvoice(el)
       } else {
-        alert(res.message || 'فشل إلغاء الفاتورة')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل إلغاء الفاتورة', type: 'error' })
       }
     } catch (err: any) {
-      alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     }
   }
 
@@ -113,6 +121,7 @@ export class InvoiceDetailScreen {
       const card = el.querySelector('#invoice-detail-card')!
       if (res.success && res.data) {
         const inv = res.data
+        this.invoiceData = inv
         const statusMap: Record<string, {cls: string; label: string; glow: string}> = {
           PAID: { cls: 'bg-success/10 text-success', label: 'مدفوعة', glow: 'rgba(5,150,105,0.4)' },
           PARTIALLY_PAID: { cls: 'bg-warning/10 text-warning', label: 'مدفوعة جزئياً', glow: 'rgba(217,119,6,0.4)' },
@@ -132,7 +141,7 @@ export class InvoiceDetailScreen {
           <div class="flex justify-between items-start mb-6">
             <div>
               <h2 class="font-headline-md text-xl font-semibold text-on-surface">فاتورة #${inv.invoiceNumber || inv.id?.slice(0, 8)}</h2>
-              <p class="text-on-surface-variant mt-1 font-body-md">${inv.customer?.fullName || inv.customer?.name || inv.customerName || '-'}</p>
+              <p class="text-on-surface-variant mt-1 font-body-md">${inv.customer?.fullName || '-'}</p>
             </div>
             <span class="inline-flex items-center px-3 py-1 rounded-full font-label-sm text-label-sm ${s.cls} badge-neon" style="text-shadow:0 0 8px ${s.glow}">${s.label}</span>
           </div>

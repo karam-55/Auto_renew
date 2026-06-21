@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { SetupWizardService, Step1Data, Step2Data, Step3Data, Step4Data, Step5Data, Step6Data, Step6User } from '../services/setup-wizard.service'
+import { isPhone } from '../utils/validation'
 import {
   WIZARD_STEPS, step1Template, step2Template, step3Template,
   step4Template, step5Template, step6Template, step7Template,
@@ -154,7 +155,7 @@ export class SetupWizardScreen {
       this.currentStep++
       this.renderStep(container)
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ')
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ', type: 'error' })
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = step === 7 ? 'إكمال الإعداد' : 'التالي' }
     }
@@ -163,12 +164,14 @@ export class SetupWizardScreen {
   // ---- Save steps ----
   private async saveStep1(c: HTMLElement) {
     const name = (c.querySelector('#step1-name') as HTMLInputElement)?.value.trim()
+    const phone = (c.querySelector('#step1-phone') as HTMLInputElement)?.value.trim() || ''
     if (!name) throw new Error('يرجى إدخال اسم الشركة')
+    if (phone && !/^09[0-9]{8}$/.test(phone)) throw new Error('رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام')
     const data: Step1Data = {
       companyName: name,
       companyNameEn: (c.querySelector('#step1-name-en') as HTMLInputElement)?.value.trim() || undefined,
       address: (c.querySelector('#step1-address') as HTMLInputElement)?.value.trim() || undefined,
-      phone: (c.querySelector('#step1-phone') as HTMLInputElement)?.value.trim() || undefined,
+      phone: phone || undefined,
       taxNumber: (c.querySelector('#step1-tax') as HTMLInputElement)?.value.trim() || undefined,
       currency: (c.querySelector('#step1-currency') as HTMLSelectElement)?.value || 'SYP',
       timezone: (c.querySelector('#step1-timezone') as HTMLSelectElement)?.value || undefined,
@@ -181,6 +184,10 @@ export class SetupWizardScreen {
   private async saveStep2(c: HTMLElement) {
     const rate = parseFloat((c.querySelector('#step2-rate') as HTMLInputElement)?.value || '0')
     if (!rate || rate <= 0) throw new Error('يرجى إدخال سعر الصرف')
+    const startDate = (c.querySelector('#step2-fiscal-start') as HTMLInputElement)?.value
+    const endDate = (c.querySelector('#step2-fiscal-end') as HTMLInputElement)?.value
+    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) throw new Error('تاريخ النهاية يجب أن يكون بعد تاريخ البداية')
+
     const data: Step2Data = {
       exchangeRate: rate,
       taxRate: parseFloat((c.querySelector('#step2-tax') as HTMLInputElement)?.value || '0') || undefined,
@@ -190,8 +197,8 @@ export class SetupWizardScreen {
       invoicePrefix: (c.querySelector('#step2-prefix') as HTMLInputElement)?.value.trim() || undefined,
       autoGenerateInvoiceNumber: (c.querySelector('#step2-auto-num') as HTMLInputElement)?.checked,
       fiscalPeriodName: (c.querySelector('#step2-fiscal-name') as HTMLInputElement)?.value.trim() || undefined,
-      fiscalStartDate: (c.querySelector('#step2-fiscal-start') as HTMLInputElement)?.value || undefined,
-      fiscalEndDate: (c.querySelector('#step2-fiscal-end') as HTMLInputElement)?.value || undefined,
+      fiscalStartDate: startDate || undefined,
+      fiscalEndDate: endDate || undefined,
     }
     await this.svc.saveStep(2, data)
     this.stepData[2] = data
@@ -232,7 +239,7 @@ export class SetupWizardScreen {
 
   private async complete() {
     await this.svc.complete()
-    alert('تم إكمال إعداد النظام بنجاح!')
+    ;(window as any).toast?.show?.({ message: 'تم إكمال إعداد النظام بنجاح!', type: 'success' })
     this.router.navigate('/dashboard')
   }
 
@@ -240,13 +247,17 @@ export class SetupWizardScreen {
   private addUser(c: HTMLElement) {
     const fullName = (c.querySelector('#user-fullName') as HTMLInputElement)?.value.trim() || ''
     const phone = (c.querySelector('#user-phone') as HTMLInputElement)?.value.trim() || ''
+    const password = (c.querySelector('#user-password') as HTMLInputElement)?.value.trim() || ''
     const role = (c.querySelector('#user-role') as HTMLSelectElement)?.value || 'RECEPTIONIST'
-    if (!fullName) { alert('يرجى إدخال الاسم'); return }
-    if (!phone) { alert('يرجى إدخال رقم الموبايل'); return }
-    const user: Step6User = { fullName, username: phone, phone, password: phone, role }
+    if (!fullName) { ;(window as any).toast?.show?.({ message: 'يرجى إدخال الاسم', type: 'warning' }); return }
+    if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الموبايل يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
+    if (password.length < 6) { ;(window as any).toast?.show?.({ message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل', type: 'warning' }); return }
+    if (password === phone) { ;(window as any).toast?.show?.({ message: 'كلمة المرور يجب أن تكون مختلفة عن رقم الموبايل', type: 'warning' }); return }
+    const user: Step6User = { fullName, username: phone, phone, password, role }
     this.users.push(user)
     ;(c.querySelector('#user-fullName') as HTMLInputElement).value = ''
     ;(c.querySelector('#user-phone') as HTMLInputElement).value = ''
+    ;(c.querySelector('#user-password') as HTMLInputElement).value = ''
     this.refreshUsersList(c)
   }
 

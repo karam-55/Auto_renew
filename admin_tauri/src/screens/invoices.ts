@@ -30,10 +30,20 @@ export class InvoicesScreen {
             </div>
             <select class="h-12 bg-white/50 border border-glass-border rounded-xl pr-4 pl-10 font-body-md text-on-surface input-glow transition-all w-full md:w-48 appearance-none cursor-pointer" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23737685%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;" id="status-filter">
               <option value="">كل الحالات</option>
+              <option value="DRAFT">مسودة</option>
+              <option value="ISSUED">مصدرة</option>
+              <option value="PENDING">معلقة</option>
               <option value="UNPAID">غير مدفوعة</option>
+              <option value="PARTIALLY_PAID">جزئية</option>
               <option value="PAID">مدفوعة</option>
               <option value="OVERDUE">متأخرة</option>
+              <option value="CANCELLED">ملغية</option>
+              <option value="VOID">باطلة</option>
             </select>
+            <button class="h-12 px-4 bg-primary/10 text-primary font-body-md rounded-xl border border-primary/20 hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full md:w-auto justify-center" id="refresh-invoices">
+              <span class="material-symbols-outlined text-[20px]">sync</span>
+              تحديث
+            </button>
           </div>
         </div>
         <div class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
@@ -65,6 +75,12 @@ export class InvoicesScreen {
     this.loadInvoices(content)
     content.querySelector('#new-invoice-btn')?.addEventListener('click', () => this.showInvoiceTypeModal())
     content.querySelector('#invoices-fab')?.addEventListener('click', () => this.showInvoiceTypeModal())
+    content.querySelector('#refresh-invoices')?.addEventListener('click', () => {
+      this.api.clearCache()
+      const tbody = content.querySelector('#invoices-tbody')!
+      tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-on-surface-variant"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>'
+      this.loadInvoices(content)
+    })
     return layout.render(content)
   }
 
@@ -78,8 +94,8 @@ export class InvoicesScreen {
         tbody.innerHTML = invoices.map((i: any) => `
           <tr class="border-b border-glass-border hover:bg-white/40 hover:translate-y-[-2px] hover:shadow-sm transition-all duration-300 group">
             <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-lg bg-surface-container text-financial-data text-on-surface text-sm">${i.invoiceNumber || i.id?.slice(0,8)}</span></td>
-            <td class="px-6 py-4 font-body-md text-on-surface font-semibold">${i.customer?.fullName || i.customer?.name || '-'}</td>
-            <td class="px-6 py-4 font-body-md text-on-surface-variant">${i.createdAt ? new Date(i.createdAt).toLocaleDateString('ar-SA') : '-'}</td>
+            <td class="px-6 py-4 font-body-md text-on-surface font-semibold">${i.customer?.fullName || '-'}</td>
+            <td class="px-6 py-4 font-body-md text-on-surface-variant">${i.invoiceDate ? new Date(i.invoiceDate).toLocaleDateString('ar-SA') : (i.createdAt ? new Date(i.createdAt).toLocaleDateString('ar-SA') : '-')}</td>
             <td class="px-6 py-4 text-financial-data text-on-surface font-semibold">${this.fmt(i.totalSYP || 0)} ل.س</td>
             <td class="px-6 py-4">${this.statusBadge(i.status)}</td>
             <td class="px-6 py-4">
@@ -89,6 +105,12 @@ export class InvoicesScreen {
                 </button>
                 <button class="w-8 h-8 rounded-lg hover:bg-tertiary/10 flex items-center justify-center text-on-surface-variant hover:text-tertiary hover:scale-110 transition-all" title="دفع" data-action="pay" data-id="${i.id}">
                   <span class="material-symbols-outlined text-[18px]">payments</span>
+                </button>
+                ${i.status !== 'CANCELLED' && i.status !== 'VOID' ? `<button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="إلغاء" data-action="cancel" data-id="${i.id}">
+                  <span class="material-symbols-outlined text-[18px]">cancel</span>
+                </button>` : ''}
+                <button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" data-action="delete" data-id="${i.id}">
+                  <span class="material-symbols-outlined text-[18px]">delete</span>
                 </button>
               </div>
             </td>
@@ -106,20 +128,71 @@ export class InvoicesScreen {
             if (id) this.router.navigate(`/payments/new?invoiceId=${id}`)
           })
         })
+        tbody.querySelectorAll('[data-action="cancel"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id')
+            if (id) this.cancelInvoice(el, id)
+          })
+        })
+        tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id')
+            if (id) this.deleteInvoice(el, id)
+          })
+        })
       }
     } catch { el.querySelector('#invoices-tbody')!.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</td></tr>' }
   }
 
   private statusBadge(s: string): string {
     const map: Record<string, {label:string;cls:string;glow:string}> = {
+      DRAFT: {label:'مسودة', cls:'bg-surface-container-high text-text-secondary', glow:'rgba(115,118,133,0.4)'},
+      ISSUED: {label:'مصدرة', cls:'bg-info/10 text-info', glow:'rgba(8,145,178,0.4)'},
+      PENDING: {label:'معلقة', cls:'bg-warning/10 text-warning', glow:'rgba(217,119,6,0.4)'},
       UNPAID: {label:'غير مدفوعة', cls:'bg-error/10 text-error', glow:'rgba(186,26,26,0.4)'},
-      PAID: {label:'مدفوعة', cls:'bg-success/10 text-success', glow:'rgba(5,150,105,0.4)'},
       PARTIALLY_PAID: {label:'جزئية', cls:'bg-warning/10 text-warning', glow:'rgba(217,119,6,0.4)'},
+      PAID: {label:'مدفوعة', cls:'bg-success/10 text-success', glow:'rgba(5,150,105,0.4)'},
       OVERDUE: {label:'متأخرة', cls:'bg-tertiary/10 text-tertiary', glow:'rgba(117,31,0,0.4)'},
-      CANCELLED: {label:'ملغية', cls:'bg-surface-container-high text-on-surface-variant', glow:'rgba(115,118,133,0.4)'}
+      CANCELLED: {label:'ملغية', cls:'bg-surface-container-high text-text-secondary', glow:'rgba(115,118,133,0.4)'},
+      VOID: {label:'باطلة', cls:'bg-surface-container-high text-text-secondary', glow:'rgba(115,118,133,0.4)'},
+      REFUNDED: {label:'مسترجعة', cls:'bg-secondary/10 text-secondary', glow:'rgba(113,42,226,0.4)'}
     }
-    const m = map[s] || {label:s, cls:'bg-surface-container-high text-on-surface-variant', glow:'rgba(115,118,133,0.4)'}
+    const m = map[s] || {label:s, cls:'bg-surface-container-high text-text-secondary', glow:'rgba(115,118,133,0.4)'}
     return `<span class="inline-flex items-center px-3 py-1 rounded-full font-label-sm text-label-sm ${m.cls} badge-neon" style="text-shadow:0 0 8px ${m.glow}">${m.label}</span>`
+  }
+
+  private async cancelInvoice(el: HTMLElement, id: string) {
+    const confirmed = window.confirm('هل أنت متأكد من إلغاء هذه الفاتورة؟')
+    if (!confirmed) return
+    try {
+      const res = await this.api.patch<any>(`/api/invoices/${id}/cancel`, {})
+      if (res.success) {
+        ;(window as any).toast?.show?.({ message: 'تم إلغاء الفاتورة بنجاح', type: 'success' })
+        this.api.clearCache()
+        this.loadInvoices(el)
+      } else {
+        throw new Error(res.message || 'فشل إلغاء الفاتورة')
+      }
+    } catch (err: any) {
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء إلغاء الفاتورة', type: 'error' })
+    }
+  }
+
+  private async deleteInvoice(el: HTMLElement, id: string) {
+    const confirmed = window.confirm('هل أنت متأكد من حذف هذه الفاتورة نهائياً؟')
+    if (!confirmed) return
+    try {
+      const res = await this.api.delete<any>(`/api/invoices/${id}`)
+      if (res.success) {
+        ;(window as any).toast?.show?.({ message: 'تم حذف الفاتورة بنجاح', type: 'success' })
+        this.api.clearCache()
+        this.loadInvoices(el)
+      } else {
+        throw new Error(res.message || 'فشل حذف الفاتورة')
+      }
+    } catch (err: any) {
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء حذف الفاتورة', type: 'error' })
+    }
   }
   private fmt(n: number) { return new Intl.NumberFormat('ar-SA',{minimumFractionDigits:2}).format(n) }
 

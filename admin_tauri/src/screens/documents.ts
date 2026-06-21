@@ -25,7 +25,8 @@ export class DocumentsScreen {
             <h1 class="font-beVietnamPro text-headline-md text-on-surface">أرشيف المستندات الرقمي</h1>
             <p class="text-body-md text-text-secondary mt-1">إدارة وتخزين جميع المستندات والوثائق</p>
           </div>
-          <button class="h-[48px] bg-primary text-on-primary font-ibmPlexSans font-body-lg text-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center justify-center gap-2 px-6">
+          <input type="file" id="doc-file-input" class="hidden" />
+          <button class="h-[48px] bg-primary text-on-primary font-ibmPlexSans font-body-lg text-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center justify-center gap-2 px-6" id="upload-doc-btn">
             <span class="material-symbols-outlined text-[20px]">upload</span>
             رفع مستند
           </button>
@@ -81,6 +82,20 @@ export class DocumentsScreen {
       </div>
     `
     this.loadData(content)
+    const fileInput = content.querySelector('#doc-file-input') as HTMLInputElement
+    content.querySelector('#upload-doc-btn')?.addEventListener('click', () => {
+      fileInput?.click()
+    })
+    fileInput?.addEventListener('change', async () => {
+      const file = fileInput.files?.[0]
+      if (!file) return
+      ;(window as any).toast?.show?.({ message: `جاري رفع ${file.name}...`, type: 'info', duration: 2000 })
+      // Placeholder: actual upload would require FormData + backend endpoint
+      setTimeout(() => {
+        ;(window as any).toast?.show?.({ message: `تم رفع ${file.name} (تجريبي)`, type: 'success' })
+        fileInput.value = ''
+      }, 1500)
+    })
     return layout.render(content)
   }
 
@@ -95,10 +110,10 @@ export class DocumentsScreen {
           <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
             <td class="px-6 py-4 flex items-center gap-2">
               <span class="material-symbols-outlined text-primary">description</span>
-              <span class="font-body-md text-on-surface">${item.fileName || item.name || '-'}</span>
+              <span class="font-body-md text-on-surface">${item.name || '-'}</span>
             </td>
-            <td class="px-6 py-4 font-body-md text-text-secondary">${item.fileType || item.type || '-'}</td>
-            <td class="px-6 py-4 font-body-md text-text-secondary">${item.fileSize || item.size || '-'}</td>
+            <td class="px-6 py-4 font-body-md text-text-secondary">${item.type || '-'}</td>
+            <td class="px-6 py-4 font-body-md text-text-secondary">${item.size || '-'}</td>
             <td class="px-6 py-4 font-body-md text-text-secondary">${item.createdAt?.split('T')[0] || '-'}</td>
             <td class="px-6 py-4">
               <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" data-action="download" data-id="${item.id}">

@@ -436,7 +436,7 @@ export class ManualInvoiceScreen {
         <div class="flex gap-2">
           <select class="flex-1 h-[48px] bg-surface-subtle border border-border rounded-lg pr-4 pl-10 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow appearance-none" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23475569%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;" id="service-select">
             <option value="">اختر خدمة...</option>
-            ${this.servicesList.map((s: any) => `<option value="${s.id}" data-price="${s.priceSYP || 0}" data-price-usd="${s.priceUSD || ''}">${s.nameAr || s.nameEn || s.name} - ${s.priceSYP || 0} ل.س</option>`).join('')}
+            ${this.servicesList.map((s: any) => `<option value="${s.id}" data-price="${s.basePrice || s.priceSYP || 0}" data-price-usd="${s.priceUSD || ''}">${s.name} - ${s.basePrice || s.priceSYP || 0} ل.س</option>`).join('')}
           </select>
           <button class="h-[48px] px-4 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-service-btn">
             <span class="material-symbols-outlined text-[20px]">add</span>
@@ -446,6 +446,30 @@ export class ManualInvoiceScreen {
         <div id="services-list" class="space-y-2"></div>
       </div>
     `
+
+    // Event delegation on services-list (performance fix)
+    const servicesList = el.querySelector('#services-list') as HTMLElement
+    if (servicesList) {
+      servicesList.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement
+        if (target.tagName === 'INPUT' && target.type === 'number') {
+          const idx = parseInt(target.getAttribute('data-idx')!)
+          const val = parseInt(target.value)
+          if (val > 0 && !isNaN(idx)) this.invoiceItems[idx].quantity = val
+          this.refreshServicesList(el)
+        }
+      })
+      servicesList.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest('[data-remove]') as HTMLButtonElement | null
+        if (btn) {
+          const idx = parseInt(btn.getAttribute('data-remove')!)
+          if (!isNaN(idx)) {
+            this.invoiceItems.splice(idx, 1)
+            this.refreshServicesList(el)
+          }
+        }
+      })
+    }
 
     this.refreshServicesList(el)
 
@@ -458,7 +482,7 @@ export class ManualInvoiceScreen {
       const priceUSD = option.getAttribute('data-price-usd') || null
       this.invoiceItems.push({
         serviceId: select.value,
-        description: option.text.split(' - ')[0],
+        description: (option.textContent || '').split(' - ')[0],
         quantity: 1,
         priceSYP,
         priceUSD: priceUSD ? parseFloat(priceUSD) : null,
@@ -488,25 +512,6 @@ export class ManualInvoiceScreen {
         </div>
       `).join('')
 
-      list.querySelectorAll('input[type="number"]').forEach(input => {
-        input.addEventListener('change', (e) => {
-          const target = e.target as HTMLInputElement
-          const idx = parseInt(target.getAttribute('data-idx')!)
-          const val = parseInt(target.value)
-          if (val > 0) {
-            this.invoiceItems[idx].quantity = val
-          }
-          this.refreshServicesList(el)
-        })
-      })
-
-      list.querySelectorAll('[data-remove]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.getAttribute('data-remove')!)
-          this.invoiceItems.splice(idx, 1)
-          this.refreshServicesList(el)
-        })
-      })
     }
 
     const nextBtn = el.querySelector('#step2-next') as HTMLButtonElement
@@ -518,6 +523,20 @@ export class ManualInvoiceScreen {
     const valueInput = el.querySelector('#discount-value') as HTMLInputElement
     this.discountType = typeSelect.value as 'FIXED' | 'PERCENTAGE'
     this.discountValue = parseFloat(valueInput.value) || 0
+
+    const subtotal = this.invoiceItems.reduce((sum, item) => sum + (item.priceSYP * item.quantity), 0)
+    let discount = 0
+    if (this.discountType === 'PERCENTAGE' && this.discountValue > 0) {
+      discount = Math.round(subtotal * (this.discountValue / 100))
+    } else {
+      discount = this.discountValue
+    }
+    if (discount > subtotal) {
+      ;(window as any).toast?.show?.({ message: 'الخصم يتجاوز المجموع الفرعي', type: 'warning' })
+      this.discountValue = 0
+      valueInput.value = '0'
+    }
+
     this.updateSummary(el)
   }
 
@@ -541,6 +560,18 @@ export class ManualInvoiceScreen {
   }
 
   private async createInvoice(el: HTMLElement) {
+    if (!this.selectedCustomerId) { ;(window as any).toast?.show?.({ message: 'يرجى اختيار عميل', type: 'warning' }); return }
+    if (this.invoiceItems.length === 0) { ;(window as any).toast?.show?.({ message: 'يرجى إضافة عناصر للفاتورة', type: 'warning' }); return }
+
+    const subtotal = this.invoiceItems.reduce((sum, item) => sum + (item.priceSYP * item.quantity), 0)
+    let discount = 0
+    if (this.discountType === 'PERCENTAGE' && this.discountValue > 0) {
+      discount = Math.round(subtotal * (this.discountValue / 100))
+    } else {
+      discount = this.discountValue
+    }
+    if (discount > subtotal) { ;(window as any).toast?.show?.({ message: 'الخصم يتجاوز المجموع الفرعي', type: 'warning' }); return }
+
     const btn = el.querySelector('#create-invoice-btn') as HTMLButtonElement
     if (btn) {
       btn.disabled = true
@@ -579,17 +610,17 @@ export class ManualInvoiceScreen {
     try {
       const res = await this.api.post<any>('/api/invoices', payload)
       if (res.success && res.data) {
-        alert('تم إنشاء الفاتورة بنجاح')
+        ;(window as any).toast?.show?.({ message: 'تم إنشاء الفاتورة بنجاح', type: 'success' })
         this.router.navigate(`/invoices/${res.data.id}`)
       } else {
-        alert(res.message || 'فشل إنشاء الفاتورة')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل إنشاء الفاتورة', type: 'error' })
         if (btn) {
           btn.disabled = false
           btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">receipt_long</span> إنشاء الفاتورة`
         }
       }
     } catch (err: any) {
-      alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
       if (btn) {
         btn.disabled = false
         btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">receipt_long</span> إنشاء الفاتورة`

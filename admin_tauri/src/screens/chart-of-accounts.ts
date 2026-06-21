@@ -80,12 +80,12 @@ export class ChartOfAccountsScreen {
       '    <h2 id="modal-title" class="font-headline-sm text-on-surface mb-4">إضافة حساب جديد</h2>',
       '    <div class="space-y-4">',
       '      <div>',
-      '        <label class="block font-label-sm text-text-secondary mb-1">الرمز</label>',
-      '        <input id="acc-code" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr"/>',
+      '        <label class="block font-label-sm text-text-secondary mb-1">الرمز *</label>',
+      '        <input id="acc-code" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr" required/>',
       '      </div>',
       '      <div>',
-      '        <label class="block font-label-sm text-text-secondary mb-1">الاسم (عربي)</label>',
-      '        <input id="acc-name" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface"/>',
+      '        <label class="block font-label-sm text-text-secondary mb-1">الاسم (عربي) *</label>',
+      '        <input id="acc-name" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" required/>',
       '      </div>',
       '      <div>',
       '        <label class="block font-label-sm text-text-secondary mb-1">الاسم (إنجليزي)</label>',
@@ -394,7 +394,7 @@ export class ChartOfAccountsScreen {
     const parentId = (c.querySelector('#modal-parent') as HTMLSelectElement).value || undefined
     const balanceSYP = parseFloat((c.querySelector('#modal-balance') as HTMLInputElement).value) || 0
 
-    if (!code || !nameAr) { alert('الرمز والاسم مطلوبان'); return }
+    if (!code || !nameAr) { ;(window as any).toast?.show?.({ message: 'الرمز والاسم مطلوبان', type: 'warning' }); return }
 
     try {
       if (this.editingId) {
@@ -405,7 +405,7 @@ export class ChartOfAccountsScreen {
       this.closeModal(c)
       await this.loadData(c)
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ')
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ', type: 'error' })
     }
   }
 
@@ -430,7 +430,7 @@ export class ChartOfAccountsScreen {
   private async saveBalance(c: HTMLElement) {
     const amount = parseFloat((c.querySelector('#balance-amount') as HTMLInputElement).value)
     const operation = (c.querySelector('#balance-operation') as HTMLSelectElement).value
-    if (!this.balanceAccountId || isNaN(amount) || amount < 0) { alert('المبلغ مطلوب ويجب أن يكون موجباً'); return }
+    if (!this.balanceAccountId || isNaN(amount) || amount < 0) { ;(window as any).toast?.show?.({ message: 'المبلغ مطلوب ويجب أن يكون موجباً', type: 'warning' }); return }
 
     try {
       // Find account and update balance
@@ -440,11 +440,11 @@ export class ChartOfAccountsScreen {
       const delta = operation === 'subtract' ? -amount : amount
       const newBalance = currentBalance + delta
       const res = await this.api.put(`/api/accounts/${this.balanceAccountId}`, { balanceSYP: newBalance })
-      if (!res.success) { alert(res.message || 'فشل تحديث الرصيد'); return }
+      if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل تحديث الرصيد', type: 'error' }); return }
       this.closeBalanceModal(c)
       await this.loadData(c)
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ')
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ', type: 'error' })
     }
   }
 
@@ -454,7 +454,7 @@ export class ChartOfAccountsScreen {
       await this.api.delete(`/api/accounts/${account.id}`)
       await this.loadData(c)
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ')
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ', type: 'error' })
     }
   }
 }

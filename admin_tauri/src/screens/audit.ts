@@ -54,6 +54,14 @@ export class AuditScreen {
               </tbody>
             </table>
           </div>
+          <!-- Pagination -->
+          <div class="p-3 border-t border-outline-variant/10 bg-surface-subtle flex items-center justify-between" id="audit-pagination">
+            <span class="text-text-tertiary text-xs" id="audit-page-info">-</span>
+            <div class="flex items-center gap-2">
+              <button id="audit-prev" class="px-3 py-1 rounded-lg bg-surface-container-high text-on-surface text-sm hover:bg-primary-container/20 disabled:opacity-40" disabled>السابق</button>
+              <button id="audit-next" class="px-3 py-1 rounded-lg bg-surface-container-high text-on-surface text-sm hover:bg-primary-container/20 disabled:opacity-40" disabled>التالي</button>
+            </div>
+          </div>
         </div>
       </div>
     `
@@ -61,13 +69,32 @@ export class AuditScreen {
 
     content.querySelector('#audit-action-filter')?.addEventListener('change', (e) => {
       const action = (e.target as HTMLSelectElement).value
+      this.currentAuditPage = 1
       this.filterAudit(content, action)
+    })
+    content.querySelector('#audit-prev')?.addEventListener('click', () => {
+      if (this.currentAuditPage > 1) {
+        this.currentAuditPage--
+        const action = (content.querySelector('#audit-action-filter') as HTMLSelectElement)?.value || ''
+        this.filterAudit(content, action)
+      }
+    })
+    content.querySelector('#audit-next')?.addEventListener('click', () => {
+      const action = (content.querySelector('#audit-action-filter') as HTMLSelectElement)?.value || ''
+      const filtered = action ? this.allAudit.filter((l: any) => l.action === action) : this.allAudit
+      const maxPage = Math.ceil(filtered.length / this.auditPageSize)
+      if (this.currentAuditPage < maxPage) {
+        this.currentAuditPage++
+        this.filterAudit(content, action)
+      }
     })
 
     return layout.render(content)
   }
 
   private allAudit: any[] = []
+  private currentAuditPage = 1
+  private auditPageSize = 25
 
   private async loadAudit(content: HTMLElement) {
     const tbody = content.querySelector('#audit-table-body')
@@ -126,22 +153,38 @@ export class AuditScreen {
       LOGOUT: { label: 'تسجيل خروج', color: 'text-tertiary' },
     }
 
-    tbody.innerHTML = logs.slice(0, 50).map((log: any) => {
+    const start = (this.currentAuditPage - 1) * this.auditPageSize
+    const pageLogs = logs.slice(start, start + this.auditPageSize)
+    const maxPage = Math.max(1, Math.ceil(logs.length / this.auditPageSize))
+
+    const fragment = document.createDocumentFragment()
+    pageLogs.forEach((log: any) => {
       const a = actionMap[log.action] || { label: log.action, color: 'text-tertiary' }
       const date = log.createdAt ? new Date(log.createdAt).toLocaleString('ar-SY', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'short', day: 'numeric' }) : '-'
-      const userName = log.user?.name || log.user?.username || log.userName || '-'
+      const userName = log.user?.fullName || log.user?.username || log.userName || '-'
       const entity = log.entity || '-'
       const entityId = log.entityId ? log.entityId.slice(0, 8) + '...' : '-'
-      return `
-        <tr class="border-b border-outline-variant/5 hover:bg-surface-subtle/50 transition-colors">
+      const tr = document.createElement('tr')
+      tr.className = 'border-b border-outline-variant/5 hover:bg-surface-subtle/50 transition-colors'
+      tr.innerHTML = `
           <td class="px-4 py-3 text-text-tertiary whitespace-nowrap">${date}</td>
           <td class="px-4 py-3 text-on-surface">${userName}</td>
           <td class="px-4 py-3"><span class="${a.color} bg-${a.color}/10 px-2 py-0.5 rounded-full text-xs font-medium">${a.label}</span></td>
           <td class="px-4 py-3 text-text-tertiary">${entity} <span class="text-xs">${entityId}</span></td>
           <td class="px-4 py-3 text-text-tertiary text-xs font-mono">${log.ipAddress || '-'}</td>
-        </tr>
       `
-    }).join('')
+      fragment.appendChild(tr)
+    })
+    tbody.innerHTML = ''
+    tbody.appendChild(fragment)
+
+    // Update pagination controls
+    const pageInfo = content.querySelector('#audit-page-info') as HTMLElement
+    const prevBtn = content.querySelector('#audit-prev') as HTMLButtonElement
+    const nextBtn = content.querySelector('#audit-next') as HTMLButtonElement
+    if (pageInfo) pageInfo.textContent = `صفحة ${this.currentAuditPage} من ${maxPage} (${logs.length} سجل)`
+    if (prevBtn) prevBtn.disabled = this.currentAuditPage <= 1
+    if (nextBtn) nextBtn.disabled = this.currentAuditPage >= maxPage
   }
 
   private filterAudit(content: HTMLElement, action: string) {

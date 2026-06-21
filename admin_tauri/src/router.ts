@@ -28,6 +28,7 @@ import { CashFlowScreen } from './screens/cash-flow'
 import { CustomersScreen } from './screens/customers'
 import { CustomerDetailScreen } from './screens/customer-detail'
 import { DealersScreen } from './screens/dealers'
+import { DealerDetailScreen } from './screens/dealer-detail'
 import { LoyaltyScreen } from './screens/loyalty'
 import { HrScreen } from './screens/hr'
 import { EmployeeFormScreen } from './screens/employee-form'
@@ -50,6 +51,31 @@ import { WorkshopMapScreen } from './screens/workshop-map'
 import { ServicesScreen } from './screens/services'
 import { CostCentersScreen } from './screens/cost-centers'
 import { AssetsScreen } from './screens/assets'
+
+function extractId(path: string, prefix: string): string | null {
+  const cleanPath = path.split('?')[0]
+  if (!cleanPath.startsWith(prefix)) return null
+  const id = cleanPath.slice(prefix.length)
+  if (!id || id.includes('/')) return null
+  return id
+}
+
+function createNotFoundScreen(path: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'page-enter min-h-screen bg-background p-gutter flex flex-col items-center justify-center'
+  el.innerHTML = `
+    <div class="text-center space-y-4">
+      <span class="material-symbols-outlined text-6xl text-text-tertiary">help_outline</span>
+      <h1 class="font-headline-lg text-on-surface">404</h1>
+      <p class="text-text-secondary">الصفحة غير موجودة: <code class="bg-surface-subtle px-2 py-1 rounded">${path}</code></p>
+      <button class="mt-4 h-[48px] px-6 bg-primary text-on-primary rounded-lg shadow-sm" id="nf-back">العودة للرئيسية</button>
+    </div>
+  `
+  el.querySelector('#nf-back')?.addEventListener('click', () => {
+    window.location.hash = '#'
+  })
+  return el
+}
 
 export class Router {
   private container: HTMLElement | null = null
@@ -112,8 +138,10 @@ export class Router {
   }
 
   private createScreen(path: string) {
+    // Strip query string for route matching (query params parsed per-route)
+    const routePath = path.split('?')[0]
     // Exact matches first
-    switch (path) {
+    switch (routePath) {
       case '/login': return new LoginScreen(this.auth, this.api, this)
       case '/':
       case '/dashboard': return new DashboardScreen(this.auth, this.api, this)
@@ -128,6 +156,13 @@ export class Router {
         const params = new URLSearchParams(queryString)
         const type = params.get('type') === 'booking' ? 'booking' : 'manual'
         return new ManualInvoiceScreen(this.auth, this.api, this, type)
+      }
+      case '/payments/new': {
+        const hash = window.location.hash
+        const qIndex = hash.indexOf('?')
+        const queryString = qIndex > -1 ? hash.slice(qIndex + 1) : ''
+        const params = new URLSearchParams(queryString)
+        return new PaymentScreen(this.auth, this.api, this, params.get('invoiceId') || undefined)
       }
       case '/pos': return new PosScreen(this.auth, this.api, this)
       case '/inventory': return new InventoryScreen(this.auth, this.api, this)
@@ -169,22 +204,24 @@ export class Router {
       case '/assets': return new AssetsScreen(this.auth, this.api, this)
     }
     // Dynamic routes
-    if (path.startsWith('/bookings/ticket/')) return new BookingTicketScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/bookings/print/')) return new BookingPrintTicketScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/invoices/print/')) return new InvoicePrintScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/invoices/')) return new InvoiceDetailScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/payments/new')) {
-      const hash = window.location.hash
-      const qIndex = hash.indexOf('?')
-      const queryString = qIndex > -1 ? hash.slice(qIndex + 1) : ''
-      const params = new URLSearchParams(queryString)
-      return new PaymentScreen(this.auth, this.api, this, params.get('invoiceId') || undefined)
-    }
-    if (path.startsWith('/hr/employees/')) return new EmployeeFormScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/customers/')) return new CustomerDetailScreen(this.auth, this.api, this, path.split('/').pop()!)
-    if (path.startsWith('/dealers/')) return new DealersScreen(this.auth, this.api, this)
-    // Fallback
-    return new DashboardScreen(this.auth, this.api, this)
+    const bookingTicketId = extractId(path, '/bookings/ticket/')
+    if (bookingTicketId) return new BookingTicketScreen(this.auth, this.api, this, bookingTicketId)
+    const bookingPrintId = extractId(path, '/bookings/print/')
+    if (bookingPrintId) return new BookingPrintTicketScreen(this.auth, this.api, this, bookingPrintId)
+    const invoicePrintId = extractId(path, '/invoices/print/')
+    if (invoicePrintId) return new InvoicePrintScreen(this.auth, this.api, this, invoicePrintId)
+    const invoiceDetailId = extractId(path, '/invoices/')
+    if (invoiceDetailId) return new InvoiceDetailScreen(this.auth, this.api, this, invoiceDetailId)
+    const employeeId = extractId(path, '/hr/employees/')
+    if (employeeId) return new EmployeeFormScreen(this.auth, this.api, this, employeeId)
+    const customerId = extractId(path, '/customers/')
+    if (customerId) return new CustomerDetailScreen(this.auth, this.api, this, customerId)
+    const dealerId = extractId(path, '/dealers/')
+    if (dealerId) return new DealerDetailScreen(this.auth, this.api, this, dealerId)
+    // Fallback — 404
+    return {
+      render: () => createNotFoundScreen(path)
+    } as any
   }
 }
 

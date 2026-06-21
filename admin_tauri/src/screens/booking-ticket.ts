@@ -47,35 +47,35 @@ export class BookingTicketScreen {
                 <span class="material-symbols-outlined">calendar_month</span>
               </div>
               <div>
-                <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="ticket-type">...</h3>
+                <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="ticket-type"><span class="skeleton skeleton-text-lg inline-block w-32"></span></h3>
                 <span class="bg-primary-container/20 text-primary px-3 py-1 rounded-full font-label-sm text-sm inline-flex items-center gap-1 mt-1" id="ticket-status-badge">
-                  <span class="w-1.5 h-1.5 rounded-full bg-primary"></span> <span id="ticket-status-text">...</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-primary"></span> <span id="ticket-status-text"><span class="skeleton skeleton-text-sm inline-block w-16"></span></span>
                 </span>
               </div>
             </div>
-            <span class="text-financial-data text-text-tertiary" id="ticket-date">...</span>
+            <span class="text-financial-data text-text-tertiary" id="ticket-date"><span class="skeleton skeleton-text w-24"></span></span>
           </div>
           <div class="p-6 space-y-6" id="ticket-fields">
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <p class="font-label-sm text-text-tertiary mb-1">العميل</p>
-                <p class="font-body-md text-on-surface font-semibold" id="ticket-customer">...</p>
+                <p class="font-body-md text-on-surface font-semibold" id="ticket-customer"><span class="skeleton skeleton-text w-28"></span></p>
               </div>
               <div>
                 <p class="font-label-sm text-text-tertiary mb-1">المركبة</p>
-                <p class="font-body-md text-on-surface font-semibold" id="ticket-vehicle">...</p>
+                <p class="font-body-md text-on-surface font-semibold" id="ticket-vehicle"><span class="skeleton skeleton-text w-24"></span></p>
               </div>
               <div>
                 <p class="font-label-sm text-text-tertiary mb-1">رقم اللوحة</p>
-                <p class="font-body-md text-on-surface font-semibold" dir="ltr" id="ticket-plate">...</p>
+                <p class="font-body-md text-on-surface font-semibold" dir="ltr" id="ticket-plate"><span class="skeleton skeleton-text w-20"></span></p>
               </div>
               <div>
                 <p class="font-label-sm text-text-tertiary mb-1">الأولوية</p>
-                <p class="font-body-md text-on-surface font-semibold" id="ticket-priority">...</p>
+                <p class="font-body-md text-on-surface font-semibold" id="ticket-priority"><span class="skeleton skeleton-text w-16"></span></p>
               </div>
               <div>
                 <p class="font-label-sm text-text-tertiary mb-1">طريقة الدفع</p>
-                <p class="font-body-md text-on-surface font-semibold" id="ticket-payment">...</p>
+                <p class="font-body-md text-on-surface font-semibold" id="ticket-payment"><span class="skeleton skeleton-text w-16"></span></p>
               </div>
             </div>
             <div class="border-t border-outline-variant/10 pt-4" id="services-section">
@@ -106,7 +106,7 @@ export class BookingTicketScreen {
           </div>
         </div>
 
-        <div id="job-costs" class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-card-padding">
+        <div id="job-costs" class="hidden bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-card-padding">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold">تكاليف العمل الفعلية (Job Costing)</h3>
             <button class="h-[40px] px-4 bg-secondary text-on-secondary font-body-md rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-job-cost-btn">
@@ -135,7 +135,7 @@ export class BookingTicketScreen {
                 <label class="block font-label-sm text-text-tertiary mb-1">تكلفة المواد</label>
                 <input type="number" class="w-full h-[40px] bg-surface-container-lowest border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:outline-none" id="jc-material-cost" placeholder="0" />
               </div>
-              <div>
+              <div class="hidden">
                 <label class="block font-label-sm text-text-tertiary mb-1">Overhead</label>
                 <input type="number" class="w-full h-[40px] bg-surface-container-lowest border border-border rounded-lg px-3 font-body-md text-on-surface focus:border-primary focus:outline-none" id="jc-overhead" placeholder="0" />
               </div>
@@ -154,12 +154,12 @@ export class BookingTicketScreen {
                   <th class="px-3 py-2 font-label-sm text-text-tertiary">ساعات</th>
                   <th class="px-3 py-2 font-label-sm text-text-tertiary">عمل</th>
                   <th class="px-3 py-2 font-label-sm text-text-tertiary">مواد</th>
-                  <th class="px-3 py-2 font-label-sm text-text-tertiary">Overhead</th>
+                  <th class="px-3 py-2 font-label-sm text-text-tertiary hidden">Overhead</th>
                   <th class="px-3 py-2 font-label-sm text-text-tertiary">الإجمالي</th>
                 </tr>
               </thead>
               <tbody id="job-costs-tbody">
-                <tr><td colspan="6" class="px-3 py-4 text-center text-text-secondary font-body-md">جاري التحميل...</td></tr>
+                <tr><td colspan="5" class="px-3 py-4 text-center text-text-secondary font-body-md">جاري التحميل...</td></tr>
               </tbody>
             </table>
           </div>
@@ -213,7 +213,7 @@ export class BookingTicketScreen {
 
     el.querySelector('#jc-save')?.addEventListener('click', async () => {
       const serviceId = (el.querySelector('#jc-service') as HTMLSelectElement).value
-      if (!serviceId) { alert('اختر خدمة'); return }
+      if (!serviceId) { ;(window as any).toast?.show?.({ message: 'اختر خدمة', type: 'warning' }); return }
 
       const payload = {
         bookingId: this.bookingId,
@@ -239,10 +239,10 @@ export class BookingTicketScreen {
           ;(el.querySelector('#jc-overhead') as HTMLInputElement).value = ''
           this.loadJobCosts(el)
         } else {
-          alert(res.message || 'فشل الحفظ')
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل الحفظ', type: 'error' })
         }
       } catch {
-        alert('حدث خطأ')
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ', type: 'error' })
       } finally {
         saveBtn.disabled = false
         saveBtn.textContent = 'حفظ'
@@ -270,12 +270,12 @@ export class BookingTicketScreen {
             <td class="px-3 py-2 font-body-md text-text-secondary">${jc.laborHours ?? '-'}</td>
             <td class="px-3 py-2 font-body-md text-text-secondary">${(jc.laborCost || 0).toLocaleString('ar-SA')} ل.س</td>
             <td class="px-3 py-2 font-body-md text-text-secondary">${(jc.materialCost || 0).toLocaleString('ar-SA')} ل.س</td>
-            <td class="px-3 py-2 font-body-md text-text-secondary">${(jc.overheadCost || 0).toLocaleString('ar-SA')} ل.س</td>
+            <td class="px-3 py-2 font-body-md text-text-secondary hidden">${(jc.overheadCost || 0).toLocaleString('ar-SA')} ل.س</td>
             <td class="px-3 py-2 font-body-md text-primary font-semibold">${(jc.totalCost || 0).toLocaleString('ar-SA')} ل.س</td>
           </tr>
         `).join('')
         const actualTotal = res.data.reduce((sum: number, jc: any) => sum + (jc.totalCost || 0), 0)
-        const estimatedTotal = (this.bookingData?.totalCost || this.bookingData?.total || 0)
+        const estimatedTotal = (this.bookingData?.totalCost || 0)
         const variance = actualTotal - estimatedTotal
         summary.classList.remove('hidden')
         ;(el.querySelector('#job-costs-actual') as HTMLElement).textContent = actualTotal.toLocaleString('ar-SA') + ' ل.س'
@@ -283,11 +283,11 @@ export class BookingTicketScreen {
         varEl.textContent = (variance >= 0 ? '+' : '') + variance.toLocaleString('ar-SA') + ' ل.س'
         varEl.className = 'text-financial-data font-bold ' + (variance > 0 ? 'text-error' : variance < 0 ? 'text-success' : '')
       } else {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-text-secondary font-body-md">لا توجد تكاليف مسجلة</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-text-secondary font-body-md">لا توجد تكاليف مسجلة</td></tr>'
         summary.classList.add('hidden')
       }
     } catch {
-      el.querySelector('#job-costs-tbody')!.innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-error font-body-md">حدث خطأ</td></tr>'
+      el.querySelector('#job-costs-tbody')!.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-error font-body-md">حدث خطأ</td></tr>'
     }
   }
 
@@ -442,10 +442,10 @@ export class BookingTicketScreen {
         this.isEditing = false
         this.loadData(el)
       } else {
-        alert(res.message || 'فشل تحديث الحجز')
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل تحديث الحجز', type: 'error' })
       }
     } catch (err: any) {
-      alert('حدث خطأ: ' + (err.message || 'فشل الاتصال'))
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ: فشل الاتصال', type: 'error' })
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false
@@ -505,18 +505,52 @@ export class BookingTicketScreen {
           const e = el.querySelector('#' + id)
           if (e) e.textContent = val
         }
+        const statusMap: Record<string, { label: string; dot: string; bg: string; text: string }> = {
+          PENDING: { label: 'قيد الانتظار', dot: 'bg-warning', bg: 'bg-warning/10', text: 'text-warning' },
+          CONFIRMED: { label: 'مؤكد', dot: 'bg-info', bg: 'bg-info/10', text: 'text-info' },
+          IN_PROGRESS: { label: 'قيد العمل', dot: 'bg-primary', bg: 'bg-primary/10', text: 'text-primary' },
+          WAITING_PARTS: { label: 'بانتظار المواد', dot: 'bg-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-600' },
+          READY: { label: 'جاهز', dot: 'bg-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-600' },
+          INVOICED: { label: 'تمت الفوترة', dot: 'bg-indigo-500', bg: 'bg-indigo-500/10', text: 'text-indigo-600' },
+          PAID: { label: 'مدفوع', dot: 'bg-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-600' },
+          DELIVERED: { label: 'تم التسليم', dot: 'bg-teal-500', bg: 'bg-teal-500/10', text: 'text-teal-600' },
+          COMPLETED: { label: 'مكتمل', dot: 'bg-success', bg: 'bg-success/10', text: 'text-success' },
+          CANCELLED: { label: 'ملغى', dot: 'bg-error', bg: 'bg-error/10', text: 'text-error' },
+          NO_SHOW: { label: 'لم يحضر', dot: 'bg-gray-400', bg: 'bg-gray-400/10', text: 'text-gray-600' },
+          NO_INVOICE_REQUIRED: { label: 'بدون فاتورة', dot: 'bg-slate-400', bg: 'bg-slate-400/10', text: 'text-slate-600' },
+        }
+        const st = statusMap[b.status] || { label: b.status || '-', dot: 'bg-primary', bg: 'bg-primary-container/20', text: 'text-primary' }
         setText('ticket-type', b.serviceType || b.service?.name || 'حجز صيانة')
-        setText('ticket-status-text', b.status === 'CONFIRMED' ? 'مؤكد' : b.status === 'PENDING' ? 'معلق' : b.status === 'COMPLETED' ? 'مكتمل' : b.status || '-')
+        setText('ticket-status-text', st.label)
+        const badge = el.querySelector('#ticket-status-badge') as HTMLElement
+        if (badge) {
+          badge.className = `${st.bg} ${st.text} px-3 py-1 rounded-full font-label-sm text-sm inline-flex items-center gap-1 mt-1`
+          const dot = badge.querySelector('span:first-child')
+          if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${st.dot}`
+        }
         setText('ticket-date', b.scheduledDate?.split('T')[0] || b.date?.split('T')[0] || '-')
-        setText('ticket-customer', b.customer?.fullName || b.customer?.name || b.customerName || '-')
+        setText('ticket-customer', b.customer?.fullName || '-')
         setText('ticket-vehicle', b.vehicle?.model || b.vehicleModel || '-')
-        setText('ticket-plate', b.vehicle?.licensePlate || b.plateNumber || '-')
+        setText('ticket-plate', b.vehicle?.licensePlate || '-')
         setText('ticket-priority', b.priority === 'URGENT' ? 'عاجل' : b.priority === 'HIGH' ? 'عالي' : b.priority === 'LOW' ? 'منخفض' : 'عادي')
         setText('ticket-payment', b.paymentMethod === 'CREDIT' ? 'آجل' : b.paymentMethod === 'ELECTRONIC' ? 'إلكتروني' : 'نقدي')
         setText('ticket-notes', b.notes || b.description || 'لا توجد ملاحظات')
-        setText('cost-service', (b.serviceCost || b.laborCost || 0).toLocaleString('ar-SA') + ' ل.س')
-        setText('cost-parts', (b.partsCost || 0).toLocaleString('ar-SA') + ' ل.س')
-        setText('cost-total', (b.totalCost || b.total || 0).toLocaleString('ar-SA') + ' ل.س')
+        // Calculate costs from services (basePrice) since backend doesn't return aggregate cost fields
+        const svcs = b.services || b.bookingServices?.map((bs: any) => bs.service) || []
+        const serviceCost = svcs.reduce((sum: number, s: any) => sum + (s.basePrice || 0), 0)
+        const partsCost = b.partsCost || 0
+        const totalCost = serviceCost + partsCost
+        const costSection = el.querySelector('#ticket-costs') as HTMLElement
+        if (costSection) {
+          if (serviceCost === 0 && partsCost === 0) {
+            costSection.classList.add('hidden')
+          } else {
+            costSection.classList.remove('hidden')
+            setText('cost-service', serviceCost.toLocaleString('ar-SA') + ' ل.س')
+            setText('cost-parts', partsCost.toLocaleString('ar-SA') + ' ل.س')
+            setText('cost-total', totalCost.toLocaleString('ar-SA') + ' ل.س')
+          }
+        }
 
         // Render services tags
         const servicesList = el.querySelector('#services-list') as HTMLElement

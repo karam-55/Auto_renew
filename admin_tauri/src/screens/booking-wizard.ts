@@ -1,22 +1,57 @@
 import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
+import { AppLayout } from '../components/layout'
+import { isPhone } from '../utils/validation'
 
 export class BookingWizardScreen {
+  private auth: AuthService
   private api: ApiClient
   private router: Router
   private type: 'registered' | 'new'
 
-  constructor(_auth: AuthService, api: ApiClient, router: Router, type: 'registered' | 'new') {
+  constructor(auth: AuthService, api: ApiClient, router: Router, type: 'registered' | 'new') {
+    this.auth = auth
     this.api = api
     this.router = router
     this.type = type
   }
 
   render(): HTMLElement {
+    const layout = new AppLayout(this.auth, this.router, 'حجز جديد', 'calendar_month', this.api)
     const el = document.createElement('div')
     el.className = 'page-enter max-w-4xl mx-auto'
     el.innerHTML = `
+      <style>
+        .wizard-step {
+          opacity: 0;
+          transform: translateX(30px);
+          transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          display: none;
+        }
+        .wizard-step.active {
+          opacity: 1;
+          transform: translateX(0);
+          display: block;
+        }
+        .wizard-step.leaving {
+          opacity: 0;
+          transform: translateX(-30px);
+          transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .wizard-step.enter-left {
+          transform: translateX(-30px);
+        }
+        .wizard-step.enter-right {
+          transform: translateX(30px);
+        }
+        .wizard-step.leave-left {
+          transform: translateX(-30px);
+        }
+        .wizard-step.leave-right {
+          transform: translateX(30px);
+        }
+      </style>
       <div class="space-y-stack-lg">
         <div class="flex items-center justify-between page-enter">
           <div>
@@ -46,7 +81,7 @@ export class BookingWizardScreen {
           </div>
         </div>
         <!-- Step 1: Customer -->
-        <div id="step-1" class="wizard-step">
+        <div id="step-1" class="wizard-step active">
           <div class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
             <div class="p-6 border-b border-glass-border bg-white/40">
               <h3 class="font-headline-md text-lg text-on-surface font-semibold">بيانات العميل</h3>
@@ -62,12 +97,12 @@ export class BookingWizardScreen {
               ` : ''}
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الاسم</label>
-                  <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="customer-name" placeholder="اسم العميل" ${this.type === 'registered' ? 'readonly' : ''} />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الاسم *</label>
+                  <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="customer-name" placeholder="اسم العميل" ${this.type === 'registered' ? 'readonly' : 'required'} />
                 </div>
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الموبايل</label>
-                  <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="customer-phone" dir="ltr" placeholder="+963..." ${this.type === 'registered' ? 'readonly' : ''} />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رقم الموبايل *</label>
+                  <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="customer-phone" dir="ltr" placeholder="09XXXXXXXX" ${this.type === 'registered' ? 'readonly' : 'required type="tel" pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام"'} />
                 </div>
               </div>
               <div>
@@ -224,7 +259,7 @@ export class BookingWizardScreen {
     let selectedVehicleId = ''
     const customers: any[] = []
 
-    const showStep = (step: number) => {
+    const showStep = (step: number, direction: 'forward' | 'backward' = 'forward') => {
       if (isAnimating) return
       isAnimating = true
 
@@ -232,14 +267,24 @@ export class BookingWizardScreen {
       const newStepEl = el.querySelector(`#step-${step}`) as HTMLElement
       if (!newStepEl) { isAnimating = false; return }
 
-      // Animate old step out (gentle fade)
+      const enterDir = direction === 'forward' ? 'enter-right' : 'enter-left'
+      const leaveDir = direction === 'forward' ? 'leave-left' : 'leave-right'
+
+      // Animate old step out
       if (oldStepEl && oldStepEl !== newStepEl) {
-        oldStepEl.classList.add('leaving')
+        oldStepEl.classList.add('leaving', leaveDir)
       }
 
-      // Prepare new step
+      // Prepare new step: show but off-screen
       newStepEl.classList.remove('hidden')
+      newStepEl.classList.add(enterDir)
+
+      // Force reflow to ensure transition starts
+      void newStepEl.offsetWidth
+
+      // Animate new step in
       newStepEl.classList.add('active')
+      newStepEl.classList.remove(enterDir)
 
       // Update indicators
       updateIndicators(step)
@@ -261,8 +306,13 @@ export class BookingWizardScreen {
       // Cleanup after animation
       setTimeout(() => {
         el.querySelectorAll('.wizard-step').forEach((s: any) => {
-          if (s !== newStepEl) s.classList.add('hidden')
-          s.classList.remove('leaving', 'active')
+          if (s !== newStepEl) {
+            s.classList.add('hidden')
+            s.classList.remove('leaving', 'active', 'enter-left', 'enter-right', 'leave-left', 'leave-right')
+          } else {
+            s.classList.remove('leaving', 'enter-left', 'enter-right', 'leave-left', 'leave-right')
+            // Keep .active on current step
+          }
         })
         isAnimating = false
       }, 380)
@@ -303,7 +353,7 @@ export class BookingWizardScreen {
     el.querySelector('#prev-btn')?.addEventListener('click', () => {
       if (currentStep > 1 && !isAnimating) {
         currentStep--
-        showStep(currentStep)
+        showStep(currentStep, 'backward')
       }
     })
 
@@ -315,7 +365,7 @@ export class BookingWizardScreen {
     el.querySelector('#next-btn')?.addEventListener('click', async () => {
       if (currentStep < totalSteps && !isAnimating) {
         currentStep++
-        showStep(currentStep)
+        showStep(currentStep, 'forward')
         return
       }
 
@@ -329,25 +379,29 @@ export class BookingWizardScreen {
         const vehiclePlate = getValue('vehicle-plate')
 
         if (this.type === 'registered' && !selectedCustomerId) {
-          alert('يرجى اختيار عميل من القائمة')
+          ;(window as any).toast?.show?.({ message: 'يرجى اختيار عميل من القائمة', type: 'warning' })
           return
         }
         if (this.type === 'new' && (!customerName || !customerPhone)) {
-          alert('يرجى تعبئة بيانات العميل')
+          ;(window as any).toast?.show?.({ message: 'يرجى تعبئة بيانات العميل', type: 'warning' })
+          return
+        }
+        if (this.type === 'new' && !isPhone(customerPhone)) {
+          ;(window as any).toast?.show?.({ message: 'رقم الموبايل يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' })
           return
         }
         if (!vehicleMake || !vehicleModel || !vehiclePlate) {
-          alert('يرجى تعبئة بيانات المركبة')
+          ;(window as any).toast?.show?.({ message: 'يرجى تعبئة بيانات المركبة', type: 'warning' })
           return
         }
         if (!vehicleYear || vehicleYear < 1900 || vehicleYear > new Date().getFullYear() + 1) {
-          alert('يرجى إدخال سنة صنع صحيحة للمركبة')
+          ;(window as any).toast?.show?.({ message: 'يرجى إدخال سنة صنع صحيحة للمركبة', type: 'warning' })
           return
         }
         const checkedServices = el.querySelectorAll('#service-list input[type="checkbox"]:checked')
         const serviceIds = Array.from(checkedServices).map((cb: any) => cb.value)
         if (serviceIds.length === 0) {
-          alert('يرجى اختيار خدمة واحدة على الأقل')
+          ;(window as any).toast?.show?.({ message: 'يرجى اختيار خدمة واحدة على الأقل', type: 'warning' })
           return
         }
 
@@ -362,13 +416,14 @@ export class BookingWizardScreen {
 
           // Step 1: Create customer (only for new)
           if (this.type === 'new') {
+            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء العميل (1/3)...`
             const customerRes = await this.api.post<any>('/api/customers', {
               fullName: customerName,
               phone: customerPhone,
               address: getValue('customer-address'),
               notes: getValue('customer-notes'),
             })
-            const customerData = customerRes.data?.customer || customerRes.data?.service || customerRes.data
+            const customerData = customerRes.data?.customer || customerRes.data
             if (!customerRes.success || !customerData?.id) {
               throw new Error(customerRes.message || JSON.stringify(customerRes.data) || 'فشل إنشاء العميل')
             }
@@ -378,6 +433,7 @@ export class BookingWizardScreen {
           // Step 2: Create vehicle (only if not selected existing)
           let vehicleId = selectedVehicleId
           if (!vehicleId) {
+            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء المركبة (2/3)...`
             const vehicleRes = await this.api.post<any>('/api/vehicles', {
               customerId: customerId,
               make: vehicleMake,
@@ -389,7 +445,7 @@ export class BookingWizardScreen {
               color: getValue('vehicle-color') || undefined,
               notes: getValue('vehicle-notes') || undefined,
             })
-            const vehicleData = vehicleRes.data?.vehicle || vehicleRes.data?.service || vehicleRes.data
+            const vehicleData = vehicleRes.data?.vehicle || vehicleRes.data
             if (!vehicleRes.success || !vehicleData?.id) {
               throw new Error(vehicleRes.message || JSON.stringify(vehicleRes.data) || 'فشل إنشاء المركبة')
             }
@@ -397,6 +453,7 @@ export class BookingWizardScreen {
           }
 
           // Step 3: Create booking
+          if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء الحجز (3/3)...`
           const dateInput = getValue('booking-date')
           const timeInput = getValue('booking-time')
           const priorityInput = getValue('booking-priority') || 'NORMAL'
@@ -429,10 +486,12 @@ export class BookingWizardScreen {
           }
           const bookingId = bookingRes.data.id
 
+          // Clear cache so bookings list shows the new booking
+          this.api.clearCache()
           // Navigate to print ticket
           this.router.navigate(`/bookings/print/${bookingId}`)
         } catch (err: any) {
-          alert(err.message || 'حدث خطأ أثناء إنشاء الحجز')
+          ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء إنشاء الحجز', type: 'error' })
           if (nextBtn) {
             nextBtn.disabled = false
             nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]">check</span> إنهاء الحجز`
@@ -480,7 +539,7 @@ export class BookingWizardScreen {
           customers.push(...custs)
           if (custs.length > 0) {
             select.innerHTML = `<option value="">اختر العميل</option>` +
-              custs.map((c: any) => `<option value="${c.id}">${c.fullName || c.name} - ${c.phone || ''}</option>`).join('')
+              custs.map((c: any) => `<option value="${c.id}">${c.fullName || '-'} - ${c.phone || ''}</option>`).join('')
           } else {
             select.innerHTML = `<option value="">لا يوجد عملاء</option>`
           }
@@ -548,7 +607,11 @@ export class BookingWizardScreen {
           return
         }
         try {
-          const vehicle = JSON.parse(decodeURIComponent(option.getAttribute('data-json')!))
+          const rawJson = option.getAttribute('data-json')
+          if (!rawJson) return
+          const vehicle = JSON.parse(decodeURIComponent(rawJson))
+          // Validate expected shape to avoid prototype pollution
+          if (!vehicle || typeof vehicle !== 'object') return
           const makeInput = el.querySelector('#vehicle-make') as HTMLInputElement
           const modelInput = el.querySelector('#vehicle-model') as HTMLInputElement
           const yearInput = el.querySelector('#vehicle-year') as HTMLInputElement
@@ -557,20 +620,20 @@ export class BookingWizardScreen {
           const vinInput = el.querySelector('#vehicle-vin') as HTMLInputElement
           const colorInput = el.querySelector('#vehicle-color') as HTMLInputElement
           const notesInput = el.querySelector('#vehicle-notes') as HTMLTextAreaElement
-          if (makeInput) makeInput.value = vehicle.make || ''
-          if (modelInput) modelInput.value = vehicle.model || ''
-          if (yearInput) yearInput.value = vehicle.year?.toString() || ''
-          if (plateInput) plateInput.value = vehicle.licensePlate || ''
-          if (mileageInput) mileageInput.value = vehicle.currentKm?.toString() || ''
-          if (vinInput) vinInput.value = vehicle.vin || ''
-          if (colorInput) colorInput.value = vehicle.color || ''
-          if (notesInput) notesInput.value = vehicle.notes || ''
+          if (makeInput) makeInput.value = typeof vehicle.make === 'string' ? vehicle.make : ''
+          if (modelInput) modelInput.value = typeof vehicle.model === 'string' ? vehicle.model : ''
+          if (yearInput) yearInput.value = vehicle.year != null ? String(vehicle.year) : ''
+          if (plateInput) plateInput.value = typeof vehicle.licensePlate === 'string' ? vehicle.licensePlate : ''
+          if (mileageInput) mileageInput.value = vehicle.currentKm != null ? String(vehicle.currentKm) : ''
+          if (vinInput) vinInput.value = typeof vehicle.vin === 'string' ? vehicle.vin : ''
+          if (colorInput) colorInput.value = typeof vehicle.color === 'string' ? vehicle.color : ''
+          if (notesInput) notesInput.value = typeof vehicle.notes === 'string' ? vehicle.notes : ''
         } catch {
-          // ignore decode errors
+          // ignore decode/parsing errors
         }
       })
     }
 
-    return el
+    return layout.render(el)
   }
 }

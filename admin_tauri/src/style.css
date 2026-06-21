@@ -1,3 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Self-hosted Material Symbols (offline for Tauri desktop) */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga';
+}
+
 /* ============================================
    AUTO_Renew Admin - Tauri Desktop App
    Design System based on Stitch Elite Design
@@ -111,6 +141,28 @@ body {
   direction: rtl;
   min-height: 100vh;
   overflow-x: hidden;
+}
+
+/* Focus-visible for keyboard navigation accessibility */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 #app, #app-root {
@@ -1333,6 +1385,105 @@ body {
 
 .toast-enter {
   animation: toast-slide-in 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   SKELETON LOADING STATES
+   ============================================ */
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-surface-2) 25%, var(--border-light) 50%, var(--bg-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius);
+}
+
+.skeleton-dark {
+  background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius);
+}
+
+.skeleton-text {
+  height: 1em;
+  width: 100%;
+}
+
+.skeleton-text-sm { height: 0.875em; }
+.skeleton-text-lg { height: 1.25em; }
+.skeleton-title { height: 1.5em; width: 60%; }
+.skeleton-circle {
+  border-radius: var(--radius-full);
+  aspect-ratio: 1;
+}
+
+.skeleton-card {
+  border-radius: var(--radius-lg);
+  min-height: 120px;
+}
+
+.skeleton-row {
+  height: 56px;
+  width: 100%;
+  border-radius: 0;
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================
+   LOADING OVERLAY
+   ============================================ */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(250, 248, 255, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+.loading-spinner-sm {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
 }
 
 /* Modal backdrop + scale */

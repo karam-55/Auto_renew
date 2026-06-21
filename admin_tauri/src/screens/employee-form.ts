@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { isPhone } from '../utils/validation'
 
 export class EmployeeFormScreen {
   constructor(private auth: AuthService, private api: ApiClient, private router: Router, private employeeId: string | null = null) {}
@@ -30,8 +31,8 @@ export class EmployeeFormScreen {
                 <input type="text" name="position" required class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="ميكانيكي متقدم">
               </div>
               <div>
-                <label class="block font-label-sm text-label-sm text-text-secondary mb-1">رقم الهاتف</label>
-                <input type="tel" name="phone" required class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" dir="ltr" placeholder="0999999999">
+                <label class="block font-label-sm text-label-sm text-text-secondary mb-1">رقم الهاتف *</label>
+                <input type="tel" name="phone" required pattern="^09[0-9]{8}$" title="يجب أن يبدأ بـ 09 ويتبعه 8 أرقام" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" dir="ltr" placeholder="09XXXXXXXX">
               </div>
               <div>
                 <label class="block font-label-sm text-label-sm text-text-secondary mb-1">القسم <span id="dept-loading" class="text-text-tertiary text-body-xs hidden">جاري التحميل...</span></label>
@@ -49,8 +50,8 @@ export class EmployeeFormScreen {
                 </select>
               </div>
               <div>
-                <label class="block font-label-sm text-label-sm text-text-secondary mb-1">الراتب الشهري (ل.س)</label>
-                <input type="number" name="salarySYP" id="salary-input" required class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="500000">
+                <label class="block font-label-sm text-label-sm text-text-secondary mb-1">الراتب الشهري (ل.س) *</label>
+                <input type="number" name="salarySYP" id="salary-input" required min="0" step="1" class="w-full h-[48px] bg-surface-container-high border border-outline-variant rounded-lg px-4 text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="500000">
               </div>
               <div>
                 <label class="block font-label-sm text-label-sm text-text-secondary mb-1">سعر الساعة (ل.س) <span class="text-tertiary text-body-xs">(يُحسب تلقائياً)</span></label>
@@ -148,14 +149,28 @@ export class EmployeeFormScreen {
       const fd = new FormData(form)
       const salarySYP = Number(fd.get('salarySYP'))
       const hourlyRateVal = fd.get('hourlyRate') ? Number(fd.get('hourlyRate')) : 0
+      const phone = fd.get('phone') as string
+
+      if (!isPhone(phone)) {
+        errorDiv.textContent = 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام'
+        errorDiv.classList.remove('hidden')
+        return
+      }
+      if (salarySYP <= 0) {
+        errorDiv.textContent = 'الراتب يجب أن يكون أكبر من صفر'
+        errorDiv.classList.remove('hidden')
+        return
+      }
       const autoHourlyRate = salarySYP > 0 ? Math.round(salarySYP / 160) : 0
       const hireDate = fd.get('hireDate') as string
 
       const statusCheckbox = form.querySelector('#status-checkbox') as HTMLInputElement
+      const fullNameVal = fd.get('fullNameAr') as string
+      const positionVal = fd.get('position') as string
       const data: any = {
-        fullNameAr: fd.get('fullNameAr'),
+        fullNameAr: fullNameVal,
         employeeCode: fd.get('employeeCode'),
-        position: fd.get('position'),
+        position: positionVal,
         phone: fd.get('phone'),
         departmentId: fd.get('departmentId'),
         contractType: fd.get('contractType'),
