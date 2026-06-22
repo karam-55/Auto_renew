@@ -2774,7 +2774,7 @@ model Dealer {
   tenantId    String
   name        String
   phone       String          @unique
-  password    String
+  password    String?
   companyName String
   address     String?
   city        String?

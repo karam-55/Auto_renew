@@ -51,6 +51,9 @@ export class DealerService {
       throw new Error('Invalid phone or password');
     }
 
+    if (!dealer.password) {
+      throw new Error('Password not set. Please contact admin.');
+    }
     const valid = await bcrypt.compare(data.password, dealer.password);
     if (!valid) {
       throw new Error('Invalid phone or password');
