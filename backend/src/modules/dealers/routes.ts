@@ -21,6 +21,7 @@ router.post('/login', (req, res, next) => {
 router.get('/me/stats', dealerAuth, dealerController.getDealerStats);
 router.get('/me/warranties', dealerAuth, dealerController.getMyWarranties);
 router.get('/me/warranties/:id', dealerAuth, dealerController.getWarrantyById);
+router.get('/me/warranties/:id/pdf', dealerAuth, dealerController.downloadWarrantyPdf);
 router.post('/me/warranties', dealerAuth, dealerController.createWarranty);
 router.put('/me/warranties/:id', dealerAuth, dealerController.updateWarranty);
 router.delete('/me/warranties/:id', dealerAuth, dealerController.deleteWarranty);

@@ -125,6 +125,21 @@ class ApiService {
     }
   }
 
+  static Future<List<int>> downloadWarrantyPdf(String id) async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.warranties}/$id/pdf'),
+      headers: {
+        'Authorization': 'Bearer ${_token ?? ''}',
+        'Accept': 'application/pdf',
+      },
+    );
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    }
+    final body = jsonDecode(response.body);
+    throw Exception(body['error'] ?? 'Failed to download PDF');
+  }
+
   static Future<void> _saveDealer(Map<String, dynamic> dealer) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('dealer_data', jsonEncode(dealer));

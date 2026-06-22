@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { DealerService } from './service';
 import { AuthRequest } from '../../shared/middlewares/auth';
 import { Logger } from '../../infrastructure/logging/logger';
@@ -168,6 +170,44 @@ export class DealerController {
     } catch (error: any) {
       Logger.error('Get warranty error', error);
       res.status(500).json({ error: 'Failed to fetch warranty' });
+    }
+  };
+
+  downloadWarrantyPdf = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const { id } = req.params;
+      const warranty = await this.dealerService.getWarrantyById(id, dealerId);
+      if (!warranty) {
+        return res.status(404).json({ error: 'Warranty not found' });
+      }
+
+      // If PDF not generated yet, generate it
+      const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs', 'warranties');
+      const pdfPathFile = path.join(pdfDir, `${warranty.id}.pdf`);
+
+      if (!fs.existsSync(pdfPathFile)) {
+        // Generate PDF on-demand
+        const { generateWarrantyPdf } = await import('./pdf-generator');
+        const tenantId = (req as any).tenantId;
+        const dealer = await this.dealerService.getDealerById(dealerId, tenantId);
+        await generateWarrantyPdf(warranty, dealer);
+      }
+
+      if (!fs.existsSync(pdfPathFile)) {
+        return res.status(404).json({ error: 'PDF not found' });
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="warranty_${warranty.id}.pdf"`);
+      const stream = fs.createReadStream(pdfPathFile);
+      stream.pipe(res);
+    } catch (error: any) {
+      Logger.error('Download warranty PDF error', error);
+      res.status(500).json({ error: 'Failed to download PDF' });
     }
   };
 

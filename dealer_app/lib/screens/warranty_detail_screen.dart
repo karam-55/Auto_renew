@@ -1,10 +1,6 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import '../core/constants.dart';
 import 'warranty_form_screen.dart';
@@ -23,50 +19,6 @@ class WarrantyDetailScreen extends StatefulWidget {
 class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
   bool _sending = false;
 
-  Future<pw.Document> _generatePdf() async {
-    final pdf = pw.Document();
-    final fontData = await rootBundle.load('assets/fonts/NotoNaskhArabic-Regular.ttf');
-    final arabicFont = pw.Font.ttf(fontData);
-
-    final w = widget.warranty;
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Center(
-              child: pw.Text('Auto Renew - شهادة كفالة', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            ),
-            pw.SizedBox(height: 20),
-            pw.Text('تفاصيل العميل:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('الاسم: ${w['customerName']}'),
-            pw.Text('الهاتف: ${w['customerPhone']}'),
-            pw.SizedBox(height: 16),
-            pw.Text('تفاصيل المركبة:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('الشركة: ${w['manufacturer']}'),
-            pw.Text('الموديل: ${w['vehicleModel']}'),
-            pw.Text('السنة: ${w['vehicleYear']}'),
-            pw.Text('رقم الشاصيه: ${w['chassisNumber']}'),
-            pw.Text('رقم اللوحة: ${w['plateNumber']}'),
-            pw.Text('العداد: ${w['mileage']} كم'),
-            pw.Text('اللون: ${w['color']}'),
-            pw.SizedBox(height: 16),
-            pw.Text('تفاصيل الكفالة:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('المدة: ${w['durationMonths']} شهر'),
-            pw.Text('المبلغ المدفوع: ${w['amountPaid']} ل.س'),
-            pw.Text('تاريخ البدء: ${_fmt(w['startDate'])}'),
-            pw.Text('تاريخ الانتهاء: ${_fmt(w['endDate'])}'),
-            pw.SizedBox(height: 24),
-            pw.Text('شروط الكفالة:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-            pw.Text(warrantyTerms, style: const pw.TextStyle(fontSize: 10)),
-          ],
-        ),
-      ),
-    );
-    return pdf;
-  }
-
   String _fmt(dynamic date) {
     if (date == null) return '';
     final d = DateTime.tryParse(date.toString());
@@ -74,21 +26,26 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
     return DateFormat('yyyy-MM-dd').format(d);
   }
 
-  Future<void> _sharePdf() async {
+  Future<void> _downloadAndDoPdf({required bool share}) async {
     setState(() => _sending = true);
     try {
-      final pdf = await _generatePdf();
-      await Printing.sharePdf(bytes: await pdf.save(), filename: 'warranty_${widget.warranty['id']}.pdf');
-    } finally {
-      setState(() => _sending = false);
-    }
-  }
-
-  Future<void> _printPdf() async {
-    setState(() => _sending = true);
-    try {
-      final pdf = await _generatePdf();
-      await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+      final bytes = await ApiService.downloadWarrantyPdf(widget.warranty['id']);
+      final pdfBytes = Uint8List.fromList(bytes);
+      if (share) {
+        await Printing.sharePdf(bytes: pdfBytes, filename: 'warranty_${widget.warranty['id']}.pdf');
+      } else {
+        await Printing.layoutPdf(onLayout: (format) => pdfBytes);
+      }
+    } catch (e, st) {
+      debugPrint('PDF Error: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       setState(() => _sending = false);
     }
@@ -152,11 +109,11 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
           ),
           IconButton(
             icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.share),
-            onPressed: _sending ? null : _sharePdf,
+            onPressed: _sending ? null : () => _downloadAndDoPdf(share: true),
           ),
           IconButton(
             icon: const Icon(Icons.print),
-            onPressed: _sending ? null : _printPdf,
+            onPressed: _sending ? null : () => _downloadAndDoPdf(share: false),
           ),
         ],
       ),
@@ -231,7 +188,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _sending ? null : _sharePdf,
+                  onPressed: _sending ? null : () => _downloadAndDoPdf(share: true),
                   icon: const Icon(Icons.share),
                   label: const Text('مشاركة PDF'),
                   style: ElevatedButton.styleFrom(
@@ -245,7 +202,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _sending ? null : _printPdf,
+                  onPressed: _sending ? null : () => _downloadAndDoPdf(share: false),
                   icon: const Icon(Icons.print),
                   label: const Text('طباعة'),
                   style: ElevatedButton.styleFrom(
