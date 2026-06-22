@@ -3,6 +3,7 @@ import '../core/constants.dart';
 import '../services/api_service.dart';
 import 'warranty_form_screen.dart';
 import 'warranty_detail_screen.dart';
+import 'customer_search_screen.dart';
 import 'welcome_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -181,8 +182,19 @@ class _HomeScreenState extends State<HomeScreen> {
             Icons.person_search,
             AppColors.accent,
             () async {
-              final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const WarrantyFormScreen(existingCustomer: true)));
-              if (result == true) _loadData();
+              // Open customer search first
+              final customer = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CustomerSearchScreen()),
+              );
+              if (customer != null && mounted) {
+                // User selected existing customer
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => WarrantyFormScreen(existingCustomer: true, customer: customer)),
+                );
+                if (result == true) _loadData();
+              }
             },
           ),
         ),

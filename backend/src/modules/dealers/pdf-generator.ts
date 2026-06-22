@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import * as arabicReshaper from 'arabic-reshaper';
 
 const warrantyTermsText = `تقدّم شركة Auto Renew كفالة محددة للمركبات وفق الشروط التالية، ويُعدّ استفادة العميل من الكفالة موافقة كاملة على جميع البنود المذكورة أدناه.
 
@@ -46,6 +47,14 @@ function setArabicFont(doc: any): void {
   }
 }
 
+/** Prepare Arabic text for PDF: reshape letters + reverse word order for RTL */
+function ar(text: string): string {
+  if (!text) return '';
+  const words = text.split(/\s+/);
+  const reshaped = words.map((w) => arabicReshaper.reshape(w));
+  return reshaped.reverse().join(' ');
+}
+
 export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{ pdfPath: string; pdfUrl: string; base64: string }> {
   const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs', 'warranties');
   fs.mkdirSync(pdfDir, { recursive: true });
@@ -62,42 +71,47 @@ export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{
 
     setArabicFont(doc);
 
-    doc.fontSize(24).text('Auto Renew', { align: 'center' });
-    doc.fontSize(18).text('شهادة كفالة المركبات', { align: 'center' });
+    // Helper to write Arabic text aligned right
+    const writeAr = (size: number, text: string, opts?: any) => {
+      doc.fontSize(size).text(ar(text), { align: 'right', ...opts });
+    };
+
+    writeAr(24, 'Auto Renew', { align: 'center' });
+    writeAr(18, 'شهادة كفالة المركبات', { align: 'center' });
     doc.moveDown(2);
 
-    doc.fontSize(12).text(`الوكيل: ${dealer?.name || ''} - ${dealer?.companyName || ''}`);
-    doc.fontSize(12).text(`تاريخ الإصدار: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
+    writeAr(12, `الوكيل: ${dealer?.name || ''} - ${dealer?.companyName || ''}`);
+    writeAr(12, `تاريخ الإصدار: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
     doc.moveDown(1);
 
-    doc.fontSize(16).text('معلومات العميل', { underline: true });
-    doc.fontSize(12).text(`الاسم: ${warranty.customerName}`);
-    doc.fontSize(12).text(`رقم الهاتف: ${warranty.customerPhone}`);
+    writeAr(16, 'معلومات العميل', { underline: true });
+    writeAr(12, `الاسم: ${warranty.customerName}`);
+    writeAr(12, `رقم الهاتف: ${warranty.customerPhone}`);
     doc.moveDown(1);
 
-    doc.fontSize(16).text('معلومات المركبة', { underline: true });
-    doc.fontSize(12).text(`الشركة المصنعة: ${warranty.manufacturer}`);
-    doc.fontSize(12).text(`الموديل: ${warranty.vehicleModel}`);
-    doc.fontSize(12).text(`سنة الصنع: ${warranty.vehicleYear}`);
-    doc.fontSize(12).text(`رقم الشاصيه: ${warranty.chassisNumber}`);
-    doc.fontSize(12).text(`رقم اللوحة: ${warranty.plateNumber}`);
-    doc.fontSize(12).text(`العداد: ${warranty.mileage} كم`);
-    doc.fontSize(12).text(`اللون: ${warranty.color}`);
+    writeAr(16, 'معلومات المركبة', { underline: true });
+    writeAr(12, `الشركة المصنعة: ${warranty.manufacturer}`);
+    writeAr(12, `الموديل: ${warranty.vehicleModel}`);
+    writeAr(12, `سنة الصنع: ${warranty.vehicleYear}`);
+    writeAr(12, `رقم الشاصيه: ${warranty.chassisNumber}`);
+    writeAr(12, `رقم اللوحة: ${warranty.plateNumber}`);
+    writeAr(12, `العداد: ${warranty.mileage} كم`);
+    writeAr(12, `اللون: ${warranty.color}`);
     doc.moveDown(1);
 
-    doc.fontSize(16).text('تفاصيل الكفالة', { underline: true });
-    doc.fontSize(12).text(`المدة: ${warranty.durationMonths} شهر`);
-    doc.fontSize(12).text(`تاريخ البدء: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
-    doc.fontSize(12).text(`تاريخ الانتهاء: ${new Date(warranty.endDate).toLocaleDateString('ar-SY')}`);
-    doc.fontSize(12).text(`المبلغ المدفوع: ${warranty.amountPaid} ل.س`);
+    writeAr(16, 'تفاصيل الكفالة', { underline: true });
+    writeAr(12, `المدة: ${warranty.durationMonths} شهر`);
+    writeAr(12, `تاريخ البدء: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
+    writeAr(12, `تاريخ الانتهاء: ${new Date(warranty.endDate).toLocaleDateString('ar-SY')}`);
+    writeAr(12, `المبلغ المدفوع: ${warranty.amountPaid} ل.س`);
     doc.moveDown(2);
 
-    doc.fontSize(14).text('شروط الكفالة', { underline: true });
-    doc.fontSize(10).text(warrantyTermsText, { align: 'right' });
+    writeAr(14, 'شروط الكفالة', { underline: true });
+    writeAr(10, warrantyTermsText);
     doc.moveDown(2);
 
-    doc.fontSize(10).text('هذه الشهادة صادرة إلكترونياً من نظام Auto Renew', { align: 'center' });
-    doc.fontSize(10).text(`رقم الكفالة: ${warranty.id}`, { align: 'center' });
+    writeAr(10, 'هذه الشهادة صادرة إلكترونياً من نظام Auto Renew', { align: 'center' });
+    writeAr(10, `رقم الكفالة: ${warranty.id}`, { align: 'center' });
 
     doc.end();
 

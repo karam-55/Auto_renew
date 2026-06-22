@@ -6,7 +6,8 @@ import 'warranty_detail_screen.dart';
 class WarrantyFormScreen extends StatefulWidget {
   final bool existingCustomer;
   final Map<String, dynamic>? warranty; // If provided, we're in edit mode
-  const WarrantyFormScreen({super.key, this.existingCustomer = false, this.warranty});
+  final Map<String, dynamic>? customer; // Pre-filled customer data from search
+  const WarrantyFormScreen({super.key, this.existingCustomer = false, this.warranty, this.customer});
 
   @override
   State<WarrantyFormScreen> createState() => _WarrantyFormScreenState();
@@ -50,6 +51,17 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       _colorCtrl.text = w['color'] ?? '';
       _amountCtrl.text = w['amountPaid']?.toString() ?? '';
       _durationMonths = w['durationMonths'] ?? 12;
+    } else if (widget.customer != null) {
+      final c = widget.customer!;
+      _nameCtrl.text = c['customerName'] ?? '';
+      _phoneCtrl.text = c['customerPhone'] ?? '';
+      // Pre-fill vehicle data if available
+      _manufacturerCtrl.text = c['manufacturer'] ?? '';
+      _modelCtrl.text = c['vehicleModel'] ?? '';
+      _yearCtrl.text = c['vehicleYear']?.toString() ?? '';
+      _chassisCtrl.text = c['chassisNumber'] ?? '';
+      _plateCtrl.text = c['plateNumber'] ?? '';
+      _colorCtrl.text = c['color'] ?? '';
     }
   }
 
