@@ -2,7 +2,6 @@ import { PrismaClient, DealerStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
-import { WhatsAppService } from '../whatsapp/service';
 import { generateWarrantyPdf } from './pdf-generator';
 
 const prisma = new PrismaClient();
@@ -205,7 +204,7 @@ export class DealerService {
       },
     });
 
-    // Generate PDF and send WhatsApp notification
+    // Generate PDF (WhatsApp notification temporarily disabled)
     try {
       const pdfResult = await generateWarrantyPdf(warranty, dealer);
 
@@ -215,22 +214,22 @@ export class DealerService {
         data: { pdfUrl: pdfResult.pdfUrl },
       });
 
-      // Send WhatsApp notification
-      const whatsappService = new WhatsAppService();
-      const waResult = await whatsappService.sendWarrantyNotification({
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        vehicleModel: data.vehicleModel,
-        plateNumber: data.plateNumber,
-        durationMonths: data.durationMonths,
-        pdfBase64: pdfResult.base64,
-      });
-
-      if (!waResult.success) {
-        Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
-      }
+      // TODO: WhatsApp notification temporarily disabled - re-enable when WhatsApp service is stable
+      // const whatsappService = new WhatsAppService();
+      // const waResult = await whatsappService.sendWarrantyNotification({
+      //   customerName: data.customerName,
+      //   customerPhone: data.customerPhone,
+      //   vehicleModel: data.vehicleModel,
+      //   plateNumber: data.plateNumber,
+      //   durationMonths: data.durationMonths,
+      //   pdfBase64: pdfResult.base64,
+      // });
+      //
+      // if (!waResult.success) {
+      //   Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
+      // }
     } catch (err) {
-      Logger.error('Error generating PDF or sending WhatsApp for warranty', err);
+      Logger.error('Error generating PDF for warranty', err);
     }
 
     return prisma.dealerWarranty.findUnique({
