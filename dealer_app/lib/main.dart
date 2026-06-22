@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/constants.dart';
 import 'services/api_service.dart';
 import 'screens/welcome_screen.dart';
@@ -39,11 +40,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _checkNetworkAndAuth();
   }
 
-  Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
+  Future<void> _checkNetworkAndAuth() async {
+    await Future.delayed(const Duration(seconds: 1));
+    final result = await Connectivity().checkConnectivity();
+    final hasNetwork = result != ConnectivityResult.none;
+
+    if (!hasNetwork && mounted) {
+      _showNetworkDialog();
+      return;
+    }
+
+    await Future.delayed(const Duration(seconds: 1));
     final loggedIn = await ApiService.isLoggedIn();
     if (mounted) {
       Navigator.pushReplacement(
@@ -53,6 +63,35 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     }
+  }
+
+  void _showNetworkDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.signal_wifi_off, color: AppColors.error),
+            SizedBox(width: 8),
+            Text('لا يوجد اتصال بالإنترنت'),
+          ],
+        ),
+        content: const Text(
+          'التطبيق يحتاج إلى اتصال بالإنترنت.\nيرجى تفعيل WiFi أو بيانات الهاتف، ثم اضغط إعادة المحاولة.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _checkNetworkAndAuth();
+            },
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

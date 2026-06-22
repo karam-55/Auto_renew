@@ -43,6 +43,7 @@ dependencies:
   google_fonts: ^6.2.1
   shimmer: ^3.0.0
   flutter_staggered_animations: ^1.1.1
+  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:
