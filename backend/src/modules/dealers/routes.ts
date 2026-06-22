@@ -6,9 +6,15 @@ import { dealerAuth } from './middleware';
 const router = Router();
 const dealerController = new DealerController();
 
-// Public dealer auth routes
-router.post('/register', dealerController.register);
-router.post('/login', dealerController.login);
+// Public dealer auth routes - MUST be before any parameterized routes
+router.post('/register', (req, res, next) => {
+  console.log('[DEALERS] POST /register hit');
+  next();
+}, dealerController.register);
+router.post('/login', (req, res, next) => {
+  console.log('[DEALERS] POST /login hit');
+  next();
+}, dealerController.login);
 
 // Protected dealer routes (admin auth)
 router.get('/', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealers);
