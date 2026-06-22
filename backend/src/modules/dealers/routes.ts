@@ -17,6 +17,14 @@ router.post('/login', (req, res, next) => {
   next();
 }, dealerController.login);
 
+// Dealer app routes (dealer auth) - MUST be before /:id parameterized routes
+router.get('/me/stats', dealerAuth, dealerController.getDealerStats);
+router.get('/me/warranties', dealerAuth, dealerController.getMyWarranties);
+router.get('/me/warranties/:id', dealerAuth, dealerController.getWarrantyById);
+router.post('/me/warranties', dealerAuth, dealerController.createWarranty);
+router.put('/me/warranties/:id', dealerAuth, dealerController.updateWarranty);
+router.delete('/me/warranties/:id', dealerAuth, dealerController.deleteWarranty);
+
 // Protected dealer routes (admin auth)
 router.get('/', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealers);
 router.get('/search', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.searchDealers);
@@ -26,13 +34,5 @@ router.get('/:id', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 
 router.post('/', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.createDealer);
 router.put('/:id', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.updateDealer);
 router.delete('/:id', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.deleteDealer);
-
-// Dealer app routes (dealer auth)
-router.get('/me/stats', dealerAuth, dealerController.getDealerStats);
-router.get('/me/warranties', dealerAuth, dealerController.getMyWarranties);
-router.get('/me/warranties/:id', dealerAuth, dealerController.getWarrantyById);
-router.post('/me/warranties', dealerAuth, dealerController.createWarranty);
-router.put('/me/warranties/:id', dealerAuth, dealerController.updateWarranty);
-router.delete('/me/warranties/:id', dealerAuth, dealerController.deleteWarranty);
 
 export default router;
