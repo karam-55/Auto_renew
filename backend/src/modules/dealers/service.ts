@@ -198,7 +198,7 @@ export class DealerService {
         color: data.color,
         durationMonths: data.durationMonths,
         amountPaid: data.amountPaid,
-        // currency: data.currency || 'SYP', // TODO: uncomment after DB migration
+        currency: data.currency || 'SYP',
         startDate,
         endDate,
         pdfUrl: data.pdfUrl,
@@ -313,7 +313,7 @@ export class DealerService {
         color: data.color ?? existing.color,
         durationMonths: data.durationMonths ?? existing.durationMonths,
         amountPaid: data.amountPaid ?? existing.amountPaid,
-        // currency: data.currency ?? existing.currency, // TODO: uncomment after DB migration
+        currency: data.currency ?? existing.currency,
         endDate: data.durationMonths ? endDate : existing.endDate,
       },
     });
