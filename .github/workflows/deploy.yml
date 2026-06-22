@@ -39,16 +39,12 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 178.105.209.59 >> ~/.ssh/known_hosts
 
-      - name: Copy backend dist to server
+      - name: Copy backend source to server
         run: |
-          rsync -avz --delete \
+          rsync -avz --delete --exclude='node_modules' \
             -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes" \
-            backend/dist/ \
-            ${{ secrets.SERVER_USER }}@178.105.209.59:/opt/auto-renew/backend/dist/
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes" \
-            backend/prisma/schema.prisma \
-            ${{ secrets.SERVER_USER }}@178.105.209.59:/opt/auto-renew/backend/prisma/schema.prisma
+            backend/ \
+            ${{ secrets.SERVER_USER }}@178.105.209.59:/opt/auto-renew/backend/
 
       - name: Copy customer frontend to server
         run: |
@@ -63,13 +59,13 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
             ${{ secrets.SERVER_USER }}@178.105.209.59 "
-              docker cp /opt/auto-renew/backend/dist garage_backend:/app/dist
-              docker cp /opt/auto-renew/backend/prisma/schema.prisma garage_backend:/app/prisma/schema.prisma
-              docker exec garage_backend npx prisma db push --accept-data-loss --skip-generate
-              docker restart garage_backend
+              cd /opt/auto-renew/deploy
+              docker compose -f docker-compose.prod.yml build --no-cache backend
+              docker compose -f docker-compose.prod.yml up -d backend
+              docker compose -f docker-compose.prod.yml exec backend npx prisma db push --accept-data-loss --skip-generate
               sleep 5
               echo '=== Backend status ==='
-              docker ps --filter name=garage_backend --format '{{.Names}} {{.Status}}'
+              docker compose -f docker-compose.prod.yml ps backend
               echo '=== WhatsApp server (untouched) ==='
               docker ps --filter name=evolution_api --format '{{.Names}} {{.Status}}'
             "

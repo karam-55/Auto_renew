@@ -8,7 +8,8 @@ const dealerController = new DealerController();
 
 // Public dealer auth routes - MUST be before any parameterized routes
 router.post('/register', (req, res, next) => {
-  console.log('[DEALERS] POST /register hit');
+  console.log('[DEALERS] POST /register hit - body:', JSON.stringify(req.body));
+  console.log('[DEALERS] POST /register - headers:', JSON.stringify(req.headers));
   next();
 }, dealerController.register);
 router.post('/login', (req, res, next) => {
