@@ -26,8 +26,8 @@ RUN npm run build
 # Stage 2: Production
 FROM node:20-alpine AS production
 
-# Install OpenSSL and dumb-init
-RUN apk add --no-cache openssl dumb-init
+# Install OpenSSL, dumb-init, and Chromium for Playwright PDF generation
+RUN apk add --no-cache openssl dumb-init chromium nss freetype harfbuzz ca-certificates ttf-freefont
 
 WORKDIR /app
 
@@ -51,6 +51,7 @@ COPY --from=builder /app/src/assets/fonts ./dist/assets/fonts
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV PW_CHROMIUM_PATH=/usr/bin/chromium-browser
 
 # Change ownership to non-root user
 RUN chown -R nodejs:nodejs /app

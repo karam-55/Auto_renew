@@ -1,131 +1,6 @@
-import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
-
-const fontPath = path.join(__dirname, '../../../assets/fonts/Cairo-Regular.ttf');
-
-// =============================================================================
-// ARABIC RESHAPING - Converts Arabic chars to their Presentation Forms B
-// =============================================================================
-
-// Arabic letter mappings: [ISOLATED, FINAL, INITIAL, MEDIAL]
-const arabicForms: Record<number, [number, number, number, number]> = {
-  0x0621: [0xFE80, 0, 0, 0],
-  0x0622: [0xFE81, 0xFE82, 0, 0],
-  0x0623: [0xFE83, 0xFE84, 0, 0],
-  0x0624: [0xFE85, 0xFE86, 0, 0],
-  0x0625: [0xFE87, 0xFE88, 0, 0],
-  0x0626: [0xFE89, 0xFE8A, 0xFE8B, 0xFE8C],
-  0x0627: [0xFE8D, 0xFE8E, 0, 0],
-  0x0628: [0xFE8F, 0xFE90, 0xFE91, 0xFE92],
-  0x0629: [0xFE93, 0xFE94, 0, 0],
-  0x062A: [0xFE95, 0xFE96, 0xFE97, 0xFE98],
-  0x062B: [0xFE99, 0xFE9A, 0xFE9B, 0xFE9C],
-  0x062C: [0xFE9D, 0xFE9E, 0xFE9F, 0xFEA0],
-  0x062D: [0xFEA1, 0xFEA2, 0xFEA3, 0xFEA4],
-  0x062E: [0xFEA5, 0xFEA6, 0xFEA7, 0xFEA8],
-  0x062F: [0xFEA9, 0xFEAA, 0, 0],
-  0x0630: [0xFEAB, 0xFEAC, 0, 0],
-  0x0631: [0xFEAD, 0xFEAE, 0, 0],
-  0x0632: [0xFEAF, 0xFEB0, 0, 0],
-  0x0633: [0xFEB1, 0xFEB2, 0xFEB3, 0xFEB4],
-  0x0634: [0xFEB5, 0xFEB6, 0xFEB7, 0xFEB8],
-  0x0635: [0xFEB9, 0xFEBA, 0xFEBB, 0xFEBC],
-  0x0636: [0xFEBD, 0xFEBE, 0xFEBF, 0xFEC0],
-  0x0637: [0xFEC1, 0xFEC2, 0xFEC3, 0xFEC4],
-  0x0638: [0xFEC5, 0xFEC6, 0xFEC7, 0xFEC8],
-  0x0639: [0xFEC9, 0xFECA, 0xFECB, 0xFECC],
-  0x063A: [0xFECD, 0xFECE, 0xFECF, 0xFED0],
-  0x0640: [0x0640, 0x0640, 0x0640, 0x0640],
-  0x0641: [0xFED1, 0xFED2, 0xFED3, 0xFED4],
-  0x0642: [0xFED5, 0xFED6, 0xFED7, 0xFED8],
-  0x0643: [0xFED9, 0xFEDA, 0xFEDB, 0xFEDC],
-  0x0644: [0xFEDD, 0xFEDE, 0xFEDF, 0xFEE0],
-  0x0645: [0xFEE1, 0xFEE2, 0xFEE3, 0xFEE4],
-  0x0646: [0xFEE5, 0xFEE6, 0xFEE7, 0xFEE8],
-  0x0647: [0xFEE9, 0xFEEA, 0xFEEB, 0xFEEC],
-  0x0648: [0xFEED, 0xFEEE, 0, 0],
-  0x0649: [0xFEEF, 0xFEF0, 0, 0],
-  0x064A: [0xFEF1, 0xFEF2, 0xFEF3, 0xFEF4],
-};
-
-const LAM_ALEF_LIGATURES: Record<number, [number, number]> = {
-  0x0622: [0xFEF5, 0xFEF6],
-  0x0623: [0xFEF7, 0xFEF8],
-  0x0625: [0xFEF9, 0xFEFA],
-  0x0627: [0xFEFB, 0xFEFC],
-};
-
-function isArabicChar(charCode: number): boolean {
-  return arabicForms[charCode] !== undefined;
-}
-
-function isRightJoining(charCode: number): boolean {
-  const nonConnecting = [
-    0x0621, 0x0622, 0x0623, 0x0624, 0x0625, 0x0627, 0x062F,
-    0x0630, 0x0631, 0x0632, 0x0648, 0x0649
-  ];
-  return isArabicChar(charCode) && !nonConnecting.includes(charCode);
-}
-
-function reshapeText(text: string): string {
-  const chars = Array.from(text);
-  const result: string[] = [];
-
-  for (let i = 0; i < chars.length; i++) {
-    const charCode = chars[i].charCodeAt(0);
-
-    if (!isArabicChar(charCode)) {
-      result.push(chars[i]);
-      continue;
-    }
-
-    const forms = arabicForms[charCode];
-    if (!forms) {
-      result.push(chars[i]);
-      continue;
-    }
-
-    const prevCharCode = i > 0 ? chars[i - 1].charCodeAt(0) : null;
-    const nextCharCode = i < chars.length - 1 ? chars[i + 1].charCodeAt(0) : null;
-
-    const hasLeftJoin = prevCharCode !== null && isRightJoining(prevCharCode);
-    const hasRightJoin = nextCharCode !== null && isArabicChar(nextCharCode);
-
-    if (charCode === 0x0644 && nextCharCode !== null && LAM_ALEF_LIGATURES[nextCharCode]) {
-      const isFinal = !hasRightJoin || !isArabicChar(nextCharCode);
-      const ligature = LAM_ALEF_LIGATURES[nextCharCode];
-      result.push(String.fromCharCode(isFinal ? ligature[1] : ligature[0]));
-      i++;
-      continue;
-    }
-
-    let selectedForm: number;
-    if (hasLeftJoin && hasRightJoin) {
-      selectedForm = forms[3] || forms[0];
-    } else if (hasLeftJoin) {
-      selectedForm = forms[1] || forms[0];
-    } else if (hasRightJoin) {
-      selectedForm = forms[2] || forms[0];
-    } else {
-      selectedForm = forms[0];
-    }
-
-    result.push(String.fromCharCode(selectedForm));
-  }
-
-  return result.join('');
-}
-
-function reverseWords(text: string): string {
-  return text.split(/(\s+)/).reverse().join('');
-}
-
-function ar(text: string | null | undefined): string {
-  if (!text) return '';
-  const reshaped = reshapeText(text);
-  return reverseWords(reshaped);
-}
+import { chromium } from 'playwright';
 
 const warrantyTermsText = `تقدّم شركة Auto Renew كفالة محددة للمركبات وفق الشروط التالية، ويُعدّ استفادة العميل من الكفالة موافقة كاملة على جميع البنود المذكورة أدناه.
 
@@ -162,11 +37,260 @@ const warrantyTermsText = `تقدّم شركة Auto Renew كفالة محددة 
 تسري الكفالة فقط على الأعطال المغطاة والمذكورة في هذا المستند.
 تحتفظ الشركة بحق تعديل الشروط بما يتوافق مع سياسات العمل.`;
 
-function setArabicFont(doc: any): void {
-  if (fs.existsSync(fontPath)) {
-    doc.registerFont('Cairo', fontPath);
-    doc.font('Cairo');
-  }
+function generateHtml(warranty: any, dealer: any): string {
+  const issueDate = warranty.createdAt
+    ? new Date(warranty.createdAt).toLocaleDateString('ar-SY')
+    : new Date().toLocaleDateString('ar-SY');
+  const warrantyId = warranty.id.substring(0, 8).toUpperCase();
+  const currencySymbol = warranty.currency === 'USD' ? '$' : 'ل.س';
+
+  return `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>شهادة كفالة - Auto Renew</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+      direction: rtl;
+      padding: 40px;
+      color: #1E293B;
+      background: #fff;
+      font-size: 11pt;
+      line-height: 1.6;
+    }
+    .page {
+      max-width: 210mm;
+      margin: 0 auto;
+      min-height: 277mm;
+      position: relative;
+      padding-bottom: 60px;
+    }
+    .top-border {
+      border-top: 4px solid #1E40AF;
+      margin-bottom: 2px;
+    }
+    .top-border-thin {
+      border-top: 1px solid #1E40AF;
+      margin-bottom: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .company-name {
+      font-size: 28pt;
+      font-weight: 700;
+      color: #1E40AF;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+    }
+    .company-name-en {
+      font-size: 14pt;
+      font-weight: 600;
+      color: #1E40AF;
+      margin-bottom: 8px;
+      letter-spacing: 3px;
+    }
+    .title {
+      font-size: 18pt;
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 10pt;
+      color: #64748B;
+      margin-bottom: 8px;
+    }
+    .meta {
+      font-size: 9pt;
+      color: #64748B;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .warranty-id {
+      font-size: 10pt;
+      color: #1E40AF;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 14px;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .section-title {
+      background: #F1F5F9;
+      padding: 8px 14px;
+      font-size: 11pt;
+      font-weight: 700;
+      color: #1E40AF;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .section-body {
+      padding: 10px 14px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px dashed #F1F5F9;
+    }
+    .row:last-child {
+      border-bottom: none;
+    }
+    .row-label {
+      color: #64748B;
+      font-size: 10pt;
+    }
+    .row-value {
+      color: #1E293B;
+      font-weight: 600;
+      font-size: 10pt;
+      text-align: left;
+      flex: 1;
+      margin-right: 12px;
+    }
+    .terms {
+      font-size: 8.5pt;
+      color: #475569;
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+    .footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      padding-top: 10px;
+      border-top: 1px solid #E2E8F0;
+    }
+    .footer-text {
+      font-size: 8.5pt;
+      color: #94A3B8;
+    }
+    .bottom-border {
+      border-bottom: 1px solid #1E40AF;
+      margin-top: 2px;
+    }
+    .bottom-border-thick {
+      border-bottom: 4px solid #1E40AF;
+    }
+    @media print {
+      body { padding: 0; }
+      .page { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top-border"></div>
+    <div class="top-border-thin"></div>
+
+    <div class="header">
+      <div class="company-name-en">Auto Renew</div>
+      <div class="title">شهادة كفالة مركبة</div>
+      <div class="subtitle">Warranty Certificate</div>
+    </div>
+
+    <div class="meta">الوكيل: ${dealer?.companyName || dealer?.name || ''} | تاريخ الإصدار: ${issueDate}</div>
+    <div class="warranty-id">رقم الكفالة: WARRANTY-${warrantyId}</div>
+
+    <div class="section">
+      <div class="section-title">معلومات العميل</div>
+      <div class="section-body">
+        <div class="row">
+          <span class="row-label">الاسم:</span>
+          <span class="row-value">${warranty.customerName || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">رقم الهاتف:</span>
+          <span class="row-value">${warranty.customerPhone || ''}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">معلومات المركبة</div>
+      <div class="section-body">
+        <div class="row">
+          <span class="row-label">الشركة المصنعة:</span>
+          <span class="row-value">${warranty.manufacturer || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">الموديل:</span>
+          <span class="row-value">${warranty.vehicleModel || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">سنة الصنع:</span>
+          <span class="row-value">${warranty.vehicleYear || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">رقم الشاصيه:</span>
+          <span class="row-value">${warranty.chassisNumber || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">رقم اللوحة:</span>
+          <span class="row-value">${warranty.plateNumber || ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">العداد:</span>
+          <span class="row-value">${warranty.mileage || 0} كم</span>
+        </div>
+        <div class="row">
+          <span class="row-label">اللون:</span>
+          <span class="row-value">${warranty.color || ''}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">تفاصيل الكفالة</div>
+      <div class="section-body">
+        <div class="row">
+          <span class="row-label">مدة الكفالة:</span>
+          <span class="row-value">${warranty.durationMonths || 0} شهر</span>
+        </div>
+        <div class="row">
+          <span class="row-label">تاريخ البدء:</span>
+          <span class="row-value">${warranty.startDate ? new Date(warranty.startDate).toLocaleDateString('ar-SY') : ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">تاريخ الانتهاء:</span>
+          <span class="row-value">${warranty.endDate ? new Date(warranty.endDate).toLocaleDateString('ar-SY') : ''}</span>
+        </div>
+        <div class="row">
+          <span class="row-label">المبلغ المدفوع:</span>
+          <span class="row-value">${warranty.amountPaid || 0} ${currencySymbol}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">الشروط والأحكام</div>
+      <div class="section-body">
+        <div class="terms">${warrantyTermsText.replace(/\n/g, '<br>')}</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-text">هذه الشهادة صادرة إلكترونياً من نظام Auto Renew</div>
+      <div class="footer-text">www.autorenew.sy | support@autorenew.sy</div>
+    </div>
+
+    <div class="bottom-border"></div>
+    <div class="bottom-border-thick"></div>
+  </div>
+</body>
+</html>
+`;
 }
 
 export async function generateWarrantyPdf(
@@ -178,162 +302,33 @@ export async function generateWarrantyPdf(
   const pdfPathFile = path.join(pdfDir, `${warranty.id}.pdf`);
   const pdfUrl = `/uploads/pdfs/warranties/${warranty.id}.pdf`;
 
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const stream = fs.createWriteStream(pdfPathFile);
-    const chunks: Buffer[] = [];
+  const html = generateHtml(warranty, dealer);
 
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.pipe(stream);
-
-    setArabicFont(doc);
-
-    const primaryColor = '#1E40AF';
-    const darkText = '#1E293B';
-    const mediumText = '#475569';
-    const lightGray = '#E2E8F0';
-
-    // Top border
-    doc.moveTo(50, 60).lineTo(545, 60).strokeColor(primaryColor).lineWidth(4).stroke();
-    doc.moveTo(50, 65).lineTo(545, 65).strokeColor(primaryColor).lineWidth(1).stroke();
-
-    // Header
-    doc.fontSize(28).fillColor(primaryColor).text(ar('Auto Renew'), 50, 80, {
-      align: 'center',
-      width: 495,
-    });
-
-    doc.fontSize(20).fillColor(darkText).text(ar('شهادة كفالة مركبة'), 50, 115, {
-      align: 'center',
-      width: 495,
-    });
-
-    doc.fontSize(11).fillColor(mediumText).text(ar('Warranty Certificate'), 50, 140, {
-      align: 'center',
-      width: 495,
-    });
-
-    // Dealer info
-    doc.fontSize(10).fillColor(mediumText);
-    const issueDate = warranty.createdAt
-      ? new Date(warranty.createdAt).toLocaleDateString('ar-SY')
-      : new Date().toLocaleDateString('ar-SY');
-
-    doc.text(ar(`الوكيل: ${dealer?.companyName || dealer?.name || ''} | تاريخ الإصدار: ${issueDate}`), {
-      align: 'center',
-    });
-
-    doc.moveDown(1);
-
-    // Warranty ID
-    const warrantyId = warranty.id.substring(0, 8).toUpperCase();
-    doc.fontSize(10).fillColor(primaryColor).text(ar(`رقم الكفالة: WARRANTY-${warrantyId}`), {
-      align: 'center',
-    });
-
-    doc.moveDown(1.5);
-
-    // Helper functions
-    const drawSection = (title: string, y: number, contentFn: () => void) => {
-      const sectionWidth = 495;
-      const startX = 50;
-
-      doc.rect(startX, y, sectionWidth, 18).fill('#F1F5F9');
-
-      doc.fontSize(12).fillColor(primaryColor).text(ar(title), startX + 10, y + 3, {
-        align: 'right',
-        width: sectionWidth - 20,
-      });
-
-      contentFn();
-
-      const endY = doc.y;
-      doc.moveTo(startX, endY + 5).lineTo(startX + sectionWidth, endY + 5).stroke(lightGray);
-
-      return endY + 10;
-    };
-
-    const drawRow = (label: string, value: string) => {
-      doc.fontSize(10).fillColor(mediumText).text(ar(`${label}:`), { align: 'right', continued: false });
-      doc.fontSize(10).fillColor(darkText).text(ar(value), { align: 'right' });
-      doc.moveDown(0.2);
-    };
-
-    // Customer Section
-    let currentY = doc.y;
-    currentY = drawSection('معلومات العميل', currentY, () => {
-      doc.moveDown(0.3);
-      drawRow('الاسم', warranty.customerName || '');
-      drawRow('رقم الهاتف', warranty.customerPhone || '');
-      doc.moveDown(0.3);
-    });
-
-    doc.moveDown(0.5);
-
-    // Vehicle Section
-    currentY = doc.y;
-    currentY = drawSection('معلومات المركبة', currentY, () => {
-      doc.moveDown(0.3);
-      drawRow('الشركة المصنعة', warranty.manufacturer || '');
-      drawRow('الموديل', warranty.vehicleModel || '');
-      drawRow('سنة الصنع', String(warranty.vehicleYear || ''));
-      drawRow('رقم الشاصيه', warranty.chassisNumber || '');
-      drawRow('رقم اللوحة', warranty.plateNumber || '');
-      drawRow('العداد', `${warranty.mileage || 0} كم`);
-      drawRow('اللون', warranty.color || '');
-      doc.moveDown(0.3);
-    });
-
-    doc.moveDown(0.5);
-
-    // Warranty Details Section
-    currentY = doc.y;
-    currentY = drawSection('تفاصيل الكفالة', currentY, () => {
-      doc.moveDown(0.3);
-      drawRow('مدة الكفالة', `${warranty.durationMonths || 0} شهر`);
-      drawRow('تاريخ البدء', warranty.startDate ? new Date(warranty.startDate).toLocaleDateString('ar-SY') : '');
-      drawRow('تاريخ الانتهاء', warranty.endDate ? new Date(warranty.endDate).toLocaleDateString('ar-SY') : '');
-      drawRow('المبلغ المدفوع', `${warranty.amountPaid || 0} ${warranty.currency === 'USD' ? '$' : 'ل.س'}`);
-      doc.moveDown(0.3);
-    });
-
-    doc.moveDown(0.5);
-
-    // Terms Section
-    currentY = doc.y;
-    drawSection('الشروط والأحكام', currentY, () => {
-      doc.moveDown(0.3);
-      doc.fontSize(8).fillColor(mediumText).text(ar(warrantyTermsText), {
-        align: 'right',
-        lineGap: 2,
-      });
-      doc.moveDown(0.3);
-    });
-
-    doc.moveDown(0.5);
-
-    // Footer
-    doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).stroke(lightGray);
-
-    doc.moveDown(0.5);
-    doc.fontSize(9).fillColor(mediumText).text(ar('هذه الشهادة صادرة إلكترونياً من نظام Auto Renew'), {
-      align: 'center',
-    });
-    doc.fontSize(8).fillColor(mediumText).text(ar('www.autorenew.sy | support@autorenew.sy'), {
-      align: 'center',
-    });
-
-    // Bottom border
-    doc.moveTo(50, 780).lineTo(545, 780).strokeColor(primaryColor).lineWidth(4).stroke();
-    doc.moveTo(50, 775).lineTo(545, 775).strokeColor(primaryColor).lineWidth(1).stroke();
-
-    doc.end();
-
-    stream.on('finish', () => {
-      const buffer = Buffer.concat(chunks);
-      const base64 = buffer.toString('base64');
-      resolve({ pdfPath: pdfPathFile, pdfUrl, base64 });
-    });
-    stream.on('error', reject);
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PW_CHROMIUM_PATH || undefined,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+    });
+    await browser.close();
+
+    fs.writeFileSync(pdfPathFile, pdfBuffer);
+
+    return {
+      pdfPath: pdfPathFile,
+      pdfUrl,
+      base64: pdfBuffer.toString('base64'),
+    };
+  } catch (error) {
+    await browser.close();
+    throw error;
+  }
 }
