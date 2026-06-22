@@ -1,7 +1,10 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
-import * as arabicReshaper from 'arabic-reshaper';
+
+// Handle both ESM and CJS exports for arabic-reshaper
+const arabicReshaperModule = require('arabic-reshaper');
+const arabicReshaper = arabicReshaperModule.default || arabicReshaperModule;
 
 const warrantyTermsText = `تقدّم شركة Auto Renew كفالة محددة للمركبات وفق الشروط التالية، ويُعدّ استفادة العميل من الكفالة موافقة كاملة على جميع البنود المذكورة أدناه.
 
@@ -50,8 +53,13 @@ function setArabicFont(doc: any): void {
 /** Prepare Arabic text for PDF: reshape letters + reverse word order for RTL */
 function ar(text: string): string {
   if (!text) return '';
+  const reshapeFn = arabicReshaper && (arabicReshaper.reshape || (arabicReshaper.default && arabicReshaper.default.reshape));
+  if (!reshapeFn) {
+    // Fallback: just reverse word order if reshape is unavailable
+    return text.split(/\s+/).reverse().join(' ');
+  }
   const words = text.split(/\s+/);
-  const reshaped = words.map((w) => arabicReshaper.reshape(w));
+  const reshaped = words.map((w) => reshapeFn(w));
   return reshaped.reverse().join(' ');
 }
 
