@@ -263,8 +263,8 @@ export class DealerService {
       }),
       prisma.dealerWarranty.findMany({
         where: { dealerId, deletedAt: null },
-        select: { amountPaid: true },
-      }) as Promise<Array<{ amountPaid: any; currency?: string }>>,
+        select: { amountPaid: true, currency: true },
+      }) as Promise<Array<{ amountPaid: any; currency: string | null }>>,
     ]);
 
     // Client-side aggregation to support old DB without currency column
