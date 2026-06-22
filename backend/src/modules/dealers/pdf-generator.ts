@@ -37,39 +37,44 @@ const warrantyTermsText = `تقدّم شركة Auto Renew كفالة محددة 
 تسري الكفالة فقط على الأعطال المغطاة والمذكورة في هذا المستند.
 تحتفظ الشركة بحق تعديل الشروط بما يتوافق مع سياسات العمل.`;
 
+const fontPath = path.join(__dirname, '../../../assets/fonts/Cairo-Regular.ttf');
+
+function setArabicFont(doc: any): void {
+  if (fs.existsSync(fontPath)) {
+    doc.registerFont('Cairo', fontPath);
+    doc.font('Cairo');
+  }
+}
+
 export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{ pdfPath: string; pdfUrl: string; base64: string }> {
   const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs', 'warranties');
   fs.mkdirSync(pdfDir, { recursive: true });
-  const pdfPath = path.join(pdfDir, `${warranty.id}.pdf`);
+  const pdfPathFile = path.join(pdfDir, `${warranty.id}.pdf`);
   const pdfUrl = `/uploads/pdfs/warranties/${warranty.id}.pdf`;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const stream = fs.createWriteStream(pdfPath);
+    const stream = fs.createWriteStream(pdfPathFile);
     const chunks: Buffer[] = [];
 
-    // Collect for base64
     doc.on('data', (chunk) => chunks.push(chunk));
-
     doc.pipe(stream);
 
-    // Header
+    setArabicFont(doc);
+
     doc.fontSize(24).text('Auto Renew', { align: 'center' });
     doc.fontSize(18).text('شهادة كفالة المركبات', { align: 'center' });
     doc.moveDown(2);
 
-    // Dealer Info
     doc.fontSize(12).text(`الوكيل: ${dealer?.name || ''} - ${dealer?.companyName || ''}`);
     doc.fontSize(12).text(`تاريخ الإصدار: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
     doc.moveDown(1);
 
-    // Customer Info
     doc.fontSize(16).text('معلومات العميل', { underline: true });
     doc.fontSize(12).text(`الاسم: ${warranty.customerName}`);
     doc.fontSize(12).text(`رقم الهاتف: ${warranty.customerPhone}`);
     doc.moveDown(1);
 
-    // Vehicle Info
     doc.fontSize(16).text('معلومات المركبة', { underline: true });
     doc.fontSize(12).text(`الشركة المصنعة: ${warranty.manufacturer}`);
     doc.fontSize(12).text(`الموديل: ${warranty.vehicleModel}`);
@@ -80,7 +85,6 @@ export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{
     doc.fontSize(12).text(`اللون: ${warranty.color}`);
     doc.moveDown(1);
 
-    // Warranty Info
     doc.fontSize(16).text('تفاصيل الكفالة', { underline: true });
     doc.fontSize(12).text(`المدة: ${warranty.durationMonths} شهر`);
     doc.fontSize(12).text(`تاريخ البدء: ${new Date(warranty.startDate).toLocaleDateString('ar-SY')}`);
@@ -88,12 +92,10 @@ export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{
     doc.fontSize(12).text(`المبلغ المدفوع: ${warranty.amountPaid} ل.س`);
     doc.moveDown(2);
 
-    // Terms
     doc.fontSize(14).text('شروط الكفالة', { underline: true });
     doc.fontSize(10).text(warrantyTermsText, { align: 'right' });
     doc.moveDown(2);
 
-    // Footer
     doc.fontSize(10).text('هذه الشهادة صادرة إلكترونياً من نظام Auto Renew', { align: 'center' });
     doc.fontSize(10).text(`رقم الكفالة: ${warranty.id}`, { align: 'center' });
 
@@ -102,7 +104,7 @@ export async function generateWarrantyPdf(warranty: any, dealer: any): Promise<{
     stream.on('finish', () => {
       const buffer = Buffer.concat(chunks);
       const base64 = buffer.toString('base64');
-      resolve({ pdfPath, pdfUrl, base64 });
+      resolve({ pdfPath: pdfPathFile, pdfUrl, base64 });
     });
     stream.on('error', reject);
   });
