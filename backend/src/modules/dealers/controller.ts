@@ -184,4 +184,19 @@ export class DealerController {
       res.status(500).json({ error: 'Failed to fetch stats' });
     }
   };
+
+  updateWarranty = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const { id } = req.params;
+      const warranty = await this.dealerService.updateWarranty(id, dealerId, req.body);
+      res.json({ warranty });
+    } catch (error: any) {
+      Logger.error('Update warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to update warranty' });
+    }
+  };
 }

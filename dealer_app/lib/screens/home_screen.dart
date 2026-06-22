@@ -17,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _warranties = [];
   bool _loading = true;
   String _dealerName = '';
+  String? _error;
 
   @override
   void initState() {
@@ -24,7 +25,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Auto-refresh when returning from other screens
+    if (!_loading) {
+      _loadData();
+    }
+  }
+
   Future<void> _loadData() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final stats = await ApiService.getStats();
       final warranties = await ApiService.getWarranties();
@@ -38,7 +49,15 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ تحميل البيانات: $_error'), backgroundColor: AppColors.error),
+        );
+      }
     }
   }
 
@@ -149,7 +168,10 @@ class _HomeScreenState extends State<HomeScreen> {
             'عميل جديد',
             Icons.person_add_alt_1,
             AppColors.success,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WarrantyFormScreen())),
+            () async {
+              final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const WarrantyFormScreen()));
+              if (result == true) _loadData();
+            },
           ),
         ),
         const SizedBox(width: 12),
@@ -158,7 +180,10 @@ class _HomeScreenState extends State<HomeScreen> {
             'عميل سابق',
             Icons.person_search,
             AppColors.accent,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WarrantyFormScreen(existingCustomer: true))),
+            () async {
+              final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const WarrantyFormScreen(existingCustomer: true)));
+              if (result == true) _loadData();
+            },
           ),
         ),
       ],
@@ -217,10 +242,13 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Text(w['customerName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text('${w['vehicleModel']} - ${w['plateNumber']}'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => WarrantyDetailScreen(warranty: w)),
-            ),
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => WarrantyDetailScreen(warranty: w)),
+              );
+              if (result == true) _loadData();
+            },
           ),
         );
       },

@@ -103,6 +103,18 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
         title: const Text('شهادة الكفالة'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => WarrantyFormScreen(warranty: w)),
+              );
+              if (result == true && mounted) {
+                Navigator.pop(context, true); // Return to HomeScreen with refresh
+              }
+            },
+          ),
+          IconButton(
             icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.share),
             onPressed: _sending ? null : _sharePdf,
           ),

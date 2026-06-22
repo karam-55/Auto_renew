@@ -272,4 +272,34 @@ export class DealerService {
       totalRevenue: totalRevenue._sum.amountPaid || 0,
     };
   }
+
+  async updateWarranty(id: string, dealerId: string, data: any) {
+    const existing = await prisma.dealerWarranty.findFirst({
+      where: { id, dealerId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new Error('Warranty not found');
+    }
+
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + (data.durationMonths || existing.durationMonths));
+
+    return prisma.dealerWarranty.update({
+      where: { id },
+      data: {
+        customerName: data.customerName ?? existing.customerName,
+        customerPhone: data.customerPhone ?? existing.customerPhone,
+        manufacturer: data.manufacturer ?? existing.manufacturer,
+        vehicleModel: data.vehicleModel ?? existing.vehicleModel,
+        vehicleYear: data.vehicleYear ?? existing.vehicleYear,
+        chassisNumber: data.chassisNumber ?? existing.chassisNumber,
+        plateNumber: data.plateNumber ?? existing.plateNumber,
+        mileage: data.mileage ?? existing.mileage,
+        color: data.color ?? existing.color,
+        durationMonths: data.durationMonths ?? existing.durationMonths,
+        amountPaid: data.amountPaid ?? existing.amountPaid,
+        endDate: data.durationMonths ? endDate : existing.endDate,
+      },
+    });
+  }
 }

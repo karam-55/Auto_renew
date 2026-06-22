@@ -5,7 +5,8 @@ import 'warranty_detail_screen.dart';
 
 class WarrantyFormScreen extends StatefulWidget {
   final bool existingCustomer;
-  const WarrantyFormScreen({super.key, this.existingCustomer = false});
+  final Map<String, dynamic>? warranty; // If provided, we're in edit mode
+  const WarrantyFormScreen({super.key, this.existingCustomer = false, this.warranty});
 
   @override
   State<WarrantyFormScreen> createState() => _WarrantyFormScreenState();
@@ -25,11 +26,32 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
   int _durationMonths = 12;
   bool _loading = false;
 
+  bool get _isEditMode => widget.warranty != null;
+
   final _durations = [
     {'label': 'سنة واحدة', 'months': 12},
     {'label': '3 سنوات', 'months': 36},
     {'label': '5 سنوات', 'months': 60},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditMode) {
+      final w = widget.warranty!;
+      _nameCtrl.text = w['customerName'] ?? '';
+      _phoneCtrl.text = w['customerPhone'] ?? '';
+      _manufacturerCtrl.text = w['manufacturer'] ?? '';
+      _modelCtrl.text = w['vehicleModel'] ?? '';
+      _yearCtrl.text = w['vehicleYear']?.toString() ?? '';
+      _chassisCtrl.text = w['chassisNumber'] ?? '';
+      _plateCtrl.text = w['plateNumber'] ?? '';
+      _mileageCtrl.text = w['mileage']?.toString() ?? '';
+      _colorCtrl.text = w['color'] ?? '';
+      _amountCtrl.text = w['amountPaid']?.toString() ?? '';
+      _durationMonths = w['durationMonths'] ?? 12;
+    }
+  }
 
   Future<void> _submit() async {
     final required = [
@@ -47,7 +69,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
 
     setState(() => _loading = true);
     try {
-      final warranty = await ApiService.createWarranty({
+      final data = {
         'customerName': _nameCtrl.text.trim(),
         'customerPhone': _phoneCtrl.text.trim(),
         'manufacturer': _manufacturerCtrl.text.trim(),
@@ -59,12 +81,19 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
         'color': _colorCtrl.text.trim(),
         'durationMonths': _durationMonths,
         'amountPaid': double.parse(_amountCtrl.text.trim()),
-      });
+      };
+
+      final warranty = _isEditMode
+          ? await ApiService.updateWarranty(widget.warranty!['id'], data)
+          : await ApiService.createWarranty(data);
 
       if (mounted) {
-        Navigator.pushReplacement(
+        // Pop back with success to trigger HomeScreen refresh
+        Navigator.pop(context, true);
+        // Then show the detail
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => WarrantyDetailScreen(warranty: warranty, isNew: true)),
+          MaterialPageRoute(builder: (_) => WarrantyDetailScreen(warranty: warranty, isNew: !_isEditMode)),
         );
       }
     } catch (e) {
@@ -84,7 +113,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
-        title: const Text('تسجيل كفالة جديدة'),
+        title: Text(_isEditMode ? 'تعديل كفالة' : 'تسجيل كفالة جديدة'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -159,7 +188,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
                 ),
                 child: _loading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('تسجيل الكفالة', style: TextStyle(fontSize: 18, color: Colors.white)),
+                    : Text(_isEditMode ? 'حفظ التعديلات' : 'تسجيل الكفالة', style: const TextStyle(fontSize: 18, color: Colors.white)),
               ),
             ),
             const SizedBox(height: 40),
