@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import '../core/constants.dart';
 import 'warranty_form_screen.dart';
+import '../services/api_service.dart';
 
 class WarrantyDetailScreen extends StatefulWidget {
   final Map<String, dynamic> warranty;
@@ -116,6 +117,40 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.delete, color: Colors.redAccent),
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('تأكيد الحذف'),
+                  content: const Text('هل أنت متأكد من حذف هذه الكفالة؟ لا يمكن التراجع عن هذا الإجراء.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('حذف', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && mounted) {
+                try {
+                  await ApiService.deleteWarranty(w['id']);
+                  if (mounted) {
+                    Navigator.pop(context, true); // Return to HomeScreen with refresh
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('خطأ: ${e.toString()}'), backgroundColor: AppColors.error),
+                    );
+                  }
+                }
+              }
+            },
+          ),
+          IconButton(
             icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.share),
             onPressed: _sending ? null : _sharePdf,
           ),
@@ -165,7 +200,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
             const SizedBox(height: 16),
             _buildCard('تفاصيل الكفالة', [
               _buildRow('المدة', '${w['durationMonths']} شهر'),
-              _buildRow('المبلغ المدفوع', '${w['amountPaid']} ل.س'),
+              _buildRow('المبلغ المدفوع', '${w['amountPaid']} ${w['currency'] == 'USD' ? '\$' : 'ل.س'}'),
               _buildRow('تاريخ البدء', _fmt(w['startDate'])),
               _buildRow('تاريخ الانتهاء', _fmt(w['endDate'])),
             ]),

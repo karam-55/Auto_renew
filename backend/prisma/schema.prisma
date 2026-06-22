@@ -2808,6 +2808,7 @@ model DealerWarranty {
   color           String
   durationMonths  Int
   amountPaid      Decimal  @db.Decimal(12, 2)
+  currency        String   @default("SYP") // SYP or USD
   startDate       DateTime @default(now())
   endDate         DateTime
   pdfUrl          String?

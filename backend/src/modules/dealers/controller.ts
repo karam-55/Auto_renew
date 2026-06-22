@@ -185,6 +185,17 @@ export class DealerController {
     }
   };
 
+  getDealerStatsAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const stats = await this.dealerService.getDealerStats(id);
+      res.json(stats);
+    } catch (error: any) {
+      Logger.error('Get dealer stats admin error', error);
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+  };
+
   updateWarranty = async (req: Request, res: Response) => {
     try {
       const dealerId = (req as any).dealerId;
@@ -197,6 +208,21 @@ export class DealerController {
     } catch (error: any) {
       Logger.error('Update warranty error', error);
       res.status(400).json({ error: error.message || 'Failed to update warranty' });
+    }
+  };
+
+  deleteWarranty = async (req: Request, res: Response) => {
+    try {
+      const dealerId = (req as any).dealerId;
+      if (!dealerId) {
+        return res.status(401).json({ error: 'Dealer authentication required' });
+      }
+      const { id } = req.params;
+      await this.dealerService.deleteWarranty(id, dealerId);
+      res.json({ message: 'Warranty deleted successfully' });
+    } catch (error: any) {
+      Logger.error('Delete warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to delete warranty' });
     }
   };
 }

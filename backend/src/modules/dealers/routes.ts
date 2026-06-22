@@ -21,6 +21,7 @@ router.post('/login', (req, res, next) => {
 router.get('/', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealers);
 router.get('/search', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.searchDealers);
 router.get('/:id/warranties', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerWarranties);
+router.get('/:id/stats', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerStatsAdmin);
 router.get('/:id', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerById);
 router.post('/', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.createDealer);
 router.put('/:id', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.updateDealer);
@@ -32,5 +33,6 @@ router.get('/me/warranties', dealerAuth, dealerController.getMyWarranties);
 router.get('/me/warranties/:id', dealerAuth, dealerController.getWarrantyById);
 router.post('/me/warranties', dealerAuth, dealerController.createWarranty);
 router.put('/me/warranties/:id', dealerAuth, dealerController.updateWarranty);
+router.delete('/me/warranties/:id', dealerAuth, dealerController.deleteWarranty);
 
 export default router;

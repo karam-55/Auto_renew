@@ -169,6 +169,7 @@ export class DealerService {
     color: string;
     durationMonths: number;
     amountPaid: number;
+    currency?: string;
     pdfUrl?: string;
   }) {
     const dealer = await prisma.dealer.findFirst({
@@ -197,6 +198,7 @@ export class DealerService {
         color: data.color,
         durationMonths: data.durationMonths,
         amountPaid: data.amountPaid,
+        currency: data.currency || 'SYP',
         startDate,
         endDate,
         pdfUrl: data.pdfUrl,
@@ -252,7 +254,7 @@ export class DealerService {
   }
 
   async getDealerStats(dealerId: string) {
-    const [totalWarranties, activeWarranties, uniqueCustomers, totalRevenue] = await Promise.all([
+    const [totalWarranties, activeWarranties, uniqueCustomers, totalRevenueSYP, totalRevenueUSD] = await Promise.all([
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null } }),
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null, endDate: { gte: new Date() } } }),
       prisma.dealerWarranty.groupBy({
@@ -260,7 +262,11 @@ export class DealerService {
         where: { dealerId, deletedAt: null },
       }),
       prisma.dealerWarranty.aggregate({
-        where: { dealerId, deletedAt: null },
+        where: { dealerId, deletedAt: null, currency: 'SYP' },
+        _sum: { amountPaid: true },
+      }),
+      prisma.dealerWarranty.aggregate({
+        where: { dealerId, deletedAt: null, currency: 'USD' },
         _sum: { amountPaid: true },
       }),
     ]);
@@ -269,7 +275,8 @@ export class DealerService {
       totalWarranties,
       activeWarranties,
       totalCustomers: uniqueCustomers.length,
-      totalRevenue: totalRevenue._sum.amountPaid || 0,
+      totalRevenueSYP: totalRevenueSYP._sum?.amountPaid || 0,
+      totalRevenueUSD: totalRevenueUSD._sum?.amountPaid || 0,
     };
   }
 
@@ -298,8 +305,21 @@ export class DealerService {
         color: data.color ?? existing.color,
         durationMonths: data.durationMonths ?? existing.durationMonths,
         amountPaid: data.amountPaid ?? existing.amountPaid,
+        currency: data.currency ?? existing.currency,
         endDate: data.durationMonths ? endDate : existing.endDate,
       },
+    });
+  }
+
+  async deleteWarranty(id: string, dealerId: string) {
+    const existing = await prisma.dealerWarranty.findFirst({
+      where: { id, dealerId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new Error('Warranty not found');
+    }
+    return prisma.dealerWarranty.delete({
+      where: { id },
     });
   }
 }

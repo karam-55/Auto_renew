@@ -114,6 +114,17 @@ class ApiService {
     throw Exception(body['error'] ?? 'Failed to update warranty');
   }
 
+  static Future<void> deleteWarranty(String id) async {
+    final response = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.warranties}/$id'),
+      headers: _headers(),
+    );
+    final body = jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(body['error'] ?? 'Failed to delete warranty');
+    }
+  }
+
   static Future<void> _saveDealer(Map<String, dynamic> dealer) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('dealer_data', jsonEncode(dealer));

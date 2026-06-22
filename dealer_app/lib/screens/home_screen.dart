@@ -113,14 +113,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatsCards() {
+    final sypRevenue = _stats?['totalRevenueSYP'] ?? _stats?['totalRevenue'] ?? 0;
     final stats = [
-      {'label': 'إجمالي الكفالات', 'value': _stats?['totalWarranties'] ?? 0, 'color': AppColors.primary},
-      {'label': 'الكفالات النشطة', 'value': _stats?['activeWarranties'] ?? 0, 'color': AppColors.success},
-      {'label': 'العملاء', 'value': _stats?['totalCustomers'] ?? 0, 'color': AppColors.accent},
+      {'label': 'إجمالي الكفالات', 'value': '${_stats?['totalWarranties'] ?? 0}', 'color': AppColors.primary},
+      {'label': 'الكفالات النشطة', 'value': '${_stats?['activeWarranties'] ?? 0}', 'color': AppColors.success},
+      {'label': 'العملاء', 'value': '${_stats?['totalCustomers'] ?? 0}', 'color': AppColors.accent},
       {
-        'label': 'إجمالي المبالغ',
-        'value': '${_stats?['totalRevenue'] ?? 0}',
-        'color': AppColors.primaryLight
+        'label': 'المدفوع (ل.س)',
+        'value': '$sypRevenue',
+        'color': AppColors.primaryLight,
+      },
+      {
+        'label': 'المدفوع (\$)',
+        'value': '${_stats?['totalRevenueUSD'] ?? 0}',
+        'color': const Color(0xFF2E7D32),
       },
     ];
     return GridView.builder(
@@ -151,9 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${s['value']}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(s['value'] as String, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 8),
-              Text(s['label'] as String, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+              Text(s['label'] as String, style: const TextStyle(fontSize: 13, color: Colors.white70)),
             ],
           ),
         );

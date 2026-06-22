@@ -26,6 +26,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
   final _amountCtrl = TextEditingController();
   int _durationMonths = 12;
   bool _loading = false;
+  String _currency = 'SYP'; // SYP or USD
 
   bool get _isEditMode => widget.warranty != null;
 
@@ -63,6 +64,9 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       _plateCtrl.text = c['plateNumber'] ?? '';
       _colorCtrl.text = c['color'] ?? '';
     }
+    if (_isEditMode && widget.warranty?['currency'] != null) {
+      _currency = widget.warranty!['currency'];
+    }
   }
 
   Future<void> _submit() async {
@@ -93,6 +97,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
         'color': _colorCtrl.text.trim(),
         'durationMonths': _durationMonths,
         'amountPaid': double.parse(_amountCtrl.text.trim()),
+        'currency': _currency,
       };
 
       final warranty = _isEditMode
@@ -186,7 +191,55 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('المبلغ المدفوع'),
-            _buildField(_amountCtrl, 'المبلغ (ل.س)', Icons.payments, type: TextInputType.number),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _currency = 'SYP'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: _currency == 'SYP' ? AppColors.primary : AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _currency == 'SYP' ? AppColors.primary : AppColors.border),
+                      ),
+                      child: Text(
+                        'ل.س',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _currency == 'SYP' ? Colors.white : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _currency = 'USD'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: _currency == 'USD' ? AppColors.primary : AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _currency == 'USD' ? AppColors.primary : AppColors.border),
+                      ),
+                      child: Text(
+                        '\$ USD',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _currency == 'USD' ? Colors.white : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildField(_amountCtrl, 'المبلغ', Icons.payments, type: TextInputType.number),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,

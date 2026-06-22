@@ -47,7 +47,7 @@ export class DealerDetailScreen {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><span class="material-symbols-outlined">people</span></div>
@@ -63,7 +63,13 @@ export class DealerDetailScreen {
           <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center"><span class="material-symbols-outlined">payments</span></div>
-              <div><p class="text-text-tertiary font-label-sm">إجمالي المدفوع</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount">0</p></div>
+              <div><p class="text-text-tertiary font-label-sm">إجمالي المدفوع (ل.س)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-syp">0</p></div>
+            </div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center"><span class="material-symbols-outlined">attach_money</span></div>
+              <div><p class="text-text-tertiary font-label-sm">إجمالي المدفوع ($)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-usd">0</p></div>
             </div>
           </div>
         </div>
@@ -122,9 +128,10 @@ export class DealerDetailScreen {
 
   private async loadData(el: HTMLElement) {
     try {
-      const [dealerRes, warrantiesRes] = await Promise.all([
+      const [dealerRes, warrantiesRes, statsRes] = await Promise.all([
         this.api.get<any>(`/api/dealers/${this.dealerId}`),
         this.api.get<any>(`/api/dealers/${this.dealerId}/warranties`),
+        this.api.get<any>(`/api/dealers/${this.dealerId}/stats`),
       ])
 
       if (dealerRes.success && dealerRes.data) {
@@ -139,7 +146,9 @@ export class DealerDetailScreen {
       const warranties = warrantiesRes.success && Array.isArray(warrantiesRes.data) ? warrantiesRes.data :
                          warrantiesRes.success && warrantiesRes.data?.data ? warrantiesRes.data.data : []
 
-      const totalAmount = warranties.reduce((sum: number, w: any) => sum + (w.amountPaid || 0), 0)
+      // FIX: Use Number() to ensure numeric addition, not string concatenation
+      const totalSYP = warranties.reduce((sum: number, w: any) => sum + ((w.currency || 'SYP') === 'SYP' ? Number(w.amountPaid) || 0 : 0), 0)
+      const totalUSD = warranties.reduce((sum: number, w: any) => sum + (w.currency === 'USD' ? Number(w.amountPaid) || 0 : 0), 0)
 
       // Aggregate customers from warranties
       const customerMap = new Map<string, any>()
@@ -154,9 +163,12 @@ export class DealerDetailScreen {
       })
       const customers = Array.from(customerMap.values())
 
-      el.querySelector('#stat-customers')!.textContent = String(customers.length)
-      el.querySelector('#stat-warranties')!.textContent = String(warranties.length)
-      el.querySelector('#stat-amount')!.textContent = totalAmount.toLocaleString('ar-SY') + ' ل.س'
+      // Use stats endpoint if available, fallback to calculated values
+      const stats = statsRes.success && statsRes.data ? statsRes.data : null
+      el.querySelector('#stat-customers')!.textContent = String(stats?.totalCustomers ?? customers.length)
+      el.querySelector('#stat-warranties')!.textContent = String(stats?.totalWarranties ?? warranties.length)
+      el.querySelector('#stat-amount-syp')!.textContent = Number(stats?.totalRevenueSYP ?? totalSYP).toLocaleString('ar-SY') + ' ل.س'
+      el.querySelector('#stat-amount-usd')!.textContent = Number(stats?.totalRevenueUSD ?? totalUSD).toLocaleString('en-US') + ' $'
 
       const wTbody = el.querySelector('#warranties-tbody')!
       if (warranties.length === 0) {
@@ -168,7 +180,7 @@ export class DealerDetailScreen {
             <td class="px-4 py-3 font-body-md text-on-surface">${w.manufacturer || ''} ${w.vehicleModel || ''}</td>
             <td class="px-4 py-3 font-body-md text-on-surface" dir="ltr">${w.plateNumber || '-'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${w.durationMonths || '-'} شهر</td>
-            <td class="px-4 py-3 font-body-md text-on-surface">${(w.amountPaid || 0).toLocaleString('ar-SY')} ل.س</td>
+            <td class="px-4 py-3 font-body-md text-on-surface">${(Number(w.amountPaid) || 0).toLocaleString('ar-SY')} ${w.currency === 'USD' ? '$' : 'ل.س'}</td>
             <td class="px-4 py-3 font-body-md text-text-secondary">${w.startDate ? new Date(w.startDate).toLocaleDateString('ar-SY') : '-'}</td>
           </tr>
         `).join('')
