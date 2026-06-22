@@ -254,29 +254,37 @@ export class DealerService {
   }
 
   async getDealerStats(dealerId: string) {
-    const [totalWarranties, activeWarranties, uniqueCustomers, totalRevenueSYP, totalRevenueUSD] = await Promise.all([
+    const [totalWarranties, activeWarranties, uniqueCustomers, warranties] = await Promise.all([
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null } }),
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null, endDate: { gte: new Date() } } }),
       prisma.dealerWarranty.groupBy({
         by: ['customerPhone'],
         where: { dealerId, deletedAt: null },
       }),
-      prisma.dealerWarranty.aggregate({
-        where: { dealerId, deletedAt: null, currency: 'SYP' },
-        _sum: { amountPaid: true },
-      }),
-      prisma.dealerWarranty.aggregate({
-        where: { dealerId, deletedAt: null, currency: 'USD' },
-        _sum: { amountPaid: true },
+      prisma.dealerWarranty.findMany({
+        where: { dealerId, deletedAt: null },
+        select: { amountPaid: true, currency: true },
       }),
     ]);
+
+    // Client-side aggregation to support old DB without currency column
+    let totalRevenueSYP = 0;
+    let totalRevenueUSD = 0;
+    for (const w of warranties) {
+      const amt = Number(w.amountPaid) || 0;
+      if (w.currency === 'USD') {
+        totalRevenueUSD += amt;
+      } else {
+        totalRevenueSYP += amt; // Default SYP for old records
+      }
+    }
 
     return {
       totalWarranties,
       activeWarranties,
       totalCustomers: uniqueCustomers.length,
-      totalRevenueSYP: totalRevenueSYP._sum?.amountPaid || 0,
-      totalRevenueUSD: totalRevenueUSD._sum?.amountPaid || 0,
+      totalRevenueSYP,
+      totalRevenueUSD,
     };
   }
 
