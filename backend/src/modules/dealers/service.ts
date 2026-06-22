@@ -198,7 +198,7 @@ export class DealerService {
         color: data.color,
         durationMonths: data.durationMonths,
         amountPaid: data.amountPaid,
-        currency: data.currency || 'SYP',
+        // currency: data.currency || 'SYP', // TODO: uncomment after DB migration
         startDate,
         endDate,
         pdfUrl: data.pdfUrl,
@@ -263,8 +263,8 @@ export class DealerService {
       }),
       prisma.dealerWarranty.findMany({
         where: { dealerId, deletedAt: null },
-        select: { amountPaid: true, currency: true },
-      }),
+        select: { amountPaid: true },
+      }) as Promise<Array<{ amountPaid: any; currency?: string }>>,
     ]);
 
     // Client-side aggregation to support old DB without currency column
@@ -313,7 +313,7 @@ export class DealerService {
         color: data.color ?? existing.color,
         durationMonths: data.durationMonths ?? existing.durationMonths,
         amountPaid: data.amountPaid ?? existing.amountPaid,
-        currency: data.currency ?? existing.currency,
+        // currency: data.currency ?? existing.currency, // TODO: uncomment after DB migration
         endDate: data.durationMonths ? endDate : existing.endDate,
       },
     });
