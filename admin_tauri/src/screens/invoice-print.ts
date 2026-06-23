@@ -62,56 +62,59 @@ export class InvoicePrintScreen {
               .invoice-page { box-shadow: none !important; border: none !important; }
             }
           </style>
-          <div class="invoice-page border border-gray-300 rounded-lg p-8 bg-white">
-            <!-- Header -->
-            <div class="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
-              <div>
-                <h1 class="text-2xl font-bold text-gray-900">فاتورة ضريبية مبسطة</h1>
-                <p class="text-sm text-gray-600 mt-1">مركز الصيانة والخدمات</p>
+          <div class="invoice-page border border-border rounded-lg p-8 bg-white">
+            <!-- Header with Logo -->
+            <div class="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
+              <div class="flex items-center gap-4">
+                <img src="/logo.png" alt="Logo" class="w-14 h-14 object-contain" />
+                <div>
+                  <h1 class="text-2xl font-bold text-black">فاتورة ضريبية مبسطة</h1>
+                  <p class="text-sm text-text-secondary mt-1">مركز الصيانة والخدمات</p>
+                </div>
               </div>
               <div class="text-left" dir="ltr">
-                <p class="text-lg font-bold text-gray-900">#${inv.invoiceNumber || inv.id?.slice(0,8)}</p>
-                <p class="text-sm text-gray-600">${new Date(inv.createdAt || inv.invoiceDate).toLocaleDateString('ar-SA')}</p>
+                <p class="text-lg font-bold text-black">#${inv.invoiceNumber || inv.id?.slice(0,8)}</p>
+                <p class="text-sm text-text-secondary">${new Date(inv.createdAt || inv.invoiceDate).toLocaleDateString('ar-SA')}</p>
                 <span class="inline-block mt-1 px-3 py-0.5 rounded-full text-sm font-medium" style="background:${statusColor}15;color:${statusColor};border:1px solid ${statusColor}40">${statusText}</span>
               </div>
             </div>
 
             <!-- Customer Info -->
-            <div class="grid grid-cols-2 gap-4 mb-4 bg-gray-50 rounded-lg p-4">
+            <div class="grid grid-cols-2 gap-4 mb-4 bg-surface-subtle rounded-lg p-4">
               <div>
-                <p class="text-xs text-gray-500 font-bold mb-1">العميل</p>
-                <p class="text-base font-semibold text-gray-900">${inv.customer?.fullName || inv.customer?.name || inv.customerName || '-'}</p>
-                <p class="text-sm text-gray-600">${inv.customer?.phone || '-'}</p>
+                <p class="text-xs text-text-tertiary font-bold mb-1">العميل</p>
+                <p class="text-base font-semibold text-black">${inv.customer?.fullName || inv.customer?.name || inv.customerName || '-'}</p>
+                <p class="text-sm text-text-secondary">${inv.customer?.phone || '-'}</p>
               </div>
               <div>
-                <p class="text-xs text-gray-500 font-bold mb-1">المركبة</p>
-                <p class="text-base font-semibold text-gray-900">${inv.vehicle?.licensePlate || inv.vehicle?.plateNumber || '-'}</p>
-                <p class="text-sm text-gray-600">${inv.vehicle?.make || ''} ${inv.vehicle?.model || ''}</p>
+                <p class="text-xs text-text-tertiary font-bold mb-1">المركبة</p>
+                <p class="text-base font-semibold text-black">${inv.vehicle?.licensePlate || inv.vehicle?.plateNumber || '-'}</p>
+                <p class="text-sm text-text-secondary">${inv.vehicle?.make || ''} ${inv.vehicle?.model || ''}</p>
               </div>
             </div>
 
             <!-- Services Table -->
             ${services.length > 0 ? `
             <div class="mb-4">
-              <h3 class="text-sm font-bold text-gray-800 mb-2 border-r-4 border-blue-600 pr-2">الخدمات</h3>
+              <h3 class="text-sm font-bold text-black mb-2 border-r-4 border-primary pr-2">الخدمات</h3>
               <table class="w-full text-sm border-collapse">
                 <thead>
-                  <tr class="bg-gray-100 border-b border-gray-300">
-                    <th class="text-right py-2 px-2 font-bold text-gray-700 w-8">#</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">البيان</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">السعر</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">الضريبة</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">الإجمالي</th>
+                  <tr class="bg-surface-subtle border-b border-border">
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant w-8">#</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">البيان</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">السعر</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">الضريبة</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">الإجمالي</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${services.map((s: any, i: number) => `
-                  <tr class="border-b border-gray-200">
-                    <td class="py-2 px-2 text-gray-600">${i + 1}</td>
-                    <td class="py-2 px-2 text-gray-900">${s.description || s.name || 'خدمة'}</td>
-                    <td class="py-2 px-2 text-gray-900">${(s.unitPriceSYP || s.priceSYP || 0).toLocaleString('ar-SA')}</td>
-                    <td class="py-2 px-2 text-gray-900">${(s.taxSYP || 0).toLocaleString('ar-SA')}</td>
-                    <td class="py-2 px-2 font-bold text-gray-900">${((s.unitPriceSYP || s.priceSYP || 0) + (s.taxSYP || 0)).toLocaleString('ar-SA')}</td>
+                  <tr class="border-b border-border">
+                    <td class="py-2 px-2 text-text-secondary">${i + 1}</td>
+                    <td class="py-2 px-2 text-black">${s.description || s.name || 'خدمة'}</td>
+                    <td class="py-2 px-2 text-black">${(s.unitPriceSYP || s.priceSYP || 0).toLocaleString('ar-SA')}</td>
+                    <td class="py-2 px-2 text-black">${(s.taxSYP || 0).toLocaleString('ar-SA')}</td>
+                    <td class="py-2 px-2 font-bold text-black">${((s.unitPriceSYP || s.priceSYP || 0) + (s.taxSYP || 0)).toLocaleString('ar-SA')}</td>
                   </tr>
                   `).join('')}
                 </tbody>
@@ -122,25 +125,25 @@ export class InvoicePrintScreen {
             <!-- Materials Table -->
             ${materials.length > 0 ? `
             <div class="mb-4">
-              <h3 class="text-sm font-bold text-gray-800 mb-2 border-r-4 border-green-600 pr-2">المواد والقطع</h3>
+              <h3 class="text-sm font-bold text-black mb-2 border-r-4 border-black pr-2">المواد والقطع</h3>
               <table class="w-full text-sm border-collapse">
                 <thead>
-                  <tr class="bg-gray-100 border-b border-gray-300">
-                    <th class="text-right py-2 px-2 font-bold text-gray-700 w-8">#</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">البيان</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">الكمية</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">السعر</th>
-                    <th class="text-right py-2 px-2 font-bold text-gray-700">الإجمالي</th>
+                  <tr class="bg-surface-subtle border-b border-border">
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant w-8">#</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">البيان</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">الكمية</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">السعر</th>
+                    <th class="text-right py-2 px-2 font-bold text-on-surface-variant">الإجمالي</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${materials.map((m: any, i: number) => `
-                  <tr class="border-b border-gray-200">
-                    <td class="py-2 px-2 text-gray-600">${i + 1}</td>
-                    <td class="py-2 px-2 text-gray-900">${m.description || m.name || 'مادة'}</td>
-                    <td class="py-2 px-2 text-gray-900">${m.quantity || 1}</td>
-                    <td class="py-2 px-2 text-gray-900">${(m.unitPriceSYP || m.priceSYP || 0).toLocaleString('ar-SA')}</td>
-                    <td class="py-2 px-2 font-bold text-gray-900">${((m.quantity || 1) * (m.unitPriceSYP || m.priceSYP || 0)).toLocaleString('ar-SA')}</td>
+                  <tr class="border-b border-border">
+                    <td class="py-2 px-2 text-text-secondary">${i + 1}</td>
+                    <td class="py-2 px-2 text-black">${m.description || m.name || 'مادة'}</td>
+                    <td class="py-2 px-2 text-black">${m.quantity || 1}</td>
+                    <td class="py-2 px-2 text-black">${(m.unitPriceSYP || m.priceSYP || 0).toLocaleString('ar-SA')}</td>
+                    <td class="py-2 px-2 font-bold text-black">${((m.quantity || 1) * (m.unitPriceSYP || m.priceSYP || 0)).toLocaleString('ar-SA')}</td>
                   </tr>
                   `).join('')}
                 </tbody>
@@ -150,12 +153,12 @@ export class InvoicePrintScreen {
 
             <!-- Warranty Section -->
             ${services.some((s: any) => s.service?.warrantyDays || s.warrantyDays) ? `
-            <div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 class="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
+            <div class="mb-4 bg-primary-fixed border border-primary-fixed-dim rounded-lg p-4">
+              <h3 class="text-sm font-bold text-on-primary-fixed mb-2 flex items-center gap-2">
                 <span class="material-symbols-outlined text-[16px]">verified</span>
                 تفاصيل الكفالة
               </h3>
-              <ul class="text-sm text-blue-800 space-y-1">
+              <ul class="text-sm text-on-primary-fixed space-y-1">
                 ${services.filter((s: any) => (s.service?.warrantyDays || s.warrantyDays)).map((s: any) => `
                   <li>• ${s.description || s.name || 'خدمة'}: كفالة ${s.service?.warrantyDays || s.warrantyDays} يوم</li>
                 `).join('')}
@@ -164,40 +167,40 @@ export class InvoicePrintScreen {
             ` : ''}
 
             <!-- Totals -->
-            <div class="border-t-2 border-gray-800 pt-4">
+            <div class="border-t-2 border-black pt-4">
               <div class="flex justify-between py-1 text-sm">
-                <span class="text-gray-600">المجموع الفرعي</span>
-                <span class="font-medium text-gray-900">${(inv.subtotalSYP || 0).toLocaleString('ar-SA')} ل.س</span>
+                <span class="text-text-secondary">المجموع الفرعي</span>
+                <span class="font-medium text-black">${(inv.subtotalSYP || 0).toLocaleString('ar-SA')} ل.س</span>
               </div>
               <div class="flex justify-between py-1 text-sm">
-                <span class="text-gray-600">الضريبة</span>
-                <span class="font-medium text-gray-900">${(inv.taxSYP || 0).toLocaleString('ar-SA')} ل.س</span>
+                <span class="text-text-secondary">الضريبة</span>
+                <span class="font-medium text-black">${(inv.taxSYP || 0).toLocaleString('ar-SA')} ل.س</span>
               </div>
               ${inv.discountSYP > 0 ? `
               <div class="flex justify-between py-1 text-sm">
-                <span class="text-gray-600">الخصم ${inv.discountType === 'PERCENTAGE' && inv.discountPercent ? '(' + inv.discountPercent + '%)' : ''}</span>
-                <span class="font-medium text-gray-900">-${(inv.discountSYP || 0).toLocaleString('ar-SA')} ل.س</span>
+                <span class="text-text-secondary">الخصم ${inv.discountType === 'PERCENTAGE' && inv.discountPercent ? '(' + inv.discountPercent + '%)' : ''}</span>
+                <span class="font-medium text-black">-${(inv.discountSYP || 0).toLocaleString('ar-SA')} ل.س</span>
               </div>
               ` : ''}
-              <div class="flex justify-between py-2 mt-2 border-t border-gray-300 text-lg font-bold">
-                <span class="text-gray-900">الإجمالي</span>
-                <span class="text-gray-900">${(inv.totalSYP || 0).toLocaleString('ar-SA')} ل.س</span>
+              <div class="flex justify-between py-2 mt-2 border-t border-border text-lg font-bold">
+                <span class="text-primary">الإجمالي</span>
+                <span class="text-primary">${(inv.totalSYP || 0).toLocaleString('ar-SA')} ل.س</span>
               </div>
               ${inv.paidSYP > 0 ? `
               <div class="flex justify-between py-1 text-sm">
-                <span class="text-gray-600">المدفوع</span>
-                <span class="font-medium text-green-700">${(inv.paidSYP || 0).toLocaleString('ar-SA')} ل.س</span>
+                <span class="text-text-secondary">المدفوع</span>
+                <span class="font-medium text-success">${(inv.paidSYP || 0).toLocaleString('ar-SA')} ل.س</span>
               </div>
               <div class="flex justify-between py-1 text-sm">
-                <span class="text-gray-600">المتبقي</span>
-                <span class="font-medium ${(inv.totalSYP - inv.paidSYP) > 0 ? 'text-red-700' : 'text-green-700'}">${((inv.totalSYP || 0) - (inv.paidSYP || 0)).toLocaleString('ar-SA')} ل.س</span>
+                <span class="text-text-secondary">المتبقي</span>
+                <span class="font-medium ${(inv.totalSYP - inv.paidSYP) > 0 ? 'text-error' : 'text-success'}">${((inv.totalSYP || 0) - (inv.paidSYP || 0)).toLocaleString('ar-SA')} ل.س</span>
               </div>
               ` : ''}
             </div>
 
             <!-- Footer -->
-            <div class="mt-8 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
-              <p>شكراً لثقتكم بنا — للاستفسار: 09XXXXXXXX</p>
+            <div class="mt-8 pt-4 border-t border-border text-center text-xs text-text-tertiary">
+              <p>شكراً لثقتكم بنا — AUTO RENEW</p>
               <p class="mt-1">${new Date().toLocaleDateString('ar-SA')}</p>
             </div>
           </div>

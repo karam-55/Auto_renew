@@ -43,9 +43,7 @@ export class BookingTicketScreen {
         <div id="ticket-card" class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle overflow-hidden">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                <span class="material-symbols-outlined">calendar_month</span>
-              </div>
+              <img src="/logo.png" alt="Logo" class="w-10 h-10 object-contain rounded-lg" />
               <div>
                 <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="ticket-type"><span class="skeleton skeleton-text-lg inline-block w-32"></span></h3>
                 <span class="bg-primary-container/20 text-primary px-3 py-1 rounded-full font-label-sm text-sm inline-flex items-center gap-1 mt-1" id="ticket-status-badge">

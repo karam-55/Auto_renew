@@ -79,6 +79,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/launcher_icon.png
     - assets/fonts/NotoNaskhArabic-Regular.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see

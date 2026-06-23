@@ -46,45 +46,42 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  const Icon(Icons.shield_moon_rounded, size: 80, color: Colors.white),
-                  const SizedBox(height: 16),
-                  const Text('تسجيل الدخول',
-                      style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 32),
-                  _buildField(_phoneCtrl, 'رقم الهاتف', Icons.phone, TextInputType.phone),
-                  const SizedBox(height: 16),
-                  _buildField(_passwordCtrl, 'كلمة المرور', Icons.lock, TextInputType.text, obscure: true),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('دخول', style: TextStyle(fontSize: 18, color: Colors.white)),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              children: [
+                Image.asset(
+                  'assets/launcher_icon.png',
+                  width: 100,
+                  height: 100,
+                ),
+                const SizedBox(height: 16),
+                const Text('تسجيل الدخول',
+                    style: TextStyle(fontSize: 28, color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 32),
+                _buildField(_phoneCtrl, 'رقم الهاتف', Icons.phone, TextInputType.phone),
+                const SizedBox(height: 16),
+                _buildField(_passwordCtrl, 'كلمة المرور', Icons.lock, TextInputType.text, obscure: true),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
+                    child: _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('دخول', style: TextStyle(fontSize: 18)),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -98,18 +95,18 @@ class _LoginScreenState extends State<LoginScreen> {
       controller: ctrl,
       keyboardType: type,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: Colors.white70),
+        labelStyle: const TextStyle(color: AppColors.textSecondary),
+        prefixIcon: Icon(icon, color: AppColors.primary),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.15),
+        fillColor: AppColors.border.withOpacity(0.3),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.accent, width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
       ),
     );

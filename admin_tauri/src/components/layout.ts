@@ -92,11 +92,11 @@ export class AppLayout {
     wrapper.className = 'min-h-screen bg-background font-ibmPlexSans text-on-surface'
     wrapper.innerHTML = `
       <!-- Sidebar -->
-      <aside class="fixed right-[24px] top-[16px] h-[calc(100vh-32px)] flex flex-col z-50 rounded-2xl glass-panel border-l border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] overflow-hidden" style="width:280px">
+      <aside class="fixed right-[24px] top-[16px] h-[calc(100vh-32px)] flex flex-col z-50 rounded-2xl glass-panel border-l border-glass-border shadow-[0_8px_32px_0_rgba(227,30,36,0.08)] overflow-hidden" style="width:280px">
         <!-- Brand -->
         <div class="p-6 flex flex-col items-center" style="border-bottom:1px solid rgba(255,255,255,0.4)">
-          <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-primary/20 relative overflow-hidden group cursor-pointer primary-gradient" data-route="/dashboard">
-            <span class="material-symbols-outlined text-3xl text-white relative z-10" style="font-variation-settings:'FILL' 1">directions_car</span>
+          <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-primary/20 relative overflow-hidden group cursor-pointer" data-route="/dashboard">
+            <img src="/logo.png" alt="Logo" class="w-12 h-12 object-contain" />
           </div>
           <h2 class="font-bold text-xl text-primary font-beVietnamPro">أوتو برو</h2>
           <p class="text-xs mt-1 text-on-surface-variant">الإدارة المتقدمة</p>

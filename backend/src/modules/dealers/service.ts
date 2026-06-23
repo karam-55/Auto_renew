@@ -132,9 +132,8 @@ export class DealerService {
   }
 
   async deleteDealer(id: string, tenantId: string) {
-    return prisma.dealer.updateMany({
+    return prisma.dealer.deleteMany({
       where: { id, tenantId },
-      data: { deletedAt: new Date() },
     });
   }
 

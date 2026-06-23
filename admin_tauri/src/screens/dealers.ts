@@ -196,6 +196,12 @@ export class DealersScreen {
             <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="عرض التفاصيل" data-action="view" data-id="${item.id}">
               <span class="material-symbols-outlined text-[18px]">visibility</span>
             </button>
+            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" title="تعديل" data-action="edit" data-id="${item.id}">
+              <span class="material-symbols-outlined text-[18px]">edit</span>
+            </button>
+            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" data-action="delete" data-id="${item.id}">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
           </div>
         </td>
       </tr>
@@ -205,6 +211,123 @@ export class DealersScreen {
         const id = btn.getAttribute('data-id')
         if (id) this.router.navigate(`/dealers/${id}`)
       })
+    })
+    tbody.querySelectorAll('[data-action="edit"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id')
+        const dealer = this.items.find((d: any) => d.id === id)
+        if (id && dealer) this.openEditModal(el, id, dealer)
+      })
+    })
+    tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id')
+        if (id) this.openDeleteModal(el, id)
+      })
+    })
+  }
+
+  private openEditModal(content: HTMLElement, id: string, dealer: any) {
+    let modal = content.querySelector('#edit-dealer-modal') as HTMLElement
+    if (!modal) {
+      modal = document.createElement('div')
+      modal.id = 'edit-dealer-modal'
+      modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md p-6 m-4 max-h-[90vh] overflow-y-auto">
+          <h3 class="font-headline-md text-on-surface font-semibold mb-4">تعديل وكيل</h3>
+          <input id="edit-dealer-name" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="اسم الوكيل *" required />
+          <input id="edit-dealer-company" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="اسم الشركة *" />
+          <input id="edit-dealer-phone" type="tel" pattern="^09[0-9]{8}$" title="09XXXXXXXX" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-3" placeholder="رقم الهاتف *" />
+          <input id="edit-dealer-address" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface mb-4" placeholder="العنوان" />
+          <div class="flex justify-end gap-2">
+            <button id="edit-dealer-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>
+            <button id="edit-dealer-save" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md hover:bg-primary-dark transition-colors">حفظ</button>
+          </div>
+        </div>
+      `
+      content.appendChild(modal)
+    }
+
+    const nameIn = modal.querySelector('#edit-dealer-name') as HTMLInputElement
+    const companyIn = modal.querySelector('#edit-dealer-company') as HTMLInputElement
+    const phoneIn = modal.querySelector('#edit-dealer-phone') as HTMLInputElement
+    const addressIn = modal.querySelector('#edit-dealer-address') as HTMLInputElement
+
+    nameIn.value = dealer.name || ''
+    companyIn.value = dealer.companyName || ''
+    phoneIn.value = dealer.phone || ''
+    addressIn.value = dealer.address || ''
+
+    modal.classList.remove('hidden')
+    modal.classList.add('flex')
+
+    const close = () => {
+      modal!.classList.add('hidden')
+      modal!.classList.remove('flex')
+    }
+
+    modal.querySelector('#edit-dealer-cancel')?.addEventListener('click', close)
+    modal.querySelector('#edit-dealer-save')?.addEventListener('click', async () => {
+      const name = nameIn.value.trim()
+      const companyName = companyIn.value.trim()
+      const phone = phoneIn.value.trim()
+      const address = addressIn.value.trim()
+      if (!name) { ;(window as any).toast?.show?.({ message: 'اسم الوكيل مطلوب', type: 'warning' }); return }
+      if (!companyName) { ;(window as any).toast?.show?.({ message: 'اسم الشركة مطلوب', type: 'warning' }); return }
+      if (!phone) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف مطلوب', type: 'warning' }); return }
+      if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف غير صالح', type: 'warning' }); return }
+      try {
+        const res: any = await this.api.put(`/api/dealers/${id}`, { name, companyName, phone, address: address || undefined })
+        if (res.success || res.dealer) {
+          close()
+          this.loadData(content)
+        } else { ;(window as any).toast?.show?.({ message: res.message || 'فشل التحديث', type: 'error' }) }
+      } catch { ;(window as any).toast?.show?.({ message: 'حدث خطأ في الاتصال', type: 'error' }) }
+    })
+  }
+
+  private openDeleteModal(content: HTMLElement, id: string) {
+    let modal = content.querySelector('#delete-dealer-modal') as HTMLElement
+    if (!modal) {
+      modal = document.createElement('div')
+      modal.id = 'delete-dealer-modal'
+      modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-border">
+          <div class="flex flex-col items-center text-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center">
+              <span class="material-symbols-outlined text-[32px] text-error">warning</span>
+            </div>
+            <h3 class="font-headline-md text-lg text-on-surface font-semibold">تأكيد الحذف</h3>
+            <p class="font-body-md text-text-secondary">هل أنت متأكد من حذف هذا الوكيل نهائياً؟<br><span class="text-error text-sm">(لا يمكن التراجع عن هذا الإجراء)</span></p>
+            <div class="flex gap-3 w-full">
+              <button id="delete-dealer-cancel" class="flex-1 h-[48px] bg-surface-subtle text-on-surface font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors">إلغاء</button>
+              <button id="delete-dealer-confirm" class="flex-1 h-[48px] bg-error text-on-error font-body-lg rounded-lg shadow-sm hover:shadow-lg transition-all">حذف</button>
+            </div>
+          </div>
+        </div>
+      `
+      content.appendChild(modal)
+    }
+
+    modal.classList.remove('hidden')
+    modal.classList.add('flex')
+
+    const close = () => {
+      modal!.classList.add('hidden')
+      modal!.classList.remove('flex')
+    }
+
+    modal.querySelector('#delete-dealer-cancel')?.addEventListener('click', close)
+    modal.querySelector('#delete-dealer-confirm')?.addEventListener('click', async () => {
+      try {
+        const res: any = await this.api.delete(`/api/dealers/${id}`)
+        if (res.success || res.message) {
+          close()
+          this.loadData(content)
+        } else { ;(window as any).toast?.show?.({ message: res.message || 'فشل الحذف', type: 'error' }) }
+      } catch { ;(window as any).toast?.show?.({ message: 'حدث خطأ في الاتصال', type: 'error' }) }
     })
   }
 }

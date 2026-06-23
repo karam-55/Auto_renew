@@ -78,10 +78,29 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        title: Text('مرحباً $_dealerName'),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/launcher_icon.png',
+              width: 36,
+              height: 36,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'مرحباً $_dealerName',
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 18),
+            ),
+          ],
+        ),
         actions: [
-          IconButton(onPressed: _logout, icon: const Icon(Icons.logout, color: Colors.white)),
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: AppColors.primary),
+          ),
         ],
       ),
       body: _loading

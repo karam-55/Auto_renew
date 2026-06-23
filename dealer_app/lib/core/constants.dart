@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF1E40AF);
-  static const Color primaryLight = Color(0xFF3B82F6);
-  static const Color primaryDark = Color(0xFF1E3A8A);
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color success = Color(0xFF10B981);
-  static const Color error = Color(0xFFEF4444);
+  static const Color primary = Color(0xFFE31E24);
+  static const Color primaryLight = Color(0xFFEF4444);
+  static const Color primaryDark = Color(0xFFB91C1C);
+  static const Color accent = Color(0xFFE31E24);
+  static const Color success = Color(0xFF22C55E);
+  static const Color error = Color(0xFFDC2626);
   static const Color warning = Color(0xFFF59E0B);
-  static const Color background = Color(0xFFF8FAFC);
+  static const Color background = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color cardGradientStart = Color(0xFF1E40AF);
-  static const Color cardGradientEnd = Color(0xFF3B82F6);
+  static const Color textPrimary = Color(0xFF000000);
+  static const Color textSecondary = Color(0xFF333333);
+  static const Color border = Color(0xFFE5E5E5);
+  static const Color cardGradientStart = Color(0xFFE31E24);
+  static const Color cardGradientEnd = Color(0xFFB91C1C);
 }
 
 class ApiConfig {
