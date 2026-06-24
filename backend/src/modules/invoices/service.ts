@@ -538,8 +538,8 @@ export class InvoiceService {
       throw new Error('Invoice not found');
     }
 
-    // Only allow deletion of draft invoices
-    if (invoice.status !== InvoiceStatus.DRAFT) {
+    // Only allow deletion of draft or issued invoices (issued allowed temporarily for cleanup)
+    if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.ISSUED) {
       throw new Error('CANNOT_MODIFY_ISSUED_INVOICE');
     }
 
