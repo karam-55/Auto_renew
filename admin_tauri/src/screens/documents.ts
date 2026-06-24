@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { open as openUrl } from '@tauri-apps/plugin-shell'
 
 export class DocumentsScreen {
   private auth: AuthService
@@ -123,9 +124,17 @@ export class DocumentsScreen {
           </tr>
         `).join('')
         tbody.querySelectorAll('[data-action="download"]').forEach(btn => {
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', async () => {
             const id = btn.getAttribute('data-id')
-            if (id) window.open(`/api/documents/${id}/download`, '_blank')
+            if (!id) return
+            const isDev = window.location.port === '1420'
+            const baseUrl = isDev ? '' : 'http://178.105.209.59'
+            const fullUrl = `${baseUrl}/api/documents/${id}/download`
+            try {
+              await openUrl(fullUrl)
+            } catch {
+              ;(window as any).toast?.show?.({ message: 'تعذر فتح الملف', type: 'error' })
+            }
           })
         })
       }

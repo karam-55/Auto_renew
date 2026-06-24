@@ -87,7 +87,7 @@ export class BookingPrintTicketScreen {
                   <span class="material-symbols-outlined text-primary text-[28px]">confirmation_number</span>
                   <h2 class="font-headline-lg text-primary print-text-xl">تذكرة الحجز</h2>
                 </div>
-                <p class="font-body-md text-text-secondary mt-1">AUTO_Renew لخدمات السيارات المتميزة</p>
+                <p class="font-body-md text-text-secondary mt-1">Auto renew لخدمات السيارات المتميزة</p>
               </div>
               <div class="text-left">
                 <div class="font-label-sm text-text-secondary uppercase mb-1">رقم الحجز</div>

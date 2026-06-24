@@ -98,7 +98,7 @@ export class AppLayout {
           <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-primary/20 relative overflow-hidden group cursor-pointer" data-route="/dashboard">
             <img src="/logo.png" alt="Logo" class="w-12 h-12 object-contain" />
           </div>
-          <h2 class="font-bold text-xl text-primary font-beVietnamPro">أوتو برو</h2>
+          <h2 class="font-bold text-xl text-primary font-beVietnamPro">Auto renew</h2>
           <p class="text-xs mt-1 text-on-surface-variant">الإدارة المتقدمة</p>
         </div>
         <!-- Navigation -->

@@ -105,13 +105,10 @@ router.post('/login', authLimiter, ValidationMiddleware.validate(ValidationMiddl
     const ipAddress = AuditService.extractIpAddress(req);
     const userAgent = AuditService.extractUserAgent(req);
 
-    // Find user (use findFirst to work with soft-delete middleware)
-    const user = await prisma.user.findFirst({
-      where: {
-        tenantId,
-        username,
-      },
-    });
+    // Find user — if tenantId is 'default', search across all tenants by username only
+    const user = tenantId && tenantId !== 'default'
+      ? await prisma.user.findFirst({ where: { tenantId, username } })
+      : await prisma.user.findFirst({ where: { username } });
 
     if (!user) {
       // Log failed login attempt

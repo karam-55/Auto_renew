@@ -22,11 +22,11 @@
         "silent": true
       }
     },
-    "longDescription": "AUTO_Renew Admin Desktop Application - Garage Management System",
-    "shortDescription": "AUTO_Renew Admin",
-    "publisher": "AUTO_Renew"
+    "longDescription": "Auto renew Desktop Application - Garage Management System",
+    "shortDescription": "Auto renew",
+    "publisher": "Auto renew"
   },
-  "productName": "AUTO_Renew Admin",
+  "productName": "Auto renew",
   "version": "1.0.0",
   "identifier": "com.autorenew.admin",
   "app": {
@@ -36,7 +36,7 @@
         "fullscreen": false,
         "height": 900,
         "resizable": true,
-        "title": "AUTO_Renew Admin",
+        "title": "Auto renew",
         "width": 1400,
         "minWidth": 1024,
         "minHeight": 768,

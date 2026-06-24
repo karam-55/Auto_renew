@@ -75,9 +75,10 @@ export class AuthService {
   }
 
   async login(creds: LoginCredentials): Promise<{ success: boolean; message?: string }> {
+    const storedTenantId = SecureStorage.getItem('tenantId')
     const res = await this.api.post<any>('/api/auth/login', {
       ...creds,
-      tenantId: 'default',
+      tenantId: storedTenantId || 'default',
     }) as any
     // Backend returns wrapped by client.ts as: { success: true, data: { user, tokens } }
     if (res.data?.user && res.data?.tokens?.accessToken) {

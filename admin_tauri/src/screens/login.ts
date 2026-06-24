@@ -27,7 +27,7 @@ export class LoginScreen {
             <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary-container/10 text-primary mb-stack-sm hover-lift-8" style="box-shadow:0 8px 24px rgba(0,74,198,0.25)">
               <span class="material-symbols-outlined text-[40px]">garage</span>
             </div>
-            <h1 class="font-beVietnamPro font-headline-lg text-headline-lg text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary tracking-tight mb-2">AUTO_Renew</h1>
+            <h1 class="font-beVietnamPro font-headline-lg text-headline-lg text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary tracking-tight mb-2">Auto renew</h1>
             <p class="font-body-md text-on-surface-variant" id="login-subtitle">جاري التحميل...</p>
           </div>
           <div id="login-form-container"></div>
