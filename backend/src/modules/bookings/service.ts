@@ -436,102 +436,8 @@ export class BookingService {
       },
     });
 
-    // Emit Socket.io notification
-    if (this.io) {
-      this.io.to(`tenant:${tenantId}`).emit('booking:created', {
-        bookingId: booking.id,
-        customerId: booking.customerId,
-        vehicleId: booking.vehicleId,
-        scheduledDate: booking.scheduledDate,
-        status: booking.status,
-      });
-    }
-
-    // Send WhatsApp notification for booking confirmation
-    const customerPhone = booking.customer?.phone || customer.phone;
-    if (customerPhone) {
-      try {
-        await this.whatsappService.sendBookingConfirmation({
-          customerName: booking.customer?.fullName || customer.fullName,
-          customerPhone,
-          bookingId: booking.id,
-          vehicleMake: vehicle.make,
-          vehicleModel: vehicle.model,
-          scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
-          status: booking.status,
-          garageName: 'Garage Go',
-        });
-      } catch (error) {
-        Logger.error('Error sending WhatsApp booking confirmation:', error);
-        // Don't fail the booking creation if WhatsApp fails
-      }
-    } else {
-      Logger.warn('Cannot send WhatsApp notification: customer phone is missing', {
-        bookingId: booking.id,
-        customerId: booking.customerId,
-      });
-    }
-
-    // Send FCM notification to assigned mechanic
-    if (booking.mechanicAssignments) {
-      try {
-        await this.fcmService.sendBookingAssignment({
-          mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-          bookingId: booking.id,
-          customerName: customer.fullName,
-          vehicleMake: vehicle.make,
-          vehicleModel: vehicle.model,
-          scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
-          priority: booking.priority || 'NORMAL',
-        });
-      } catch (error) {
-        Logger.error('Error sending FCM booking assignment notification:', error);
-        // Don't fail the booking creation if FCM fails
-      }
-    }
-
-    // Auto-create schedule entries if technician is assigned
-    if (data.technicianId && booking.bookingServices && booking.bookingServices.length > 0) {
-      try {
-        await this.scheduleService.createScheduleForBooking(
-          booking.id,
-          tenantId,
-          data.technicianId,
-          scheduledDate
-        );
-      } catch (error) {
-        Logger.error('Error creating schedule for booking:', error);
-        // Don't fail the booking creation if schedule creation fails
-      }
-    }
-
-    // Auto-create invoice and journal entry from booking services
-    if (booking.bookingServices && booking.bookingServices.length > 0) {
-      try {
-        const invoiceItems = booking.bookingServices.map((bs: any) => ({
-          serviceId: bs.serviceId,
-          description: bs.service?.name || 'خدمة',
-          quantity: 1,
-          priceSYP: Number(bs.priceSYP || bs.service?.basePrice || 0),
-          priceUSD: bs.priceUSD ? Number(bs.priceUSD) : undefined,
-        }));
-
-        const invoice = await this.invoiceService.createInvoice(tenantId, createdById || '', {
-          customerId: data.customerId,
-          bookingId: booking.id,
-          invoiceDate: new Date(),
-          items: invoiceItems,
-        });
-
-        // Finalize invoice to create journal entry (accounts receivable + revenue)
-        await this.invoiceService.finalizeInvoice(tenantId, invoice.id);
-      } catch (error) {
-        Logger.error('Error creating auto invoice for booking:', error);
-        // Don't fail the booking creation if invoice creation fails
-      }
-    }
-
-    return {
+    // Build the response immediately — all side effects run in background
+    const bookingResult = {
       ...booking,
       services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
         id: bs.service.id,
@@ -546,6 +452,94 @@ export class BookingService {
         mechanic: booking.mechanicAssignments[0].mechanic,
       }] : [],
     };
+
+    // ── Fire-and-forget side effects (do NOT block the response) ──
+    setImmediate(async () => {
+      // 1. Socket.io notification
+      if (this.io) {
+        this.io.to(`tenant:${tenantId}`).emit('booking:created', {
+          bookingId: booking.id,
+          customerId: booking.customerId,
+          vehicleId: booking.vehicleId,
+          scheduledDate: booking.scheduledDate,
+          status: booking.status,
+        });
+      }
+
+      // 2. WhatsApp confirmation
+      const customerPhone = booking.customer?.phone || customer.phone;
+      if (customerPhone) {
+        try {
+          await this.whatsappService.sendBookingConfirmation({
+            customerName: booking.customer?.fullName || customer.fullName,
+            customerPhone,
+            bookingId: booking.id,
+            vehicleMake: vehicle.make,
+            vehicleModel: vehicle.model,
+            scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
+            status: booking.status,
+            garageName: 'Garage Go',
+          });
+        } catch (error) {
+          Logger.error('Error sending WhatsApp booking confirmation:', error);
+        }
+      }
+
+      // 3. FCM notification to mechanic
+      if (booking.mechanicAssignments?.length) {
+        try {
+          await this.fcmService.sendBookingAssignment({
+            mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
+            bookingId: booking.id,
+            customerName: customer.fullName,
+            vehicleMake: vehicle.make,
+            vehicleModel: vehicle.model,
+            scheduledDate: booking.scheduledDate ? booking.scheduledDate.toString() : '',
+            priority: booking.priority || 'NORMAL',
+          });
+        } catch (error) {
+          Logger.error('Error sending FCM booking assignment notification:', error);
+        }
+      }
+
+      // 4. Auto-create schedule if technician assigned
+      if (data.technicianId && booking.bookingServices && booking.bookingServices.length > 0) {
+        try {
+          await this.scheduleService.createScheduleForBooking(
+            booking.id,
+            tenantId,
+            data.technicianId,
+            scheduledDate
+          );
+        } catch (error) {
+          Logger.error('Error creating schedule for booking:', error);
+        }
+      }
+
+      // 5. Auto-create invoice + journal entry
+      if (booking.bookingServices && booking.bookingServices.length > 0) {
+        try {
+          const invoiceItems = booking.bookingServices.map((bs: any) => ({
+            serviceId: bs.serviceId,
+            description: bs.service?.name || 'خدمة',
+            quantity: 1,
+            priceSYP: Number(bs.priceSYP || bs.service?.basePrice || 0),
+            priceUSD: bs.priceUSD ? Number(bs.priceUSD) : undefined,
+          }));
+          const invoice = await this.invoiceService.createInvoice(tenantId, createdById || '', {
+            customerId: data.customerId,
+            bookingId: booking.id,
+            invoiceDate: new Date(),
+            items: invoiceItems,
+          });
+          await this.invoiceService.finalizeInvoice(tenantId, invoice.id);
+        } catch (error) {
+          Logger.error('Error creating auto invoice for booking:', error);
+        }
+      }
+    });
+
+    return bookingResult;
   }
 
   async updateBooking(tenantId: string, bookingId: string, data: UpdateBookingInput): Promise<BookingResponse> {

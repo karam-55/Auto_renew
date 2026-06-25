@@ -70,6 +70,7 @@ export class WhatsAppService {
             'apikey': this.config.apiKey,
             'Content-Type': 'application/json',
           },
+          timeout: 8000, // 8s max — never block booking creation
         }
       );
 
