@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════
-//  Garage Go - Customer Frontend
+//  Auto Renew - Customer Frontend
 //  Premium UI with Timeline, Particles & Animations
 // ═══════════════════════════════════════════════════
 
@@ -275,7 +275,7 @@ function displayBookingDetails(booking) {
         : '<p class="muted-text">لا توجد ملاحظات من الفني حالياً</p>';
 
     // ── Company
-    document.getElementById('company-name').textContent  = booking.tenant?.companyNameAr || booking.tenant?.companyName || booking.tenant?.name || 'Garage Go';
+    document.getElementById('company-name').textContent  = booking.tenant?.companyNameAr || booking.tenant?.companyName || booking.tenant?.name || 'Auto Renew';
     document.getElementById('company-phone').textContent = booking.tenant?.phone || '—';
 
     // ── Invoice (hidden by default)
