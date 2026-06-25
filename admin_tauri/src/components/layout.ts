@@ -78,6 +78,8 @@ export class AppLayout {
   private api: ApiClient | null
   private title: string
   private activeRoute: string
+  private resizeHandler: (() => void) | null = null
+  private escHandler: ((e: KeyboardEvent) => void) | null = null
 
   constructor(auth: AuthService, router: Router, title: string, activeRoute: string, api: ApiClient | null = null) {
     this.auth = auth
@@ -85,6 +87,13 @@ export class AppLayout {
     this.api = api
     this.title = title
     this.activeRoute = activeRoute
+  }
+
+  destroy() {
+    if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler)
+    if (this.escHandler)    document.removeEventListener('keydown', this.escHandler)
+    this.resizeHandler = null
+    this.escHandler    = null
   }
 
   render(content: HTMLElement): HTMLElement {
@@ -181,6 +190,11 @@ export class AppLayout {
     const pageContent = wrapper.querySelector('.page-content')!
     pageContent.appendChild(content)
 
+    // Register self with router so it can call destroy() on navigation
+    if (typeof (this.router as any).setCurrentLayout === 'function') {
+      (this.router as any).setCurrentLayout(this)
+    }
+
     // ── Nav links ──
     wrapper.querySelectorAll('a[data-route]').forEach(item => {
       item.addEventListener('click', (e) => {
@@ -219,9 +233,10 @@ export class AppLayout {
     })
 
     // ── ESC key closes sidebar ──
-    document.addEventListener('keydown', (e) => {
+    this.escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') this.closeSidebar(wrapper)
-    })
+    }
+    document.addEventListener('keydown', this.escHandler)
 
     // ── Responsive: update layout on resize ──
     const updateLayout = () => {
@@ -247,7 +262,8 @@ export class AppLayout {
       }
     }
 
-    window.addEventListener('resize', updateLayout)
+    this.resizeHandler = updateLayout
+    window.addEventListener('resize', this.resizeHandler)
     updateLayout() // run on init
 
     // ── Brand icon click ──

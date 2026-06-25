@@ -1862,7 +1862,8 @@ textarea:focus-visible {
   }
 
   /* Main content: full width */
-  .main-content {
+  .main-content,
+  .main-content-responsive {
     margin-right: 0;
     padding-right: 16px;
   }

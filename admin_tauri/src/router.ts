@@ -1,5 +1,6 @@
 import { AuthService } from './services/auth'
 import { ApiClient } from './api/client'
+import { AppLayout } from './components/layout'
 import { LoginScreen } from './screens/login'
 import { DashboardScreen } from './screens/dashboard'
 import { BookingsScreen } from './screens/bookings'
@@ -82,6 +83,7 @@ export class Router {
   private auth: AuthService
   private api: ApiClient
   private currentPath: string = ''
+  private currentLayout: AppLayout | null = null
 
   constructor(auth: AuthService, api: ApiClient) {
     this.auth = auth
@@ -102,6 +104,10 @@ export class Router {
       this.navigate(h, true)
     })
     console.log('[DEBUG] Router init done')
+  }
+
+  setCurrentLayout(layout: AppLayout) {
+    this.currentLayout = layout
   }
 
   navigate(path: string, fromHashChange: boolean = false) {
@@ -132,6 +138,11 @@ export class Router {
       }
     }
 
+    // Cleanup previous layout listeners before clearing DOM
+    if (this.currentLayout) {
+      this.currentLayout.destroy()
+      this.currentLayout = null
+    }
     this.container.innerHTML = ''
     const screen = this.createScreen(path)
     this.container.appendChild(screen.render())
