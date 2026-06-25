@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
 import { generateWarrantyPdf } from './pdf-generator';
+import { WhatsAppService } from '../whatsapp/service';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -213,20 +214,25 @@ export class DealerService {
         data: { pdfUrl: pdfResult.pdfUrl },
       });
 
-      // TODO: WhatsApp notification temporarily disabled - re-enable when WhatsApp service is stable
-      // const whatsappService = new WhatsAppService();
-      // const waResult = await whatsappService.sendWarrantyNotification({
-      //   customerName: data.customerName,
-      //   customerPhone: data.customerPhone,
-      //   vehicleModel: data.vehicleModel,
-      //   plateNumber: data.plateNumber,
-      //   durationMonths: data.durationMonths,
-      //   pdfBase64: pdfResult.base64,
-      // });
-      //
-      // if (!waResult.success) {
-      //   Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
-      // }
+      // Send WhatsApp notification with warranty PDF link
+      try {
+        const whatsappService = new WhatsAppService();
+        const waResult = await whatsappService.sendWarrantyNotification({
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          vehicleModel: data.vehicleModel,
+          plateNumber: data.plateNumber,
+          durationMonths: data.durationMonths,
+          pdfUrl: pdfResult.pdfUrl,
+          pdfBase64: pdfResult.base64,
+        });
+
+        if (!waResult.success) {
+          Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
+        }
+      } catch (waError) {
+        Logger.error('Error sending WhatsApp warranty notification', waError);
+      }
     } catch (err) {
       Logger.error('Error generating PDF for warranty', err);
     }

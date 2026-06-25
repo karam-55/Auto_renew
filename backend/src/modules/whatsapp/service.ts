@@ -435,15 +435,18 @@ ${reminder.garageName}`;
     vehicleModel: string;
     plateNumber: string;
     durationMonths: number;
-    pdfBase64: string;
+    pdfUrl?: string;
+    pdfBase64?: string;
   }): Promise<WhatsAppNotificationResult> {
-    const textMessage = `🛡️ *تم تسجيل كفالتك بنجاح*
+    const baseUrl = process.env.BASE_URL || '';
+    const fullPdfUrl = data.pdfUrl ? `${baseUrl.replace(/\/$/, '')}${data.pdfUrl}` : undefined;
+
+    const textMessage = `🛡️ تم تسجيل كفالتك بنجاح
 
 مرحباً ${data.customerName}،
 
 تم تسجيل كفالة سيارتك (${data.vehicleModel} - ${data.plateNumber}) لمدة ${data.durationMonths} شهر.
-
-تجد ملف الكفالة مرفق أدناه.
+${fullPdfUrl ? `\n📄 ملف الكفالة:\n${fullPdfUrl}` : '\nتجد ملف الكفالة متاحاً في حسابك.'}
 
 شكراً لثقتك بـ Auto Renew 🚗`;
 
@@ -452,20 +455,24 @@ ${reminder.garageName}`;
       message: textMessage,
     });
 
-    const mediaResult = await this.sendMedia({
-      to: data.customerPhone,
-      mediaBase64: data.pdfBase64,
-      fileName: 'warranty_certificate.pdf',
-      caption: 'شهادة كفالة Auto Renew',
-    });
+    if (data.pdfBase64 && !this.useWatchimp()) {
+      const mediaResult = await this.sendMedia({
+        to: data.customerPhone,
+        mediaBase64: data.pdfBase64,
+        fileName: 'warranty_certificate.pdf',
+        caption: 'شهادة كفالة Auto Renew',
+      });
 
-    return {
-      success: textResult.success || mediaResult.success,
-      messageId: mediaResult.messageId || textResult.messageId,
-      error: !textResult.success && !mediaResult.success
-        ? `Text: ${textResult.error}, Media: ${mediaResult.error}`
-        : undefined,
-    };
+      return {
+        success: textResult.success || mediaResult.success,
+        messageId: mediaResult.messageId || textResult.messageId,
+        error: !textResult.success && !mediaResult.success
+          ? `Text: ${textResult.error}, Media: ${mediaResult.error}`
+          : undefined,
+      };
+    }
+
+    return textResult;
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
