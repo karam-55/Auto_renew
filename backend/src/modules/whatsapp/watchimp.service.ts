@@ -12,11 +12,11 @@ import { Logger } from '../../infrastructure/logging/logger';
 export interface WatchimpConfig {
   apiKey: string;
   apiUrl: string;
-  userId: string;
-  businessAccountId: string;
+  userId?: string;
+  businessAccountId?: string;
   phoneNumberId: string;
-  accessToken: string;
-  appId: string;
+  accessToken?: string;
+  appId?: string;
   isEnabled: boolean;
 }
 
@@ -27,12 +27,12 @@ export class WatchimpService {
   constructor() {
     this.config = {
       apiKey: process.env.WATCHIMP_API_KEY || '',
-      apiUrl: process.env.WATCHIMP_API_URL || 'https://app.watchchimp.com/api/v1',
-      userId: process.env.WATCHIMP_USER_ID || '',
-      businessAccountId: process.env.WATCHIMP_BUSINESS_ACCOUNT_ID || '',
+      apiUrl: process.env.WATCHIMP_API_URL || 'https://app.whatchimp.com/api/v1',
+      userId: process.env.WATCHIMP_USER_ID,
+      businessAccountId: process.env.WATCHIMP_BUSINESS_ACCOUNT_ID,
       phoneNumberId: process.env.WATCHIMP_PHONE_NUMBER_ID || '',
-      accessToken: process.env.WATCHIMP_ACCESS_TOKEN || '',
-      appId: process.env.WATCHIMP_APP_ID || '',
+      accessToken: process.env.WATCHIMP_ACCESS_TOKEN,
+      appId: process.env.WATCHIMP_APP_ID,
       isEnabled: process.env.WATCHIMP_ENABLED === 'true',
     };
   }
@@ -53,10 +53,7 @@ export class WatchimpService {
     return this.config.isEnabled === true &&
            !!this.config.apiKey &&
            !!this.config.apiUrl &&
-           !!this.config.userId &&
-           !!this.config.businessAccountId &&
-           !!this.config.phoneNumberId &&
-           !!this.config.accessToken;
+           !!this.config.phoneNumberId;
   }
 
   /**
@@ -106,18 +103,12 @@ export class WatchimpService {
 
     try {
       const response = await axios.post(
-        `${this.config.apiUrl}/whatsapp/send-message`,
+        `${this.config.apiUrl}/whatsapp/send`,
         {
           apiToken: this.config.apiKey,
-          user_id: this.config.userId,
-          whatsapp_business_account_id: this.config.businessAccountId,
           phone_number_id: this.config.phoneNumberId,
-          access_token: this.config.accessToken,
-          to: phone,
-          type: 'text',
-          text: {
-            body: message.message,
-          },
+          message: message.message,
+          phone_number: phone,
         },
         {
           timeout: 8000,
@@ -128,10 +119,10 @@ export class WatchimpService {
         }
       );
 
-      Logger.debug('Watchimp message sent successfully', { messageId: response.data?.messages?.[0]?.id });
+      Logger.debug('Watchimp message sent successfully', { messageId: response.data?.wa_message_id });
       return {
-        success: true,
-        messageId: response.data?.messages?.[0]?.id || response.data?.id?.toString(),
+        success: response.data?.status === '1' || response.data?.status === 1,
+        messageId: response.data?.wa_message_id,
       };
     } catch (error) {
       Logger.error('Error sending Watchimp message', error);
@@ -297,15 +288,21 @@ export class WatchimpService {
       return { success: false, message: 'Watchimp not enabled or not configured' };
     }
 
-    try {
-      const result = await this.connectAccount();
-      if (result.success) {
-        return { success: true, message: 'Watchimp connection is active' };
+    // If we have all connection credentials, try to verify account connection
+    if (this.config.userId && this.config.businessAccountId && this.config.accessToken) {
+      try {
+        const result = await this.connectAccount();
+        if (result.success) {
+          return { success: true, message: 'Watchimp account connected successfully' };
+        }
+        return { success: false, message: result.error || 'Watchimp connection failed' };
+      } catch (error) {
+        return { success: false, message: this.extractError(error) };
       }
-      return { success: false, message: result.error || 'Watchimp connection failed' };
-    } catch (error) {
-      return { success: false, message: this.extractError(error) };
     }
+
+    // Otherwise, sending configuration is ready
+    return { success: true, message: 'Watchimp sending configuration is ready' };
   }
 
   private normalizePhone(phone: string): string {
