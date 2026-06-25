@@ -280,8 +280,7 @@ export class InventoryScreen {
 
   private async loadParts(el: HTMLElement, callback?: (parts: any[]) => void) {
     try {
-      const tenantId = localStorage.getItem('tenantId') || 'default'
-      const res = await this.api.get<any>(`/api/parts?tenantId=${tenantId}`)
+      const res = await this.api.get<any>(`/api/parts`)
       const tbody = el.querySelector('#inventory-tbody')!
       if (res.success !== false && res.data) {
         const parts = Array.isArray(res.data) ? res.data : res.data.data || []

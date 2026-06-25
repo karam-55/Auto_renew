@@ -145,7 +145,7 @@ export class DealersScreen {
         if (!password) { ;(window as any).toast?.show?.({ message: 'كلمة المرور مطلوبة', type: 'warning' }); return }
         if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف غير صالح', type: 'warning' }); return }
         try {
-          const res: any = await this.api.post('/api/dealers', { name, companyName, phone, password, address: address || undefined, tenantId: 'default' })
+          const res: any = await this.api.post('/api/dealers', { name, companyName, phone, password, address: address || undefined })
           if (res.success || res.id) {
             modal!.classList.add('hidden'); modal!.classList.remove('flex')
             modal!.querySelectorAll('input').forEach(i => i.value = '')

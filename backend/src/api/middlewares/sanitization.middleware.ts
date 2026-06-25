@@ -108,14 +108,6 @@ export class SanitizationMiddleware {
   }
 
   /**
-   * Validate and sanitize email
-   */
-  static sanitizeEmail(email: string): string {
-    if (!email) return email;
-    return email.trim().toLowerCase();
-  }
-
-  /**
    * Validate and sanitize phone number
    */
   static sanitizePhone(phone: string): string {

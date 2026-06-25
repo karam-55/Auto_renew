@@ -3,7 +3,6 @@ export class UpdateSupplierDTO {
     public readonly name?: string,
     public readonly phone?: string,
     public readonly address?: string,
-    public readonly email?: string,
     public readonly contactPerson?: string
   ) {}
 
@@ -12,7 +11,6 @@ export class UpdateSupplierDTO {
       body.name,
       body.phone,
       body.address,
-      body.email,
       body.contactPerson
     );
   }

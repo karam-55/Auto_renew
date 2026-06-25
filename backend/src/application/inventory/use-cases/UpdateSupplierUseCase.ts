@@ -26,7 +26,6 @@ export class UpdateSupplierUseCase {
       name: dto.name || supplier.name,
       phone: dto.phone || supplier.phone,
       address: dto.address !== undefined ? dto.address : supplier.address,
-      email: dto.email !== undefined ? dto.email : supplier.email,
       contactPerson: dto.contactPerson !== undefined ? dto.contactPerson : supplier.contactPerson,
       updatedAt: new Date(),
     };

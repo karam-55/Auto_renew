@@ -113,8 +113,6 @@ export class ValidationMiddleware {
       endDate: Joi.date().iso().min(Joi.ref('startDate')),
     }),
 
-    // Email
-    email: Joi.string().email().required(),
 
     // Phone
     phone: Joi.string().pattern(/^[0-9+]{10,15}$/).required(),
@@ -124,7 +122,7 @@ export class ValidationMiddleware {
 
     // Auth: Register
     register: Joi.object({
-      tenantId: Joi.string().uuid().required(),
+      tenantId: Joi.string().uuid().optional(),
       fullName: Joi.string().min(2).max(100).required(),
       username: Joi.string().min(3).max(50).alphanum().required(),
       password: Joi.string().min(8).max(100).required(),
@@ -136,7 +134,7 @@ export class ValidationMiddleware {
     login: Joi.object({
       username: Joi.string().min(3).max(50).required(),
       password: Joi.string().min(1).required(),
-      tenantId: Joi.string().min(1).max(100).required(),
+      tenantId: Joi.string().min(1).max(100).optional(),
     }),
 
     // Auth: Refresh Token

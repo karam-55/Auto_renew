@@ -21,7 +21,6 @@ export class CreateSupplierUseCase {
       name: dto.name,
       phone: dto.phone,
       address: dto.address,
-      email: dto.email,
       contactPerson: dto.contactPerson,
       isActive: true,
       createdAt: new Date(),

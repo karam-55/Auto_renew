@@ -4,7 +4,6 @@ export class SupplierDTO {
     public readonly name: string,
     public readonly phone: string,
     public readonly address?: string,
-    public readonly email?: string,
     public readonly contactPerson?: string
   ) {}
 
@@ -14,7 +13,6 @@ export class SupplierDTO {
       supplier.name,
       supplier.phone,
       supplier.address,
-      supplier.email,
       supplier.contactPerson
     );
   }

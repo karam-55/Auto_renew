@@ -18,14 +18,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _tenantIdController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
-    _tenantIdController.dispose();
     super.dispose();
   }
 
@@ -34,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(authStateProvider.notifier).login(
             _usernameController.text,
             _passwordController.text,
-            _tenantIdController.text,
+            'default',
           );
     }
   }
@@ -153,49 +151,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Tenant ID Field
-                          TextFormField(
-                            controller: _tenantIdController,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            decoration: InputDecoration(
-                              labelText: 'رقم المستأجر (Tenant ID)',
-                              prefixIcon: const Icon(Icons.business, color: LuxuryTheme.gold),
-                              filled: true,
-                              fillColor: LuxuryTheme.blackDark.withOpacity(0.5),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(LuxuryTheme.radiusLg),
-                                borderSide: BorderSide(
-                                  color: LuxuryTheme.platinumDark,
-                                  width: 1,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(LuxuryTheme.radiusLg),
-                                borderSide: BorderSide(
-                                  color: LuxuryTheme.platinumDark,
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(LuxuryTheme.radiusLg),
-                                borderSide: const BorderSide(
-                                  color: LuxuryTheme.gold,
-                                  width: 2,
-                                ),
-                              ),
-                              labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: LuxuryTheme.platinumLight,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'يرجى إدخال رقم المستأجر';
-                              }
-                              return null;
-                            },
-                          ),
-                          SizedBox(height: 24.h),
-                          
                           // Username Field
                           TextFormField(
                             controller: _usernameController,
