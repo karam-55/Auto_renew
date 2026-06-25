@@ -4,12 +4,11 @@ import 'api_service.dart';
 class AuthService {
   final ApiService _apiService = ApiService();
 
-  Future<Map<String, dynamic>> login(String username, String password, String tenantId) async {
+  Future<Map<String, dynamic>> login(String username, String password) async {
     try {
       final response = await _apiService.post('/auth/login', data: {
         'username': username,
         'password': password,
-        'tenantId': tenantId,
       });
 
       final user = response.data['user'];
