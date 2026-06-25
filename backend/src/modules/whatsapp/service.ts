@@ -9,22 +9,30 @@ import {
   WhatsAppNotificationResult
 } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
+import { WatchimpService } from './watchimp.service';
 
 export class WhatsAppService {
   private config: WhatsAppConfig;
   private io: SocketIOServer | null = null;
+  private watchimpService: WatchimpService;
 
   constructor() {
     this.config = {
       apiKey: process.env.WHATSAPP_API_KEY || '',
       apiUrl: process.env.WHATSAPP_API_URL || 'https://api.evolution-api.com',
       instanceName: process.env.WHATSAPP_INSTANCE_NAME || '',
-      isEnabled: process.env.WHATSAPP_ENABLED === 'true',
+      isEnabled: process.env.WHATSAPP_ENABLED === 'true' || process.env.WATCHIMP_ENABLED === 'true',
     };
+    this.watchimpService = new WatchimpService();
   }
 
   setIo(io: SocketIOServer) {
     this.io = io;
+    this.watchimpService.setIo(io);
+  }
+
+  private useWatchimp(): boolean {
+    return this.watchimpService.isEnabled();
   }
 
   // ============================================
@@ -54,6 +62,11 @@ export class WhatsAppService {
     if (!this.isEnabled()) {
       Logger.debug('WhatsApp is not enabled or not configured');
       return { success: false, error: 'WhatsApp not enabled' };
+    }
+
+    // Delegate to Watchimp when configured
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendMessage(message);
     }
 
     const formattedNumber = this.formatPhoneNumber(message.to);
@@ -373,6 +386,16 @@ ${reminder.garageName}`;
       return { success: false, error: 'WhatsApp not enabled' };
     }
 
+    // Watchimp media support via text fallback (full media support can be added later)
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendMessage({
+        to: data.to,
+        message: data.caption
+          ? `${data.caption}\n\n(ملف مرفق: ${data.fileName})`
+          : `ملف مرفق: ${data.fileName}`,
+      });
+    }
+
     const formattedNumber = this.formatPhoneNumber(data.to);
 
     try {
@@ -448,6 +471,11 @@ ${reminder.garageName}`;
   async testConnection(): Promise<{ success: boolean; message: string }> {
     if (!this.isEnabled()) {
       return { success: false, message: 'WhatsApp not enabled or not configured' };
+    }
+
+    if (this.useWatchimp()) {
+      const result = await this.watchimpService.checkConnection();
+      return { success: result.success, message: result.message || result.error || 'Watchimp connection test completed' };
     }
 
     try {
