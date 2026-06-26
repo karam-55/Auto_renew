@@ -335,19 +335,21 @@ export class AppLayout {
 
       <!-- Onboarding Overlay -->
       <div id="onboarding-overlay" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" id="onboarding-backdrop"></div>
-        <div id="onboarding-spotlight" class="absolute rounded-2xl ring-4 ring-primary/50 transition-all duration-300 pointer-events-none"></div>
-        <div id="onboarding-card" class="absolute bg-surface-container-lowest rounded-2xl shadow-2xl border border-border p-5 w-80 transition-all duration-300">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="material-symbols-outlined text-primary" aria-hidden="true">school</span>
+        <div id="onboarding-backdrop" class="absolute inset-0 bg-black/60 transition-all duration-300"></div>
+        <div id="onboarding-spotlight" class="absolute rounded-2xl ring-4 ring-primary/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] transition-all duration-300 pointer-events-none"></div>
+        <div id="onboarding-card" class="fixed bg-surface-container-lowest rounded-2xl shadow-2xl border border-border p-5 w-[360px] max-w-[calc(100vw-2rem)] transition-all duration-300 z-[71]" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined" aria-hidden="true">school</span>
+            </div>
             <h3 id="onboarding-title" class="font-headline-md font-bold text-on-surface">مرحباً بك</h3>
           </div>
-          <p id="onboarding-text" class="text-sm text-on-surface-variant mb-4">تعرف على أهم ميزات النظام.</p>
+          <p id="onboarding-text" class="text-sm text-on-surface-variant mb-5 leading-relaxed">تعرف على أهم ميزات النظام.</p>
           <div class="flex items-center justify-between">
-            <button id="onboarding-skip" class="text-sm text-on-surface-variant hover:text-error transition-colors">تخطي</button>
-            <div class="flex items-center gap-2">
-              <span id="onboarding-step" class="text-xs text-on-surface-variant">1/4</span>
-              <button id="onboarding-next" class="btn-primary-gradient text-white px-4 py-2 rounded-xl text-sm font-semibold hover:scale-105 active:scale-95 transition-all">التالي</button>
+            <button id="onboarding-skip" class="text-sm text-on-surface-variant hover:text-error transition-colors px-2 py-1 rounded-lg hover:bg-error/5">تخطي</button>
+            <div class="flex items-center gap-3">
+              <span id="onboarding-step" class="text-xs text-on-surface-variant font-medium">1/4</span>
+              <button id="onboarding-next" class="btn-primary-gradient text-white px-5 py-2 rounded-xl text-sm font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/25">التالي</button>
             </div>
           </div>
         </div>
@@ -799,6 +801,12 @@ export class AppLayout {
     nextBtn?.addEventListener('click', nextHandler)
     skipBtn?.addEventListener('click', skipHandler)
     backdrop?.addEventListener('click', skipHandler)
+
+    // Reposition on resize
+    const resizeHandler = () => this._showOnboardingStep(wrapper)
+    window.addEventListener('resize', resizeHandler)
+    // Store handler so it can be removed later (avoid leak if layout re-renders)
+    ;(this as any)._onboardingResizeHandler = resizeHandler
   }
 
   private _showOnboardingStep(wrapper: HTMLElement) {
@@ -821,29 +829,48 @@ export class AppLayout {
     const target = wrapper.querySelector(step.target) as HTMLElement
     if (target) {
       const rect = target.getBoundingClientRect()
-      const overlayRect = overlay.getBoundingClientRect()
-      spotlight.style.width = `${rect.width + 16}px`
-      spotlight.style.height = `${rect.height + 16}px`
-      spotlight.style.left = `${rect.left - overlayRect.left - 8}px`
-      spotlight.style.top = `${rect.top - overlayRect.top - 8}px`
+      const padding = 12
+      const gap = 20
+      const cardWidth = 360
+      const cardHeight = 180
 
-      // Position card based on available space
-      const cardWidth = 320
-      const cardHeight = 160
-      let left = rect.left - overlayRect.left
-      let top = rect.top - overlayRect.top + rect.height + 16
+      // Spotlight
+      spotlight.style.width = `${rect.width + padding * 2}px`
+      spotlight.style.height = `${rect.height + padding * 2}px`
+      spotlight.style.left = `${rect.left - padding}px`
+      spotlight.style.top = `${rect.top - padding}px`
+      spotlight.style.borderRadius = '12px'
+
+      // Default card position: centered below target
+      let left = rect.left + rect.width / 2 - cardWidth / 2
+      let top = rect.bottom + gap
+
       if (step.position === 'right') {
-        left = rect.left - overlayRect.left + rect.width + 16
+        left = rect.right + gap
+        top = rect.top + rect.height / 2 - cardHeight / 2
       } else if (step.position === 'left') {
-        left = rect.left - overlayRect.left - cardWidth - 16
+        left = rect.left - cardWidth - gap
+        top = rect.top + rect.height / 2 - cardHeight / 2
       } else if (step.position === 'top') {
-        top = rect.top - overlayRect.top - cardHeight - 16
+        top = rect.top - cardHeight - gap
       }
+
       // Keep in viewport
-      left = Math.max(16, Math.min(left, overlayRect.width - cardWidth - 16))
-      top = Math.max(16, Math.min(top, overlayRect.height - cardHeight - 16))
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      left = Math.max(16, Math.min(left, vw - cardWidth - 16))
+      top = Math.max(16, Math.min(top, vh - cardHeight - 16))
+
       card.style.left = `${left}px`
       card.style.top = `${top}px`
+      card.style.transform = 'none'
+    } else {
+      // Center the card if target not found
+      card.style.left = '50%'
+      card.style.top = '50%'
+      card.style.transform = 'translate(-50%, -50%)'
+      spotlight.style.width = '0px'
+      spotlight.style.height = '0px'
     }
   }
 
@@ -851,5 +878,7 @@ export class AppLayout {
     const overlay = wrapper.querySelector('#onboarding-overlay') as HTMLElement
     if (overlay) overlay.classList.add('hidden')
     localStorage.setItem('admin-onboarding-seen', 'true')
+    const resizeHandler = (this as any)._onboardingResizeHandler
+    if (resizeHandler) window.removeEventListener('resize', resizeHandler)
   }
 }
