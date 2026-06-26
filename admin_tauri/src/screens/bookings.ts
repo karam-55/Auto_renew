@@ -613,6 +613,7 @@ export class BookingsScreen {
     this.filteredBookings = filtered
     this.currentPage = 1
     this.renderPage(el)
+    if (this.calendarView) this.renderCalendar(el)
   }
 
   private renderPage(el: HTMLElement) {
