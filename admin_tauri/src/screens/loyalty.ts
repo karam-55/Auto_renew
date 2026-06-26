@@ -79,6 +79,8 @@ export class LoyaltyScreen {
         modal = document.createElement('div')
         modal.id = 'loyalty-modal'
         modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+        modal.setAttribute('role', 'dialog')
+        modal.setAttribute('aria-modal', 'true')
         modal.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm p-6 m-4">
             <h3 class="font-headline-md text-on-surface font-semibold mb-4">إضافة نقاط ولاء</h3>

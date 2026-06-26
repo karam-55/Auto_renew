@@ -55,7 +55,7 @@ export class DepartmentsScreen {
       </div>
 
       <!-- Add Department Modal -->
-      <div id="dept-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div id="dept-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-xl shadow-xl border border-surface-subtle p-6 w-full max-w-md space-y-4">
           <h3 id="modal-title" class="font-beVietnamPro text-headline-sm text-on-surface">قسم جديد</h3>
           <form id="dept-form" class="space-y-4">

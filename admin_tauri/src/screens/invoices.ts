@@ -199,6 +199,8 @@ export class InvoicesScreen {
   private showInvoiceTypeModal() {
     const overlay = document.createElement('div')
     overlay.className = 'fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4'
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
     overlay.innerHTML = `
       <div class="glass-card rounded-2xl shadow-2xl border border-glass-border max-w-md w-full p-6 space-y-6 animate-in fade-in zoom-in duration-200">
         <div class="flex justify-between items-center">

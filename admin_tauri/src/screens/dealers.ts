@@ -117,6 +117,8 @@ export class DealersScreen {
       modal = document.createElement('div')
       modal.id = 'dealer-modal'
       modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.setAttribute('role', 'dialog')
+      modal.setAttribute('aria-modal', 'true')
       modal.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md p-6 m-4 max-h-[90vh] overflow-y-auto">
           <h3 class="font-headline-md text-on-surface font-semibold mb-4">وكيل جديد</h3>
@@ -233,6 +235,8 @@ export class DealersScreen {
       modal = document.createElement('div')
       modal.id = 'edit-dealer-modal'
       modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.setAttribute('role', 'dialog')
+      modal.setAttribute('aria-modal', 'true')
       modal.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md p-6 m-4 max-h-[90vh] overflow-y-auto">
           <h3 class="font-headline-md text-on-surface font-semibold mb-4">تعديل وكيل</h3>
@@ -293,6 +297,8 @@ export class DealersScreen {
       modal = document.createElement('div')
       modal.id = 'delete-dealer-modal'
       modal.className = 'fixed inset-0 bg-black/50 z-50 hidden items-center justify-center'
+      modal.setAttribute('role', 'dialog')
+      modal.setAttribute('aria-modal', 'true')
       modal.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-border">
           <div class="flex flex-col items-center text-center gap-4">

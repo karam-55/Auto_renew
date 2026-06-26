@@ -136,7 +136,7 @@ export class BookingsScreen {
           </div>
         </div>
         <!-- Delete Confirmation Modal -->
-        <div id="delete-modal" class="fixed inset-0 z-50 backdrop-blur-sm flex items-center justify-center hidden">
+        <div id="delete-modal" class="fixed inset-0 z-50 backdrop-blur-sm flex items-center justify-center hidden" role="dialog" aria-modal="true">
           <div class="glass-card rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-glass-border">
             <div class="flex flex-col items-center text-center gap-4">
               <div class="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center pulse-soft">

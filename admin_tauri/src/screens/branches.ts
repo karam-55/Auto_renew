@@ -43,7 +43,7 @@ export class BranchesScreen {
         </div>
       </div>
       <!-- Delete Confirmation Modal -->
-      <div id="delete-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4">
+      <div id="delete-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-border">
           <div class="flex flex-col items-center text-center gap-4">
             <div class="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center">
@@ -59,7 +59,7 @@ export class BranchesScreen {
         </div>
       </div>
       <!-- Add/Edit Modal -->
-      <div id="branch-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4">
+      <div id="branch-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-xl shadow-xl border border-surface-subtle max-w-lg w-full p-6 space-y-4">
           <h2 class="font-headline-md text-lg text-on-surface font-semibold" id="modal-title">فرع جديد</h2>
           <div class="space-y-3">
