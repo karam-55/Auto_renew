@@ -160,7 +160,7 @@ export class RolesScreen {
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">
           <h2 class="font-headline-md text-on-surface font-bold">تعديل الدور: ${role.name || ''}</h2>
-          <button class="text-text-tertiary hover:text-error transition-colors" id="modal-close"><span class="material-symbols-outlined">close</span></button>
+          <button class="touch-safe w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-error transition-colors" id="modal-close" aria-label="إغلاق نافذة تعديل الدور"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="space-y-3">
           <div>
@@ -220,7 +220,7 @@ export class RolesScreen {
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">
           <h2 class="font-headline-md text-on-surface font-bold">دور جديد</h2>
-          <button class="text-text-tertiary hover:text-error transition-colors" id="modal-close"><span class="material-symbols-outlined">close</span></button>
+          <button class="touch-safe w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-error transition-colors" id="modal-close" aria-label="إغلاق نافذة دور جديد"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="space-y-3">
           <div>

@@ -331,7 +331,7 @@ export class ChartOfAccountsScreen {
     // Page numbers
     for (let i = 1; i <= totalPages; i++) {
       const active = i === this.currentPage
-      buttons.push('<button data-page="' + i + '" class="w-8 h-8 rounded-lg flex items-center justify-center font-body-sm transition-colors ' + (active ? 'bg-primary text-white' : 'text-on-surface hover:bg-surface-subtle') + '">' + i + '</button>')
+      buttons.push('<button data-page="' + i + '" class="touch-safe w-8 h-8 rounded-lg flex items-center justify-center font-body-sm transition-colors ' + (active ? 'bg-primary text-white' : 'text-on-surface hover:bg-surface-subtle') + '" aria-label="الصفحة ' + i + '"' + (active ? ' aria-current="page"' : '') + '>' + i + '</button>')
     }
 
     // Next

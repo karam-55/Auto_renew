@@ -216,12 +216,12 @@ export class AppLayout {
         </nav>
         <!-- Footer -->
         <div class="p-4" style="border-top:1px solid rgba(255,255,255,0.4)">
-          <button class="w-full py-3 rounded-xl font-semibold text-sm shadow-lg hover:shadow-primary-glow/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 mb-4 text-white btn-primary-gradient" id="add-new-btn">
-            <span class="material-symbols-outlined text-[20px]">add</span>
+          <button class="w-full py-3 rounded-xl font-semibold text-sm shadow-lg hover:shadow-primary-glow/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 mb-4 text-white btn-primary-gradient touch-safe" id="add-new-btn">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
             إضافة جديد
           </button>
-          <button class="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-sm hover:bg-error-container/20 text-error" id="logout-btn">
-            <span class="material-symbols-outlined text-[20px]">logout</span>
+          <button class="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-sm hover:bg-error-container/20 text-error touch-safe" id="logout-btn">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">logout</span>
             تسجيل الخروج
           </button>
         </div>

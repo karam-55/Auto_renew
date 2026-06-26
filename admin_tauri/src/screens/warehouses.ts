@@ -54,7 +54,7 @@ export class WarehousesScreen {
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm mx-4 p-6 space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="font-headline-md text-on-surface font-bold">مستودع جديد</h2>
-          <button class="text-text-tertiary hover:text-error transition-colors" id="wh-modal-close"><span class="material-symbols-outlined">close</span></button>
+          <button class="touch-safe w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-error transition-colors" id="wh-modal-close" aria-label="إغلاق نافذة المستودع"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="space-y-3">
           <div>
