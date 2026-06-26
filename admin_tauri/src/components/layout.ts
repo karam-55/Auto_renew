@@ -7,6 +7,53 @@ interface MenuGroup {
   items: { route: string; label: string; icon: string; badge?: number }[]
 }
 
+interface BreadcrumbItem {
+  label: string
+  route: string
+  isRoot?: boolean
+}
+
+const BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
+  '/dashboard': [{ label: 'الرئيسية', route: '/dashboard', isRoot: true }],
+  '/bookings': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الحجوزات', route: '/bookings', isRoot: true }],
+  '/bookings/new': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الحجوزات', route: '/bookings' }, { label: 'حجز جديد', route: '/bookings/new', isRoot: true }],
+  '/bookings/existing': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الحجوزات', route: '/bookings' }, { label: 'حجز لعميل مسبق', route: '/bookings/existing', isRoot: true }],
+  '/invoices': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الفواتير', route: '/invoices', isRoot: true }],
+  '/invoices/new': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الفواتير', route: '/invoices' }, { label: 'فاتورة جديدة', route: '/invoices/new', isRoot: true }],
+  '/pos': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'نقطة البيع', route: '/pos', isRoot: true }],
+  '/services': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الخدمات', route: '/services', isRoot: true }],
+  '/inventory': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المخزون', route: '/inventory', isRoot: true }],
+  '/inventory/warehouses': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المخزون', route: '/inventory' }, { label: 'المستودعات', route: '/inventory/warehouses', isRoot: true }],
+  '/inventory/suppliers': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المخزون', route: '/inventory' }, { label: 'الموردين', route: '/inventory/suppliers', isRoot: true }],
+  '/inventory/purchase-orders': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المخزون', route: '/inventory' }, { label: 'طلبات الشراء', route: '/inventory/purchase-orders', isRoot: true }],
+  '/customers': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'العملاء', route: '/customers', isRoot: true }],
+  '/dealers': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الوكلاء', route: '/dealers', isRoot: true }],
+  '/loyalty': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'برنامج الولاء', route: '/loyalty', isRoot: true }],
+  '/accounting': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting', isRoot: true }],
+  '/accounting/chart-of-accounts': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'شجرة الحسابات', route: '/accounting/chart-of-accounts', isRoot: true }],
+  '/accounting/journal-entries': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'القيود اليومية', route: '/accounting/journal-entries', isRoot: true }],
+  '/accounting/general-ledger': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'دفتر الأستاذ', route: '/accounting/general-ledger', isRoot: true }],
+  '/accounting/trial-balance': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'ميزان المراجعة', route: '/accounting/trial-balance', isRoot: true }],
+  '/accounting/balance-sheet': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'الميزانية العمومية', route: '/accounting/balance-sheet', isRoot: true }],
+  '/accounting/income-statement': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'قائمة الدخل', route: '/accounting/income-statement', isRoot: true }],
+  '/accounting/cash-flow': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'التدفقات النقدية', route: '/accounting/cash-flow', isRoot: true }],
+  '/cost-centers': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'مراكز التكلفة', route: '/cost-centers', isRoot: true }],
+  '/assets': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الأصول والاستهلاك', route: '/assets', isRoot: true }],
+  '/hr': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الموارد البشرية', route: '/hr', isRoot: true }],
+  '/workshop-map': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'خريطة الورشة', route: '/workshop-map', isRoot: true }],
+  '/reports': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'التقارير', route: '/reports', isRoot: true }],
+  '/analytics': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'التحليلات', route: '/analytics', isRoot: true }],
+  '/branches': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الفروع', route: '/branches', isRoot: true }],
+  '/notifications': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'التنبيهات', route: '/notifications', isRoot: true }],
+  '/documents': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'أرشيف المستندات', route: '/documents', isRoot: true }],
+  '/admin': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الإدارة والأمان', route: '/admin', isRoot: true }],
+  '/admin/settings': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الإدارة والأمان', route: '/admin' }, { label: 'إعدادات النظام', route: '/admin/settings', isRoot: true }],
+  '/admin/setup': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الإدارة والأمان', route: '/admin' }, { label: 'إعدادات أولية', route: '/admin/setup', isRoot: true }],
+  '/users': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المستخدمون', route: '/users', isRoot: true }],
+  '/roles': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الأدوار', route: '/roles', isRoot: true }],
+  '/audit': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'سجل التدقيق', route: '/audit', isRoot: true }],
+}
+
 const MENU_GROUPS: MenuGroup[] = [
   {
     label: 'الرئيسية',
@@ -96,10 +143,37 @@ export class AppLayout {
     this.escHandler    = null
   }
 
+  private renderBreadcrumbs(): string {
+    const currentRoute = '/' + (this.activeRoute || 'dashboard')
+    const crumbs = BREADCRUMBS[currentRoute] || BREADCRUMBS[this.activeRoute] || [{ label: 'الرئيسية', route: '/dashboard' }, { label: this.title, route: currentRoute, isRoot: true }]
+
+    if (crumbs.length <= 1) return ''
+
+    return `
+      <nav class="breadcrumb mb-4" aria-label="مسار التنقل">
+        ${crumbs.map((crumb, index) => {
+          const isLast = index === crumbs.length - 1
+          return `
+            ${index > 0 ? '<span class="breadcrumb-separator" aria-hidden="true">/</span>' : ''}
+            ${isLast
+              ? `<span class="breadcrumb-item active" aria-current="page">${crumb.label}</span>`
+              : `<a href="${crumb.route}" class="breadcrumb-item hover:text-primary hover:underline transition-colors" data-route="${crumb.route}">${crumb.label}</a>`
+            }
+          `
+        }).join('')}
+      </nav>
+    `
+  }
+
   render(content: HTMLElement): HTMLElement {
     const wrapper = document.createElement('div')
     wrapper.className = 'min-h-screen bg-background font-ibmPlexSans text-on-surface'
     wrapper.innerHTML = `
+      <!-- Skip to main content link for keyboard users -->
+      <a href="#main-content" class="sr-only sr-only-focusable" id="skip-link">
+        انتقل إلى المحتوى الرئيسي
+      </a>
+
       <!-- Mobile Sidebar Overlay -->
       <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
@@ -108,13 +182,13 @@ export class AppLayout {
         <!-- Sidebar Header -->
         <div class="p-6 flex flex-col items-center relative" style="border-bottom:1px solid rgba(255,255,255,0.4)">
           <!-- Close button (mobile only) -->
-          <button class="hamburger-btn absolute left-4 top-4" id="sidebar-close-btn" aria-label="إغلاق القائمة" style="display:none">
+          <button class="hamburger-btn touch-safe absolute left-4 top-4" id="sidebar-close-btn" aria-label="إغلاق القائمة" style="display:none">
             <span class="material-symbols-outlined" aria-hidden="true">close</span>
           </button>
           <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-primary/20 relative overflow-hidden group cursor-pointer" data-route="/dashboard">
-            <img src="/logo.png" alt="Logo" class="w-12 h-12 object-contain" />
+            <img src="/logo.png" alt="Auto Renew logo" class="w-12 h-12 object-contain" />
           </div>
-          <h2 class="font-bold text-xl text-primary font-beVietnamPro">Auto renew</h2>
+          <h2 class="font-bold text-xl text-primary font-beVietnamPro">Auto Renew</h2>
           <p class="text-xs mt-1 text-on-surface-variant">الإدارة المتقدمة</p>
         </div>
         <!-- Navigation -->
@@ -157,7 +231,7 @@ export class AppLayout {
       <nav id="app-topbar" class="topbar-responsive fixed top-[16px] left-[24px] right-[324px] z-40 glass-panel rounded-xl border border-glass-border shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] h-16 flex flex-row-reverse justify-between items-center px-4 gap-3">
         <!-- Right: title + hamburger -->
         <div class="flex items-center gap-3 min-w-0">
-          <button class="hamburger-btn" id="hamburger-btn" aria-label="فتح القائمة" aria-expanded="false" aria-controls="app-sidebar">
+          <button class="hamburger-btn touch-safe" id="hamburger-btn" aria-label="فتح القائمة" aria-expanded="false" aria-controls="app-sidebar">
             <span class="material-symbols-outlined" aria-hidden="true">menu</span>
           </button>
           <h1 class="font-bold text-lg text-on-surface font-beVietnamPro truncate">${this.title}</h1>
@@ -168,22 +242,24 @@ export class AppLayout {
             <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size:18px">search</span>
             <input class="h-9 pl-4 pr-9 rounded-full border border-glass-border bg-white/50 outline-none text-sm input-glow transition-all text-on-surface placeholder-on-surface-variant" style="width:14rem" placeholder="بحث..." type="text" aria-label="بحث"/>
           </div>
-          <button class="p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications" aria-label="التنبيهات">
+          <button class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications" aria-label="التنبيهات">
             <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true">notifications</span>
             <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70" aria-hidden="true"></span>
           </button>
-          <button id="profile-btn" class="flex items-center gap-2 hover:bg-white/50 p-1 pr-2 rounded-full transition-all" aria-label="الملف الشخصي">
+          <button id="profile-btn" class="touch-safe flex items-center gap-2 hover:bg-white/50 p-1 pr-2 rounded-full transition-all" aria-label="الملف الشخصي">
             <span class="text-sm hidden sm:block text-on-surface font-semibold max-w-[100px] truncate">${this.auth.getUser()?.fullName || 'المسؤول'}</span>
-            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold overflow-hidden border-2 border-primary/20 bg-primary-fixed text-primary flex-shrink-0" aria-hidden="true">
-              <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1">person</span>
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold overflow-hidden border-2 border-primary/20 bg-primary-fixed text-primary flex-shrink-0 touch-safe" aria-hidden="true">
+              <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1" aria-hidden="true">person</span>
             </div>
           </button>
         </div>
       </nav>
 
       <!-- Main Content -->
-      <main id="app-main" class="main-content-responsive flex-1 min-h-screen bg-orbs pt-[96px] pr-[320px] pl-[24px] pb-[24px] transition-all duration-300">
-        <div class="page-content max-w-full mx-auto"></div>
+      <main id="main-content" class="main-content-responsive flex-1 min-h-screen bg-orbs pt-[96px] pr-[320px] pl-[24px] pb-[24px] transition-all duration-300">
+        <div class="page-content max-w-full mx-auto">
+          ${this.renderBreadcrumbs()}
+        </div>
       </main>
     `
 

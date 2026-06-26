@@ -193,14 +193,14 @@ export class DealersScreen {
         <td class="px-4 py-4 font-body-md text-on-surface text-center">${item.warrantyCount ?? item._count?.dealerWarranties ?? '-'}</td>
         <td class="px-4 py-4">
           <div class="flex items-center gap-1">
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="عرض التفاصيل" data-action="view" data-id="${item.id}">
-              <span class="material-symbols-outlined text-[18px]">visibility</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="عرض التفاصيل" aria-label="عرض تفاصيل الوكيل" data-action="view" data-id="${item.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">visibility</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" title="تعديل" data-action="edit" data-id="${item.id}">
-              <span class="material-symbols-outlined text-[18px]">edit</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" title="تعديل" aria-label="تعديل الوكيل" data-action="edit" data-id="${item.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" data-action="delete" data-id="${item.id}">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" aria-label="حذف الوكيل" data-action="delete" data-id="${item.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>
           </div>
         </td>

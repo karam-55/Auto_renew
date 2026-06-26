@@ -68,8 +68,8 @@ export class InvoicesScreen {
       </div>
 
       <!-- Smart FAB -->
-      <button class="fab-glass pulse-glow" id="invoices-fab" title="فاتورة جديدة">
-        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1">add</span>
+      <button class="fab-glass pulse-glow touch-safe" id="invoices-fab" title="فاتورة جديدة" aria-label="إنشاء فاتورة جديدة">
+        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1" aria-hidden="true">add</span>
       </button>
     `
     this.loadInvoices(content)
@@ -100,17 +100,17 @@ export class InvoicesScreen {
             <td class="px-6 py-4">${this.statusBadge(i.status)}</td>
             <td class="px-6 py-4">
               <div class="flex items-center gap-2">
-                <button class="w-8 h-8 rounded-lg hover:bg-primary-container/10 flex items-center justify-center text-on-surface-variant hover:text-primary hover:scale-110 transition-all" data-action="view" data-id="${i.id}" title="عرض">
-                  <span class="material-symbols-outlined text-[18px]">visibility</span>
+                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-primary-container/10 flex items-center justify-center text-on-surface-variant hover:text-primary hover:scale-110 transition-all" data-action="view" data-id="${i.id}" title="عرض" aria-label="عرض تفاصيل الفاتورة">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">visibility</span>
                 </button>
-                <button class="w-8 h-8 rounded-lg hover:bg-tertiary/10 flex items-center justify-center text-on-surface-variant hover:text-tertiary hover:scale-110 transition-all" title="دفع" data-action="pay" data-id="${i.id}">
-                  <span class="material-symbols-outlined text-[18px]">payments</span>
+                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-tertiary/10 flex items-center justify-center text-on-surface-variant hover:text-tertiary hover:scale-110 transition-all" title="دفع" aria-label="تسجيل دفع الفاتورة" data-action="pay" data-id="${i.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
                 </button>
-                ${i.status !== 'CANCELLED' && i.status !== 'VOID' ? `<button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="إلغاء" data-action="cancel" data-id="${i.id}">
-                  <span class="material-symbols-outlined text-[18px]">cancel</span>
+                ${i.status !== 'CANCELLED' && i.status !== 'VOID' ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="إلغاء" aria-label="إلغاء الفاتورة" data-action="cancel" data-id="${i.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cancel</span>
                 </button>` : ''}
-                <button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" data-action="delete" data-id="${i.id}">
-                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الفاتورة" data-action="delete" data-id="${i.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
                 </button>
               </div>
             </td>

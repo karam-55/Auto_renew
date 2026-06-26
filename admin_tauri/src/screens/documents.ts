@@ -117,8 +117,8 @@ export class DocumentsScreen {
             <td class="px-6 py-4 font-body-md text-text-secondary">${item.size || '-'}</td>
             <td class="px-6 py-4 font-body-md text-text-secondary">${item.createdAt?.split('T')[0] || '-'}</td>
             <td class="px-6 py-4">
-              <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" data-action="download" data-id="${item.id}">
-                <span class="material-symbols-outlined text-[18px]">download</span>
+              <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" aria-label="تحميل المستند" data-action="download" data-id="${item.id}">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
               </button>
             </td>
           </tr>

@@ -101,8 +101,8 @@ export class SystemSetupScreen {
                       <option value="MECHANIC">ميكانيكي</option>
                     </select>
                   </div>
-                  <button class="h-[40px] px-3 bg-primary text-on-primary font-ibmPlexSans font-body-md rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-1" id="add-user-btn">
-                    <span class="material-symbols-outlined text-[18px]">add</span>
+                  <button class="h-[40px] px-3 bg-primary text-on-primary font-ibmPlexSans font-body-md rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-1" id="add-user-btn" aria-label="إضافة مستخدم">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
                   </button>
                 </div>
               </div>
@@ -252,8 +252,8 @@ export class SystemSetupScreen {
           <p class="font-body-md text-on-surface">${u.fullName}</p>
           <p class="text-sm text-text-secondary">${u.phone} — ${this.roleLabel(u.role)}</p>
         </div>
-        <button class="w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center transition-colors" data-remove="${idx}">
-          <span class="material-symbols-outlined text-[18px]">delete</span>
+        <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center transition-colors" aria-label="حذف المستخدم من القائمة" data-remove="${idx}">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
         </button>
       </div>
     `).join('')
@@ -285,7 +285,7 @@ export class SystemSetupScreen {
     const btn = c.querySelector('#setup-save') as HTMLButtonElement
     if (btn) {
       btn.disabled = true
-      btn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري الحفظ...`
+      btn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري الحفظ...`
     }
 
     // 1. Save company settings (try SetupWizardService first, fallback to direct API)

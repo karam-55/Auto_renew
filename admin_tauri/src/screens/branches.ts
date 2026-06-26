@@ -172,11 +172,11 @@ export class BranchesScreen {
         </td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" data-action="edit" data-id="${b.id}" title="تعديل">
-              <span class="material-symbols-outlined text-[18px]">edit</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" data-action="edit" data-id="${b.id}" title="تعديل" aria-label="تعديل الفرع">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" data-action="delete" data-id="${b.id}" title="حذف">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" data-action="delete" data-id="${b.id}" title="حذف" aria-label="حذف الفرع">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>
           </div>
         </td>

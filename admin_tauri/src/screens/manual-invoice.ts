@@ -33,8 +33,8 @@ export class ManualInvoiceScreen {
             <h1 class="font-beVietnamPro text-headline-md text-on-surface">فاتورة جديدة</h1>
             <p class="text-body-md text-text-secondary mt-1">${this.type === 'manual' ? 'فاتورة عامة - اختيار الخدمات يدوياً' : 'فاتورة من حجز'}</p>
           </div>
-          <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="cancel-btn">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+          <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="cancel-btn" aria-label="إلغاء إنشاء الفاتورة">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
             إلغاء
           </button>
         </div>
@@ -80,7 +80,7 @@ export class ManualInvoiceScreen {
               <div class="flex justify-end pt-2">
                 <button class="h-[48px] px-6 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center gap-2" id="step1-next" disabled>
                   التالي
-                  <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
                 </button>
               </div>
             </div>
@@ -97,12 +97,12 @@ export class ManualInvoiceScreen {
               <div id="step2-content"></div>
               <div class="flex justify-between pt-2">
                 <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="step2-prev">
-                  <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
                   السابق
                 </button>
                 <button class="h-[48px] px-6 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center gap-2" id="step2-next" disabled>
                   التالي
-                  <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
                 </button>
               </div>
             </div>
@@ -131,7 +131,7 @@ export class ManualInvoiceScreen {
                 </div>
                 <div>
                   <button id="apply-discount-btn" class="w-full h-[48px] bg-gradient-to-r from-primary to-primary-container text-on-primary font-ibmPlexSans font-body-lg rounded-full shadow-md hover:shadow-xl hover:-translate-y-[2px] active:translate-y-0 active:shadow-sm transition-all duration-200 flex items-center justify-center gap-2 border border-primary/20">
-                    <span class="material-symbols-outlined text-[20px]">discount</span>
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">discount</span>
                     <span class="font-semibold">تطبيق الخصم</span>
                   </button>
                 </div>
@@ -161,11 +161,11 @@ export class ManualInvoiceScreen {
 
               <div class="flex justify-between pt-2">
                 <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="step3-prev">
-                  <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
                   السابق
                 </button>
                 <button class="h-[48px] px-6 bg-tertiary text-on-tertiary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 flex items-center gap-2" id="create-invoice-btn">
-                  <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">receipt_long</span>
                   إنشاء الفاتورة
                 </button>
               </div>
@@ -439,7 +439,7 @@ export class ManualInvoiceScreen {
             ${this.servicesList.map((s: any) => `<option value="${s.id}" data-price="${s.basePrice || s.priceSYP || 0}" data-price-usd="${s.priceUSD || ''}">${s.name} - ${s.basePrice || s.priceSYP || 0} ل.س</option>`).join('')}
           </select>
           <button class="h-[48px] px-4 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-service-btn">
-            <span class="material-symbols-outlined text-[20px]">add</span>
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
             إضافة
           </button>
         </div>
@@ -505,8 +505,8 @@ export class ManualInvoiceScreen {
           </div>
           <div class="flex items-center gap-2">
             <input type="number" min="1" value="${item.quantity}" class="w-16 h-[36px] bg-surface-container-lowest border border-border rounded px-2 text-center font-body-md text-on-surface" data-idx="${idx}" />
-            <button class="w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center transition-colors" data-remove="${idx}">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center transition-colors" aria-label="حذف الخدمة من الفاتورة" data-remove="${idx}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>
           </div>
         </div>
@@ -575,7 +575,7 @@ export class ManualInvoiceScreen {
     const btn = el.querySelector('#create-invoice-btn') as HTMLButtonElement
     if (btn) {
       btn.disabled = true
-      btn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري الإنشاء...`
+      btn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري الإنشاء...`
     }
 
     const notes = (el.querySelector('#invoice-notes') as HTMLTextAreaElement)?.value || ''
@@ -616,14 +616,14 @@ export class ManualInvoiceScreen {
         ;(window as any).toast?.show?.({ message: res.message || 'فشل إنشاء الفاتورة', type: 'error' })
         if (btn) {
           btn.disabled = false
-          btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">receipt_long</span> إنشاء الفاتورة`
+          btn.innerHTML = `<span class="material-symbols-outlined text-[20px]" aria-hidden="true">receipt_long</span> إنشاء الفاتورة`
         }
       }
     } catch (err: any) {
       ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
       if (btn) {
         btn.disabled = false
-        btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">receipt_long</span> إنشاء الفاتورة`
+        btn.innerHTML = `<span class="material-symbols-outlined text-[20px]" aria-hidden="true">receipt_long</span> إنشاء الفاتورة`
       }
     }
   }

@@ -228,8 +228,8 @@ export class UsersScreen {
           <td class="px-4 py-3"><span class="${statusClass} px-2 py-0.5 rounded-full text-xs font-medium">${statusLabel}</span></td>
           <td class="px-4 py-3 text-text-tertiary">${date}</td>
           <td class="px-4 py-3">
-            <button class="text-text-tertiary hover:text-primary transition-colors edit-user-btn" data-id="${u.id}">
-              <span class="material-symbols-outlined text-[18px]">edit</span>
+            <button class="touch-safe w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-primary transition-colors edit-user-btn" aria-label="تعديل المستخدم" data-id="${u.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
           </td>
       `
@@ -263,7 +263,7 @@ export class UsersScreen {
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">
           <h2 class="font-headline-md text-on-surface font-bold">${isEdit ? 'تعديل مستخدم' : 'مستخدم جديد'}</h2>
-          <button class="text-text-tertiary hover:text-error transition-colors" id="modal-close"><span class="material-symbols-outlined">close</span></button>
+          <button class="touch-safe w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-error transition-colors" id="modal-close" aria-label="إغلاق النافذة"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="space-y-3">
           <div>

@@ -312,17 +312,17 @@ export class BookingsScreen {
         <td class="px-6 py-4 font-body-md text-on-surface-variant">${bookingDate ? new Date(bookingDate).toLocaleDateString('ar-SA') : '-'}</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
-            <button class="w-8 h-8 rounded-lg hover:bg-primary-container/10 flex items-center justify-center text-on-surface-variant hover:text-primary hover:scale-110 transition-all" title="عرض" data-action="view" data-id="${b.id}">
-              <span class="material-symbols-outlined text-[18px]">visibility</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-primary-container/10 flex items-center justify-center text-on-surface-variant hover:text-primary hover:scale-110 transition-all" title="عرض" aria-label="عرض تفاصيل الحجز" data-action="view" data-id="${b.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">visibility</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-secondary-container/10 flex items-center justify-center text-on-surface-variant hover:text-secondary hover:scale-110 transition-all" title="عرض التذكرة" data-action="print" data-id="${b.id}">
-              <span class="material-symbols-outlined text-[18px]">receipt_long</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-secondary-container/10 flex items-center justify-center text-on-surface-variant hover:text-secondary hover:scale-110 transition-all" title="عرض التذكرة" aria-label="عرض تذكرة الحجز" data-action="print" data-id="${b.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-info/10 flex items-center justify-center text-on-surface-variant hover:text-info hover:scale-110 transition-all" title="تعديل" data-action="edit" data-id="${b.id}">
-              <span class="material-symbols-outlined text-[18px]">edit</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-info/10 flex items-center justify-center text-on-surface-variant hover:text-info hover:scale-110 transition-all" title="تعديل" aria-label="تعديل الحجز" data-action="edit" data-id="${b.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" data-action="delete" data-id="${b.id}">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الحجز" data-action="delete" data-id="${b.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>
           </div>
         </td>

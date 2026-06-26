@@ -132,11 +132,11 @@ export class HrScreen {
             <td class="px-6 py-4 align-middle whitespace-nowrap">${this.statusBadge(e.status || 'ACTIVE')}</td>
             <td class="px-6 py-4 align-middle">
               <div class="flex items-center gap-2">
-                <button class="edit-btn w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" data-id="${e.id}">
-                  <span class="material-symbols-outlined text-[18px]">edit</span>
+                <button class="edit-btn touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" aria-label="تعديل الموظف" data-id="${e.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
                 </button>
-                <button class="delete-btn w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" data-id="${e.id}">
-                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                <button class="delete-btn touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" aria-label="حذف الموظف" data-id="${e.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
                 </button>
               </div>
             </td>

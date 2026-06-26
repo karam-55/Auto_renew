@@ -257,28 +257,34 @@ export class ChartOfAccountsScreen {
       actionsDiv.className = 'flex items-center justify-center gap-1'
 
       const editBtn = document.createElement('button')
-      editBtn.className = 'action-edit w-8 h-8 rounded-lg hover:bg-primary/10 text-primary flex items-center justify-center'
+      editBtn.className = 'action-edit touch-safe w-8 h-8 rounded-lg hover:bg-primary/10 text-primary flex items-center justify-center'
       editBtn.title = 'تعديل'
+      editBtn.setAttribute('aria-label', 'تعديل الحساب')
       const editIcon = document.createElement('span')
       editIcon.className = 'material-symbols-outlined text-[18px]'
+      editIcon.setAttribute('aria-hidden', 'true')
       editIcon.textContent = 'edit'
       editBtn.appendChild(editIcon)
       actionsDiv.appendChild(editBtn)
 
       const balanceBtn = document.createElement('button')
-      balanceBtn.className = 'action-balance w-8 h-8 rounded-lg hover:bg-tertiary/10 text-tertiary flex items-center justify-center'
+      balanceBtn.className = 'action-balance touch-safe w-8 h-8 rounded-lg hover:bg-tertiary/10 text-tertiary flex items-center justify-center'
       balanceBtn.title = 'إضافة رصيد'
+      balanceBtn.setAttribute('aria-label', 'تعديل رصيد الحساب')
       const balanceIcon = document.createElement('span')
       balanceIcon.className = 'material-symbols-outlined text-[18px]'
+      balanceIcon.setAttribute('aria-hidden', 'true')
       balanceIcon.textContent = 'payments'
       balanceBtn.appendChild(balanceIcon)
       actionsDiv.appendChild(balanceBtn)
 
       const deleteBtn = document.createElement('button')
-      deleteBtn.className = 'action-delete w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center'
+      deleteBtn.className = 'action-delete touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center'
       deleteBtn.title = 'حذف'
+      deleteBtn.setAttribute('aria-label', 'حذف الحساب')
       const deleteIcon = document.createElement('span')
       deleteIcon.className = 'material-symbols-outlined text-[18px]'
+      deleteIcon.setAttribute('aria-hidden', 'true')
       deleteIcon.textContent = 'delete'
       deleteBtn.appendChild(deleteIcon)
       actionsDiv.appendChild(deleteBtn)
@@ -320,7 +326,7 @@ export class ChartOfAccountsScreen {
     const buttons: string[] = []
 
     // Previous
-    buttons.push('<button data-page="prev" class="w-8 h-8 rounded-lg flex items-center justify-center font-body-sm ' + (this.currentPage === 1 ? 'text-text-tertiary cursor-not-allowed' : 'text-on-surface hover:bg-surface-subtle') + '" ' + (this.currentPage === 1 ? 'disabled' : '') + '><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>')
+    buttons.push('<button data-page="prev" class="touch-safe w-8 h-8 rounded-lg flex items-center justify-center font-body-sm ' + (this.currentPage === 1 ? 'text-text-tertiary cursor-not-allowed' : 'text-on-surface hover:bg-surface-subtle') + '" ' + (this.currentPage === 1 ? 'disabled' : '') + ' aria-label="الصفحة السابقة"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span></button>')
 
     // Page numbers
     for (let i = 1; i <= totalPages; i++) {
@@ -329,7 +335,7 @@ export class ChartOfAccountsScreen {
     }
 
     // Next
-    buttons.push('<button data-page="next" class="w-8 h-8 rounded-lg flex items-center justify-center font-body-sm ' + (this.currentPage === totalPages ? 'text-text-tertiary cursor-not-allowed' : 'text-on-surface hover:bg-surface-subtle') + '" ' + (this.currentPage === totalPages ? 'disabled' : '') + '><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>')
+    buttons.push('<button data-page="next" class="touch-safe w-8 h-8 rounded-lg flex items-center justify-center font-body-sm ' + (this.currentPage === totalPages ? 'text-text-tertiary cursor-not-allowed' : 'text-on-surface hover:bg-surface-subtle') + '" ' + (this.currentPage === totalPages ? 'disabled' : '') + ' aria-label="الصفحة التالية"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span></button>')
 
     controlsEl.innerHTML = buttons.join('')
 

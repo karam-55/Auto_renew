@@ -34,7 +34,7 @@ export class SetupWizardScreen {
           <div class="p-6 border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <span class="material-symbols-outlined">settings</span>
+                <span class="material-symbols-outlined" aria-hidden="true">settings</span>
               </div>
               <div>
                 <h2 class="font-headline-sm text-on-surface font-bold">إعدادات أولية</h2>
@@ -95,7 +95,7 @@ export class SetupWizardScreen {
           ${active ? 'bg-primary-container text-primary font-medium' : 'text-text-secondary hover:bg-surface-subtle'}">
           <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0
             ${active ? 'bg-primary text-white' : done ? 'bg-tertiary/10 text-tertiary' : 'bg-surface-subtle text-text-tertiary'}">
-            ${done ? '<span class="material-symbols-outlined text-[16px]">check</span>' : s.id}
+            ${done ? '<span class="material-symbols-outlined text-[16px]" aria-hidden="true">check</span>' : s.id}
           </div>
           <div class="flex-1"><p class="font-body-md">${s.label}</p></div>
         </button>
@@ -272,8 +272,8 @@ export class SetupWizardScreen {
           <p class="font-body-md text-on-surface">${u.fullName}</p>
           <p class="text-sm text-text-secondary">${u.phone} — ${this.roleLabel(u.role)}</p>
         </div>
-        <button class="w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center" data-remove="${idx}">
-          <span class="material-symbols-outlined text-[18px]">delete</span>
+        <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center" aria-label="حذف المستخدم" data-remove="${idx}">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
         </button>
       </div>
     `).join('')
@@ -298,16 +298,16 @@ export class SetupWizardScreen {
     const d1 = this.stepData[1] || {}
     const d2 = this.stepData[2] || {}
     review.innerHTML = `
-      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined">check_circle</span> معلومات الشركة</div>
+      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> معلومات الشركة</div>
       <p class="text-body-md text-text-secondary pr-6">الاسم: ${d1.companyName || '-'} | العملة: ${d1.currency || '-'} | الهاتف: ${d1.phone || '-'}</p>
       <hr class="border-border" />
-      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined">check_circle</span> الإعدادات المالية</div>
+      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> الإعدادات المالية</div>
       <p class="text-body-md text-text-secondary pr-6">سعر الصرف: ${d2.exchangeRate || '-'} | الضريبة: ${d2.taxRate ?? '-'}%</p>
       <hr class="border-border" />
-      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined">check_circle</span> شجرة الحسابات</div>
+      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> شجرة الحسابات</div>
       <p class="text-body-md text-text-secondary pr-6">${(this.stepData[3]?.createDefaultAccounts ?? true) ? 'سيتم إنشاء الحسابات الافتراضية' : 'تم تخطي إنشاء الحسابات'}</p>
       <hr class="border-border" />
-      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined">check_circle</span> المستخدمون</div>
+      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> المستخدمون</div>
       <p class="text-body-md text-text-secondary pr-6">${this.users.length} مستخدم/مستخدمين سيتم إنشاؤهم</p>
     `
   }

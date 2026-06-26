@@ -99,7 +99,7 @@ export class CustomersScreen {
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-lg max-h-[85vh] overflow-y-auto">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="create-modal-title">عميل جديد</h3>
-            <button id="close-create-modal" class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق">
+            <button id="close-create-modal" class="touch-safe w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق نافذة إنشاء العميل">
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
@@ -135,7 +135,7 @@ export class CustomersScreen {
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-lg max-h-[85vh] overflow-y-auto">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="edit-modal-title">تعديل العميل</h3>
-            <button id="close-edit-modal" class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق">
+            <button id="close-edit-modal" class="touch-safe w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق نافذة تعديل العميل">
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
@@ -293,11 +293,11 @@ export class CustomersScreen {
         <td class="px-6 py-4">${this.statusBadge(c.status || 'ACTIVE')}</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" data-action="edit" data-id="${c.id}">
-              <span class="material-symbols-outlined text-[18px]">edit</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" aria-label="تعديل العميل" data-action="edit" data-id="${c.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
-            <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" data-action="delete" data-id="${c.id}">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" aria-label="حذف العميل" data-action="delete" data-id="${c.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>
           </div>
         </td>

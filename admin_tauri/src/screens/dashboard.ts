@@ -31,8 +31,8 @@ export class DashboardScreen {
             <h2 class="font-headline-lg text-on-surface font-beVietnamPro">لوحة التحكم</h2>
             <p class="text-on-surface-variant text-sm mt-1">${dateStr}</p>
           </div>
-          <button id="dashboard-retry" class="hidden text-primary font-semibold text-sm flex items-center gap-2 bg-primary-container/10 px-4 py-2 rounded-xl hover:bg-primary-container/20 transition-all border border-glass-border">
-            <span class="material-symbols-outlined text-[18px]">refresh</span>
+          <button id="dashboard-retry" class="hidden text-primary font-semibold text-sm flex items-center gap-2 bg-primary-container/10 px-4 py-2 rounded-xl hover:bg-primary-container/20 transition-all border border-glass-border touch-safe" aria-label="إعادة محاولة تحميل لوحة التحكم">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>
             إعادة المحاولة
           </button>
         </div>
@@ -126,8 +126,8 @@ export class DashboardScreen {
           <div class="lg:col-span-2 glass-card p-card-padding rounded-2xl flex flex-col stagger-entry stagger-entry-5">
             <div class="flex justify-between items-center mb-6">
               <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">إيرادات آخر 7 أيام</h3>
-              <button class="text-on-surface-variant hover:text-primary hover:bg-primary-container/10 transition-all p-2 rounded-full" id="revenue-more">
-                <span class="material-symbols-outlined">more_horiz</span>
+              <button class="touch-safe text-on-surface-variant hover:text-primary hover:bg-primary-container/10 transition-all p-2 rounded-full" id="revenue-more" aria-label="المزيد من خيارات الإيرادات">
+                <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
               </button>
             </div>
             <div class="flex-1 relative w-full h-72">
@@ -138,8 +138,8 @@ export class DashboardScreen {
           <div class="glass-card p-card-padding rounded-2xl flex flex-col stagger-entry stagger-entry-6">
             <div class="flex justify-between items-center mb-6">
               <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">حالة الحجوزات</h3>
-              <button class="text-on-surface-variant hover:text-primary hover:bg-primary-container/10 transition-all p-2 rounded-full" id="status-more">
-                <span class="material-symbols-outlined">more_horiz</span>
+              <button class="touch-safe text-on-surface-variant hover:text-primary hover:bg-primary-container/10 transition-all p-2 rounded-full" id="status-more" aria-label="المزيد من خيارات حالة الورشة">
+                <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
               </button>
             </div>
             <div class="flex-1 relative w-full flex items-center justify-center h-56">
@@ -257,8 +257,8 @@ export class DashboardScreen {
       </div>
 
       <!-- Smart FAB -->
-      <button class="fab-glass pulse-glow" id="dashboard-fab" title="إضافة جديد">
-        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1">add</span>
+      <button class="fab-glass pulse-glow touch-safe" id="dashboard-fab" title="إضافة جديد" aria-label="إضافة جديد">
+        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1" aria-hidden="true">add</span>
       </button>
     `
 

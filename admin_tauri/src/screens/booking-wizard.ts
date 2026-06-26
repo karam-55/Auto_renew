@@ -58,8 +58,8 @@ export class BookingWizardScreen {
             <h1 class="font-beVietnamPro text-headline-md text-on-surface">حجز جديد</h1>
             <p class="text-body-md text-on-surface-variant mt-1">${this.type === 'registered' ? 'عميل مسجل' : 'عميل جديد'}</p>
           </div>
-          <button class="h-12 px-4 glass-card text-on-surface font-body-md rounded-xl border border-glass-border hover:bg-white/80 hover:rotate-90 transition-all flex items-center gap-2" id="cancel-btn">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+          <button class="h-12 px-4 glass-card text-on-surface font-body-md rounded-xl border border-glass-border hover:bg-white/80 hover:rotate-90 transition-all flex items-center gap-2" id="cancel-btn" aria-label="إلغاء الحجز">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
             إلغاء
           </button>
         </div>
@@ -241,12 +241,12 @@ export class BookingWizardScreen {
         <!-- Navigation -->
         <div class="flex justify-between gap-4">
           <button class="h-12 px-6 glass-card text-on-surface font-body-md rounded-xl border border-glass-border hover:bg-white/80 hover:translate-x-1 transition-all flex items-center gap-2 hidden" id="prev-btn">
-            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
             السابق
           </button>
           <div class="flex-1"></div>
           <button class="h-12 px-6 btn-primary-gradient text-white font-body-md rounded-xl shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-all flex items-center gap-2" id="next-btn">
-            <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
             التالي
           </button>
         </div>
@@ -298,9 +298,9 @@ export class BookingWizardScreen {
         prevBtn.classList.remove('hidden')
       }
       if (step === totalSteps) {
-        nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]">check</span> إنهاء الحجز`
+        nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]" aria-hidden="true">check</span> إنهاء الحجز`
       } else {
-        nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]">arrow_back</span> التالي`
+        nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span> التالي`
       }
 
       // Cleanup after animation
@@ -408,7 +408,7 @@ export class BookingWizardScreen {
         const nextBtn = el.querySelector('#next-btn') as HTMLButtonElement
         if (nextBtn) {
           nextBtn.disabled = true
-          nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري الحفظ...`
+          nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري الحفظ...`
         }
 
         try {
@@ -416,7 +416,7 @@ export class BookingWizardScreen {
 
           // Step 1: Create customer (only for new)
           if (this.type === 'new') {
-            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء العميل (1/3)...`
+            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري إنشاء العميل (1/3)...`
             const customerRes = await this.api.post<any>('/api/customers', {
               fullName: customerName,
               phone: customerPhone,
@@ -433,7 +433,7 @@ export class BookingWizardScreen {
           // Step 2: Create vehicle (only if not selected existing)
           let vehicleId = selectedVehicleId
           if (!vehicleId) {
-            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء المركبة (2/3)...`
+            if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري إنشاء المركبة (2/3)...`
             const vehicleRes = await this.api.post<any>('/api/vehicles', {
               customerId: customerId,
               make: vehicleMake,
@@ -453,7 +453,7 @@ export class BookingWizardScreen {
           }
 
           // Step 3: Create booking
-          if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin">sync</span> جاري إنشاء الحجز (3/3)...`
+          if (nextBtn) nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px] animate-spin" aria-hidden="true">sync</span> جاري إنشاء الحجز (3/3)...`
           const dateInput = getValue('booking-date')
           const timeInput = getValue('booking-time')
           const priorityInput = getValue('booking-priority') || 'NORMAL'
@@ -494,7 +494,7 @@ export class BookingWizardScreen {
           ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء إنشاء الحجز', type: 'error' })
           if (nextBtn) {
             nextBtn.disabled = false
-            nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]">check</span> إنهاء الحجز`
+            nextBtn.innerHTML = `<span class="material-symbols-outlined text-[20px]" aria-hidden="true">check</span> إنهاء الحجز`
           }
         }
       }

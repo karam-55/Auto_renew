@@ -109,11 +109,11 @@ export class CustomerDetailScreen {
                 </div>
               </div>
               <div class="flex items-center gap-1">
-                <button class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" title="عرض" data-view-vehicle="${v.id}">
-                  <span class="material-symbols-outlined text-[18px]">visibility</span>
+                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-primary transition-colors" title="عرض" aria-label="عرض تفاصيل المركبة" data-view-vehicle="${v.id}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">visibility</span>
                 </button>
-                <button class="w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" data-delete-vehicle="${v.id}" data-make="${v.make || ''}" data-model="${v.model || ''}" data-plate="${v.licensePlate || ''}">
-                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-text-tertiary hover:text-error transition-colors" title="حذف" aria-label="حذف المركبة" data-delete-vehicle="${v.id}" data-make="${v.make || ''}" data-model="${v.model || ''}" data-plate="${v.licensePlate || ''}">
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
                 </button>
               </div>
             </div>

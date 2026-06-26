@@ -141,8 +141,8 @@ export class PosScreen {
           </div>
           <div class="flex items-center gap-2">
             <span class="font-body-md font-bold text-on-surface">${(item.qty * item.price).toLocaleString('ar-SA')}</span>
-            <button class="w-6 h-6 rounded hover:bg-error/10 text-error flex items-center justify-center" data-remove="${idx}">
-              <span class="material-symbols-outlined text-[16px]">close</span>
+            <button class="touch-safe w-6 h-6 rounded hover:bg-error/10 text-error flex items-center justify-center" aria-label="إزالة المنتج من السلة" data-remove="${idx}">
+              <span class="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
             </button>
           </div>
         </div>
