@@ -205,26 +205,29 @@ export class AppLayout {
         </div>
         <!-- Navigation -->
         <nav id="sidebar-nav" class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar">
-          ${MENU_GROUPS.map((group, gi) => `
-            <div class="menu-group" data-group-index="${gi}">
-              <button class="menu-group-header w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors hover:bg-white/40 text-on-surface-variant" style="font-size:12px" aria-expanded="true" aria-controls="menu-group-${gi}">
-                <span class="text-xs font-semibold">${group.label}</span>
-                <span class="material-symbols-outlined text-[18px] transition-transform" aria-hidden="true">expand_more</span>
-              </button>
-              <div class="menu-group-items flex flex-col gap-1 mt-1" id="menu-group-${gi}">
-                ${group.items.map((item, ii) => {
-                  const isActive = this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', '')
-                  return `
-                    <a href="${item.route}" class="sidebar-nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative ${isActive ? 'text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full nav-active-glow' : 'text-on-surface-variant hover:bg-white/40 hover:text-primary hover:translate-x-[-8px]'}" data-route="${item.route}" data-label="${item.label}" data-group="${group.label}" style="animation-delay: ${(gi + 1) * 100 + ii * 50}ms">
-                      <span class="material-symbols-outlined transition-all duration-300 group-hover:scale-110" style="font-variation-settings:'FILL' ${isActive ? '1' : '0'};${isActive ? '' : 'color:#737685'}">${item.icon}</span>
-                      <span class="text-sm">${item.label}</span>
-                      ${item.route === '/bookings' ? `<span id="bookings-badge" class="mr-auto text-xs font-bold px-2 py-0.5 rounded-full hidden bg-error text-white">0</span>` : ''}
-                    </a>
-                  `
-                }).join('')}
+          ${MENU_GROUPS.map((group, gi) => {
+            const isGroupActive = group.items.some(item => this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', ''))
+            return `
+              <div class="menu-group ${isGroupActive ? 'open' : ''}" data-group-index="${gi}">
+                <button class="menu-group-header w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors hover:bg-white/40 text-on-surface-variant" style="font-size:12px" aria-expanded="${isGroupActive ? 'true' : 'false'}" aria-controls="menu-group-${gi}">
+                  <span class="text-xs font-semibold">${group.label}</span>
+                  <span class="material-symbols-outlined text-[18px] transition-transform ${isGroupActive ? 'rotate-180' : ''}" aria-hidden="true">expand_more</span>
+                </button>
+                <div class="menu-group-items flex flex-col gap-1 mt-1" id="menu-group-${gi}">
+                  ${group.items.map((item, ii) => {
+                    const isActive = this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', '')
+                    return `
+                      <a href="${item.route}" class="sidebar-nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative ${isActive ? 'text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full nav-active-glow' : 'text-on-surface-variant hover:bg-white/40 hover:text-primary hover:translate-x-[-8px]'}" data-route="${item.route}" data-label="${item.label}" data-group="${group.label}" style="animation-delay: ${(gi + 1) * 100 + ii * 50}ms">
+                        <span class="material-symbols-outlined transition-all duration-300 group-hover:scale-110" style="font-variation-settings:'FILL' ${isActive ? '1' : '0'};${isActive ? '' : 'color:#737685'}">${item.icon}</span>
+                        <span class="text-sm">${item.label}</span>
+                        ${item.route === '/bookings' ? `<span id="bookings-badge" class="mr-auto text-xs font-bold px-2 py-0.5 rounded-full hidden bg-error text-white">0</span>` : ''}
+                      </a>
+                    `
+                  }).join('')}
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `
+          }).join('')}
         </nav>
         <!-- Footer -->
         <div class="p-4" style="border-top:1px solid rgba(255,255,255,0.4)">
@@ -412,9 +415,10 @@ export class AppLayout {
     wrapper.querySelectorAll('.menu-group-header').forEach(header => {
       header.addEventListener('click', () => {
         const group = header.closest('.menu-group')!
-        group.classList.toggle('open')
+        const isOpen = group.classList.toggle('open')
+        header.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
         const chevron = header.querySelector('.material-symbols-outlined') as HTMLElement
-        if (chevron) chevron.style.transform = group.classList.contains('open') ? 'rotate(180deg)' : ''
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : ''
       })
     })
 
