@@ -156,6 +156,8 @@ export class RolesScreen {
   private showRoleModal(content: HTMLElement, role: any) {
     const overlay = document.createElement('div')
     overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
     overlay.innerHTML = `
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">
@@ -216,6 +218,8 @@ export class RolesScreen {
     document.querySelectorAll('.role-modal-overlay').forEach(el => el.remove())
     const overlay = document.createElement('div')
     overlay.className = 'role-modal-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
     overlay.innerHTML = `
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md mx-4 p-6 space-y-4 animate-in scale-in">
         <div class="flex items-center justify-between">

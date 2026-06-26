@@ -71,7 +71,7 @@ export class InventoryScreen {
         </div>
       </div>
       <!-- Add Part Modal -->
-      <div id="part-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-start justify-center overflow-y-auto py-10 px-4">
+      <div id="part-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-start justify-center overflow-y-auto py-10 px-4" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-lg max-h-[85vh] overflow-y-auto">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold">إضافة مادة جديدة</h3>

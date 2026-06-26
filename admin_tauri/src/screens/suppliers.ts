@@ -68,6 +68,8 @@ export class SuppliersScreen {
     const modal = document.createElement('div')
     modal.id = 'supplier-modal'
     modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm'
+    modal.setAttribute('role', 'dialog')
+    modal.setAttribute('aria-modal', 'true')
     modal.innerHTML = `
       <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-sm mx-4 p-6 space-y-4">
         <div class="flex items-center justify-between">

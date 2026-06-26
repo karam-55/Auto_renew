@@ -112,7 +112,7 @@ export class ServicesScreen {
         </div>
       </div>
       <!-- Category Modal -->
-      <div id="category-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+      <div id="category-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md mx-4">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold">إضافة فئة خدمات</h3>
@@ -137,7 +137,7 @@ export class ServicesScreen {
         </div>
       </div>
       <!-- Add/Edit Modal -->
-      <div id="service-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+      <div id="service-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center" role="dialog" aria-modal="true">
         <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold" id="modal-title">خدمة جديدة</h3>
