@@ -334,22 +334,32 @@ export class AppLayout {
       </div>
 
       <!-- Onboarding Overlay -->
-      <div id="onboarding-overlay" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
-        <div id="onboarding-backdrop" class="absolute inset-0 bg-black/60 transition-all duration-300"></div>
-        <div id="onboarding-spotlight" class="absolute rounded-2xl ring-4 ring-primary/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] transition-all duration-300 pointer-events-none"></div>
-        <div id="onboarding-card" class="fixed bg-surface-container-lowest rounded-2xl shadow-2xl border border-border p-5 w-[360px] max-w-[calc(100vw-2rem)] transition-all duration-300 z-[71]" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <span class="material-symbols-outlined" aria-hidden="true">school</span>
+      <div id="onboarding-overlay" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <div id="onboarding-backdrop" class="absolute inset-0 bg-black/70 transition-all duration-300"></div>
+        <div id="onboarding-spotlight" class="absolute rounded-xl ring-[3px] ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-300 pointer-events-none"></div>
+        <div id="onboarding-card" class="relative bg-surface-container-lowest rounded-2xl shadow-2xl border border-border p-6 w-full max-w-[420px] transition-all duration-300 z-[71]">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <span class="material-symbols-outlined text-2xl" aria-hidden="true">school</span>
             </div>
-            <h3 id="onboarding-title" class="font-headline-md font-bold text-on-surface">مرحباً بك</h3>
+            <div>
+              <h3 id="onboarding-title" class="font-headline-md text-lg font-bold text-on-surface">مرحباً بك</h3>
+              <p id="onboarding-step" class="text-xs text-on-surface-variant mt-0.5">الخطوة 1 من 4</p>
+            </div>
           </div>
-          <p id="onboarding-text" class="text-sm text-on-surface-variant mb-5 leading-relaxed">تعرف على أهم ميزات النظام.</p>
-          <div class="flex items-center justify-between">
-            <button id="onboarding-skip" class="text-sm text-on-surface-variant hover:text-error transition-colors px-2 py-1 rounded-lg hover:bg-error/5">تخطي</button>
-            <div class="flex items-center gap-3">
-              <span id="onboarding-step" class="text-xs text-on-surface-variant font-medium">1/4</span>
-              <button id="onboarding-next" class="btn-primary-gradient text-white px-5 py-2 rounded-xl text-sm font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/25">التالي</button>
+          <p id="onboarding-text" class="text-base text-on-surface-variant mb-6 leading-relaxed">تعرف على أهم ميزات النظام.</p>
+          <div id="onboarding-target-label" class="hidden mb-6 p-3 rounded-xl bg-primary/5 border border-primary/10 text-sm text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-base" aria-hidden="true">location_on</span>
+            <span id="onboarding-target-text"></span>
+          </div>
+          <div class="flex items-center justify-center gap-2 mb-6">
+            ${[0, 1, 2, 3].map((i) => `<span class="onboarding-dot w-2 h-2 rounded-full bg-on-surface-variant/30 transition-colors" data-index="${i}"></span>`).join('')}
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <button id="onboarding-skip" class="text-sm text-on-surface-variant hover:text-error transition-colors px-3 py-2 rounded-lg hover:bg-error/5">تخطي</button>
+            <div class="flex items-center gap-2">
+              <button id="onboarding-prev" class="hidden px-4 py-2 rounded-xl text-sm font-semibold text-on-surface bg-surface-container-high hover:bg-surface-container-highest transition-colors border border-border">السابق</button>
+              <button id="onboarding-next" class="btn-primary-gradient text-white px-6 py-2 rounded-xl text-sm font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/25">التالي</button>
             </div>
           </div>
         </div>
@@ -785,27 +795,34 @@ export class AppLayout {
     this._showOnboardingStep(wrapper)
 
     const nextBtn = wrapper.querySelector('#onboarding-next') as HTMLButtonElement
+    const prevBtn = wrapper.querySelector('#onboarding-prev') as HTMLButtonElement
     const skipBtn = wrapper.querySelector('#onboarding-skip') as HTMLButtonElement
     const backdrop = wrapper.querySelector('#onboarding-backdrop') as HTMLElement
 
     const nextHandler = () => {
-      this.onboardingStep++
-      if (this.onboardingStep >= this.onboardingSteps.length) {
+      if (this.onboardingStep >= this.onboardingSteps.length - 1) {
         this._finishOnboarding(wrapper)
         return
       }
+      this.onboardingStep++
       this._showOnboardingStep(wrapper)
+    }
+    const prevHandler = () => {
+      if (this.onboardingStep > 0) {
+        this.onboardingStep--
+        this._showOnboardingStep(wrapper)
+      }
     }
     const skipHandler = () => this._finishOnboarding(wrapper)
 
     nextBtn?.addEventListener('click', nextHandler)
+    prevBtn?.addEventListener('click', prevHandler)
     skipBtn?.addEventListener('click', skipHandler)
     backdrop?.addEventListener('click', skipHandler)
 
     // Reposition on resize
     const resizeHandler = () => this._showOnboardingStep(wrapper)
     window.addEventListener('resize', resizeHandler)
-    // Store handler so it can be removed later (avoid leak if layout re-renders)
     ;(this as any)._onboardingResizeHandler = resizeHandler
   }
 
@@ -813,64 +830,51 @@ export class AppLayout {
     const step = this.onboardingSteps[this.onboardingStep]
     if (!step) return
     const overlay = wrapper.querySelector('#onboarding-overlay') as HTMLElement
-    const card = wrapper.querySelector('#onboarding-card') as HTMLElement
     const spotlight = wrapper.querySelector('#onboarding-spotlight') as HTMLElement
     const title = wrapper.querySelector('#onboarding-title') as HTMLElement
     const text = wrapper.querySelector('#onboarding-text') as HTMLElement
     const stepEl = wrapper.querySelector('#onboarding-step') as HTMLElement
     const nextBtn = wrapper.querySelector('#onboarding-next') as HTMLButtonElement
-    if (!overlay || !card || !spotlight || !title || !text || !stepEl || !nextBtn) return
+    const prevBtn = wrapper.querySelector('#onboarding-prev') as HTMLButtonElement
+    const targetLabel = wrapper.querySelector('#onboarding-target-label') as HTMLElement
+    const targetText = wrapper.querySelector('#onboarding-target-text') as HTMLElement
+    if (!overlay || !spotlight || !title || !text || !stepEl || !nextBtn || !prevBtn) return
 
     title.textContent = step.title
     text.textContent = step.text
-    stepEl.textContent = `${this.onboardingStep + 1}/${this.onboardingSteps.length}`
+    stepEl.textContent = `الخطوة ${this.onboardingStep + 1} من ${this.onboardingSteps.length}`
     nextBtn.textContent = this.onboardingStep === this.onboardingSteps.length - 1 ? 'ابدأ' : 'التالي'
+    prevBtn.classList.toggle('hidden', this.onboardingStep === 0)
+
+    // Update dots
+    wrapper.querySelectorAll('.onboarding-dot').forEach((dot) => {
+      const idx = Number((dot as HTMLElement).getAttribute('data-index'))
+      if (idx === this.onboardingStep) {
+        dot.classList.add('bg-primary', 'w-5')
+        dot.classList.remove('bg-on-surface-variant/30')
+      } else {
+        dot.classList.remove('bg-primary', 'w-5')
+        dot.classList.add('bg-on-surface-variant/30')
+      }
+    })
 
     const target = wrapper.querySelector(step.target) as HTMLElement
     if (target) {
       const rect = target.getBoundingClientRect()
-      const padding = 12
-      const gap = 20
-      const cardWidth = 360
-      const cardHeight = 180
-
-      // Spotlight
+      const padding = 10
       spotlight.style.width = `${rect.width + padding * 2}px`
       spotlight.style.height = `${rect.height + padding * 2}px`
       spotlight.style.left = `${rect.left - padding}px`
       spotlight.style.top = `${rect.top - padding}px`
       spotlight.style.borderRadius = '12px'
-
-      // Default card position: centered below target
-      let left = rect.left + rect.width / 2 - cardWidth / 2
-      let top = rect.bottom + gap
-
-      if (step.position === 'right') {
-        left = rect.right + gap
-        top = rect.top + rect.height / 2 - cardHeight / 2
-      } else if (step.position === 'left') {
-        left = rect.left - cardWidth - gap
-        top = rect.top + rect.height / 2 - cardHeight / 2
-      } else if (step.position === 'top') {
-        top = rect.top - cardHeight - gap
+      spotlight.style.opacity = '1'
+      if (targetLabel && targetText) {
+        targetLabel.classList.remove('hidden')
+        targetText.textContent = `العنصر المُضيء: ${step.title}`
       }
-
-      // Keep in viewport
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      left = Math.max(16, Math.min(left, vw - cardWidth - 16))
-      top = Math.max(16, Math.min(top, vh - cardHeight - 16))
-
-      card.style.left = `${left}px`
-      card.style.top = `${top}px`
-      card.style.transform = 'none'
     } else {
-      // Center the card if target not found
-      card.style.left = '50%'
-      card.style.top = '50%'
-      card.style.transform = 'translate(-50%, -50%)'
-      spotlight.style.width = '0px'
-      spotlight.style.height = '0px'
+      spotlight.style.opacity = '0'
+      if (targetLabel) targetLabel.classList.add('hidden')
     }
   }
 
