@@ -437,7 +437,7 @@ export class AppLayout {
         updateThemeIcon(dark)
       }
       const saved = localStorage.getItem('admin-theme')
-      const prefersDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+      const prefersDark = saved ? saved === 'dark' : false
       applyTheme(prefersDark)
 
       themeToggle.addEventListener('click', () => {
