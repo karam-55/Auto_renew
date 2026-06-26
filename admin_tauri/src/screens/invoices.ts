@@ -110,7 +110,7 @@ export class InvoicesScreen {
       if (res.success && res.data) {
         const invoices = Array.isArray(res.data) ? res.data : res.data.data || []
         this.invoices = invoices
-        if (invoices.length === 0) { tbody.innerHTML = emptyTableRow(6, { icon: 'receipt_long', title: 'لا توجد فواتير', description: 'يمكنك إنشاء فاتورة جديدة من زر الإضافة', action: { label: 'فاتورة جديدة', route: '/invoices/new' } }); return }
+        if (invoices.length === 0) { tbody.innerHTML = emptyTableRow(6, { icon: 'receipt_long', title: 'لا توجد فواتير', description: 'يمكنك إنشاء فاتورة جديدة من زر الإضافة' }); return }
         tbody.innerHTML = invoices.map((i: any) => `
           <tr class="border-b border-glass-border hover:bg-white/40 hover:translate-y-[-2px] hover:shadow-sm transition-all duration-300 group">
             <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-lg bg-surface-container text-financial-data text-on-surface text-sm">${i.invoiceNumber || i.id?.slice(0,8)}</span></td>
