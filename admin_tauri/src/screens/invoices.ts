@@ -2,10 +2,11 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
-import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
+import { emptyTableRow, exportToCSV, debounce } from '../utils/dom-helpers'
 
 export class InvoicesScreen {
   private invoices: any[] = []
+  private filteredInvoices: any[] = []
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
@@ -46,6 +47,10 @@ export class InvoicesScreen {
             <button class="h-12 px-4 bg-primary/10 text-primary font-body-md rounded-xl border border-primary/20 hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="refresh-invoices">
               <span class="material-symbols-outlined text-[20px]">sync</span>
               تحديث
+            </button>
+            <button class="h-12 px-4 bg-white/50 text-on-surface font-body-md rounded-xl border border-glass-border hover:bg-white/80 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="clear-filters">
+              <span class="material-symbols-outlined text-[20px]">refresh</span>
+              مسح
             </button>
             <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="export-invoices-btn">
               <span class="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
@@ -89,7 +94,7 @@ export class InvoicesScreen {
       this.loadInvoices(content)
     })
     content.querySelector('#export-invoices-btn')?.addEventListener('click', () => {
-      const data = this.invoices.map((i: any) => ({
+      const data = this.filteredInvoices.map((i: any) => ({
         رقم_الفاتورة: i.invoiceNumber || i.id?.slice(0, 8) || '',
         العميل: i.customer?.fullName || '-',
         التاريخ: i.invoiceDate ? new Date(i.invoiceDate).toLocaleDateString('ar-SA') : (i.createdAt ? new Date(i.createdAt).toLocaleDateString('ar-SA') : '-'),
@@ -100,18 +105,57 @@ export class InvoicesScreen {
       }))
       exportToCSV('invoices.csv', data)
     })
+    content.querySelector('#invoice-search')?.addEventListener('input', debounce(() => this.applyFilters(content), 250))
+    content.querySelector('#status-filter')?.addEventListener('change', () => this.applyFilters(content))
+    content.querySelector('#clear-filters')?.addEventListener('click', () => {
+      const searchInput = content.querySelector('#invoice-search') as HTMLInputElement
+      const statusSelect = content.querySelector('#status-filter') as HTMLSelectElement
+      if (searchInput) searchInput.value = ''
+      if (statusSelect) statusSelect.value = ''
+      this.applyFilters(content)
+    })
     return layout.render(content)
+  }
+
+  private applyFilters(el: HTMLElement) {
+    const searchInput = el.querySelector('#invoice-search') as HTMLInputElement
+    const statusSelect = el.querySelector('#status-filter') as HTMLSelectElement
+    const searchTerm = searchInput?.value?.trim().toLowerCase() || ''
+    const statusFilter = statusSelect?.value || ''
+
+    let filtered = this.invoices
+    if (statusFilter) {
+      filtered = filtered.filter((i: any) => i.status === statusFilter)
+    }
+    if (searchTerm) {
+      filtered = filtered.filter((i: any) => {
+        const customerName = (i.customer?.fullName || '').toLowerCase()
+        const invoiceNumber = (i.invoiceNumber || '').toLowerCase()
+        const idShort = (i.id || '').slice(0, 8).toLowerCase()
+        return customerName.includes(searchTerm) || invoiceNumber.includes(searchTerm) || idShort.includes(searchTerm)
+      })
+    }
+    this.filteredInvoices = filtered
+    this.renderInvoiceRows(el)
   }
 
   private async loadInvoices(el: HTMLElement) {
     try {
       const res = await this.api.get<any>('/api/invoices')
-      const tbody = el.querySelector('#invoices-tbody')!
       if (res.success && res.data) {
         const invoices = Array.isArray(res.data) ? res.data : res.data.data || []
         this.invoices = invoices
-        if (invoices.length === 0) { tbody.innerHTML = emptyTableRow(6, { icon: 'receipt_long', title: 'لا توجد فواتير', description: 'يمكنك إنشاء فاتورة جديدة من زر الإضافة' }); return }
-        tbody.innerHTML = invoices.map((i: any) => `
+        this.filteredInvoices = invoices
+        this.renderInvoiceRows(el)
+      }
+    } catch { el.querySelector('#invoices-tbody')!.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</td></tr>' }
+  }
+
+  private renderInvoiceRows(el: HTMLElement) {
+    const tbody = el.querySelector('#invoices-tbody')!
+    const invoices = this.filteredInvoices
+    if (invoices.length === 0) { tbody.innerHTML = emptyTableRow(6, { icon: 'receipt_long', title: 'لا توجد فواتير', description: 'يمكنك إنشاء فاتورة جديدة من زر الإضافة' }); return }
+    tbody.innerHTML = invoices.map((i: any) => `
           <tr class="border-b border-glass-border hover:bg-white/40 hover:translate-y-[-2px] hover:shadow-sm transition-all duration-300 group">
             <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-lg bg-surface-container text-financial-data text-on-surface text-sm">${i.invoiceNumber || i.id?.slice(0,8)}</span></td>
             <td class="px-6 py-4 font-body-md text-on-surface font-semibold">${i.customer?.fullName || '-'}</td>
@@ -160,8 +204,6 @@ export class InvoicesScreen {
             if (id) this.deleteInvoice(el, id)
           })
         })
-      }
-    } catch { el.querySelector('#invoices-tbody')!.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</td></tr>' }
   }
 
   private statusBadge(s: string): string {

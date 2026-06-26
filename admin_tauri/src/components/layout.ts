@@ -332,6 +332,26 @@ export class AppLayout {
           </div>
         </div>
       </div>
+
+      <!-- Onboarding Overlay -->
+      <div id="onboarding-overlay" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" id="onboarding-backdrop"></div>
+        <div id="onboarding-spotlight" class="absolute rounded-2xl ring-4 ring-primary/50 transition-all duration-300 pointer-events-none"></div>
+        <div id="onboarding-card" class="absolute bg-surface-container-lowest rounded-2xl shadow-2xl border border-border p-5 w-80 transition-all duration-300">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="material-symbols-outlined text-primary" aria-hidden="true">school</span>
+            <h3 id="onboarding-title" class="font-headline-md font-bold text-on-surface">مرحباً بك</h3>
+          </div>
+          <p id="onboarding-text" class="text-sm text-on-surface-variant mb-4">تعرف على أهم ميزات النظام.</p>
+          <div class="flex items-center justify-between">
+            <button id="onboarding-skip" class="text-sm text-on-surface-variant hover:text-error transition-colors">تخطي</button>
+            <div class="flex items-center gap-2">
+              <span id="onboarding-step" class="text-xs text-on-surface-variant">1/4</span>
+              <button id="onboarding-next" class="btn-primary-gradient text-white px-4 py-2 rounded-xl text-sm font-semibold hover:scale-105 active:scale-95 transition-all">التالي</button>
+            </div>
+          </div>
+        </div>
+      </div>
     `
 
     const pageContent = wrapper.querySelector('.page-content')!
@@ -594,6 +614,12 @@ export class AppLayout {
     this.fetchBookingsBadge()
     this.fetchNotificationsBadge()
 
+    // ── Onboarding (first-time users only) ──
+    const onboardingSeen = localStorage.getItem('admin-onboarding-seen')
+    if (!onboardingSeen) {
+      setTimeout(() => this.startOnboarding(wrapper), 800)
+    }
+
     return wrapper
   }
 
@@ -739,5 +765,91 @@ export class AppLayout {
     } catch (e) {
       // Silently fail if API is unavailable
     }
+  }
+
+  private onboardingStep = 0
+  private onboardingSteps: Array<{ target: string; title: string; text: string; position: 'left' | 'right' | 'bottom' | 'top' }> = [
+    { target: '#sidebar-search', title: 'البحث في القائمة', text: 'ابحث بسرعة في كل أقسام النظام بدلاً من التنقل اليدوي.', position: 'right' },
+    { target: '#theme-toggle', title: 'الوضع الداكن', text: 'بدّل بين الوضع الفاتح والداكن حسب راحتك.', position: 'bottom' },
+    { target: '#hamburger-btn', title: 'القائمة الجانبية', text: 'اضغط هنا أو اسحب من اليمين على الجوال لفتح القائمة.', position: 'bottom' },
+    { target: '#add-new-btn', title: 'إضافة جديدة', text: 'ابدأ بحجز جديد، فاتورة، أو عميل من هنا.', position: 'right' },
+  ]
+
+  private startOnboarding(wrapper: HTMLElement) {
+    const overlay = wrapper.querySelector('#onboarding-overlay') as HTMLElement
+    if (!overlay) return
+    overlay.classList.remove('hidden')
+    this.onboardingStep = 0
+    this._showOnboardingStep(wrapper)
+
+    const nextBtn = wrapper.querySelector('#onboarding-next') as HTMLButtonElement
+    const skipBtn = wrapper.querySelector('#onboarding-skip') as HTMLButtonElement
+    const backdrop = wrapper.querySelector('#onboarding-backdrop') as HTMLElement
+
+    const nextHandler = () => {
+      this.onboardingStep++
+      if (this.onboardingStep >= this.onboardingSteps.length) {
+        this._finishOnboarding(wrapper)
+        return
+      }
+      this._showOnboardingStep(wrapper)
+    }
+    const skipHandler = () => this._finishOnboarding(wrapper)
+
+    nextBtn?.addEventListener('click', nextHandler)
+    skipBtn?.addEventListener('click', skipHandler)
+    backdrop?.addEventListener('click', skipHandler)
+  }
+
+  private _showOnboardingStep(wrapper: HTMLElement) {
+    const step = this.onboardingSteps[this.onboardingStep]
+    if (!step) return
+    const overlay = wrapper.querySelector('#onboarding-overlay') as HTMLElement
+    const card = wrapper.querySelector('#onboarding-card') as HTMLElement
+    const spotlight = wrapper.querySelector('#onboarding-spotlight') as HTMLElement
+    const title = wrapper.querySelector('#onboarding-title') as HTMLElement
+    const text = wrapper.querySelector('#onboarding-text') as HTMLElement
+    const stepEl = wrapper.querySelector('#onboarding-step') as HTMLElement
+    const nextBtn = wrapper.querySelector('#onboarding-next') as HTMLButtonElement
+    if (!overlay || !card || !spotlight || !title || !text || !stepEl || !nextBtn) return
+
+    title.textContent = step.title
+    text.textContent = step.text
+    stepEl.textContent = `${this.onboardingStep + 1}/${this.onboardingSteps.length}`
+    nextBtn.textContent = this.onboardingStep === this.onboardingSteps.length - 1 ? 'ابدأ' : 'التالي'
+
+    const target = wrapper.querySelector(step.target) as HTMLElement
+    if (target) {
+      const rect = target.getBoundingClientRect()
+      const overlayRect = overlay.getBoundingClientRect()
+      spotlight.style.width = `${rect.width + 16}px`
+      spotlight.style.height = `${rect.height + 16}px`
+      spotlight.style.left = `${rect.left - overlayRect.left - 8}px`
+      spotlight.style.top = `${rect.top - overlayRect.top - 8}px`
+
+      // Position card based on available space
+      const cardWidth = 320
+      const cardHeight = 160
+      let left = rect.left - overlayRect.left
+      let top = rect.top - overlayRect.top + rect.height + 16
+      if (step.position === 'right') {
+        left = rect.left - overlayRect.left + rect.width + 16
+      } else if (step.position === 'left') {
+        left = rect.left - overlayRect.left - cardWidth - 16
+      } else if (step.position === 'top') {
+        top = rect.top - overlayRect.top - cardHeight - 16
+      }
+      // Keep in viewport
+      left = Math.max(16, Math.min(left, overlayRect.width - cardWidth - 16))
+      top = Math.max(16, Math.min(top, overlayRect.height - cardHeight - 16))
+      card.style.left = `${left}px`
+      card.style.top = `${top}px`
+    }
+  }
+
+  private _finishOnboarding(wrapper: HTMLElement) {
+    const overlay = wrapper.querySelector('#onboarding-overlay') as HTMLElement
+    if (overlay) overlay.classList.add('hidden')
+    localStorage.setItem('admin-onboarding-seen', 'true')
   }
 }

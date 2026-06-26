@@ -121,7 +121,46 @@ export class DashboardScreen {
             </div>
           </div>
         </div>
-        <!-- Row 2: Charts -->
+        <!-- Row 2: Live Workshop Status -->
+        <div class="glass-card p-card-padding rounded-2xl stagger-entry stagger-entry-5" id="workshop-status-card">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
+                <span class="material-symbols-outlined" aria-hidden="true">precision_manufacturing</span>
+              </div>
+              <div>
+                <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">حالة الورشة المباشرة</h3>
+                <p class="text-xs text-on-surface-variant" id="workshop-last-updated">آخر تحديث: --</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="workshop-dot" class="w-2.5 h-2.5 rounded-full bg-tertiary animate-pulse"></span>
+              <span id="workshop-status-label" class="text-sm font-medium text-on-surface-variant">غير متصل</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div class="bg-surface-container-low rounded-xl p-4 text-center">
+              <p class="text-xs text-on-surface-variant mb-1">الأماكن</p>
+              <p class="text-2xl font-bold text-on-surface" id="workshop-bays">--</p>
+            </div>
+            <div class="bg-surface-container-low rounded-xl p-4 text-center">
+              <p class="text-xs text-on-surface-variant mb-1">قيد العمل</p>
+              <p class="text-2xl font-bold text-info" id="workshop-active">--</p>
+            </div>
+            <div class="bg-surface-container-low rounded-xl p-4 text-center">
+              <p class="text-xs text-on-surface-variant mb-1">متاح</p>
+              <p class="text-2xl font-bold text-tertiary" id="workshop-available">--</p>
+            </div>
+            <div class="bg-surface-container-low rounded-xl p-4 text-center">
+              <p class="text-xs text-on-surface-variant mb-1">إجمالي الفنيين</p>
+              <p class="text-2xl font-bold text-on-surface" id="workshop-mechanics">--</p>
+            </div>
+          </div>
+          <div id="workshop-jobs-list" class="space-y-2 max-h-[240px] overflow-y-auto custom-scrollbar">
+            <div class="text-center py-4 text-on-surface-variant text-sm">جاري تحميل حالة الورشة...</div>
+          </div>
+        </div>
+        <!-- Row 3: Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Main Chart -->
           <div class="lg:col-span-2 glass-card p-card-padding rounded-2xl flex flex-col stagger-entry stagger-entry-5">
@@ -199,7 +238,19 @@ export class DashboardScreen {
             </div>
           </div>
         </div>
-        <!-- Row 3: Quick Actions -->
+        <!-- Row 3: Advanced Trend Chart -->
+        <div class="glass-card p-card-padding rounded-2xl stagger-entry stagger-entry-7">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">الحجوزات والإيرادات - 7 أيام</h3>
+            <button class="touch-safe text-on-surface-variant hover:text-primary hover:bg-primary-container/10 transition-all p-2 rounded-full" id="trend-more" aria-label="المزيد من التقارير">
+              <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+            </button>
+          </div>
+          <div class="relative w-full h-72">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+        <!-- Row 4: Quick Actions -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/bookings/new">
             <div class="w-14 h-14 rounded-2xl bg-primary-container/10 group-hover:bg-primary-container/20 flex items-center justify-center transition-all text-primary group-hover:scale-110">
@@ -297,9 +348,11 @@ export class DashboardScreen {
     if (retryBtn) retryBtn.classList.add('hidden')
 
     try {
-      const [kpiRes, bookingsRes] = await Promise.all([
+      const [kpiRes, bookingsRes, mechanicsRes, activeBookingsRes] = await Promise.all([
         this.api.get<any>('/api/dashboard/kpis'),
         this.api.get<any>('/api/bookings?limit=5'),
+        this.api.get<any>('/api/users?role=MECHANIC'),
+        this.api.get<any>('/api/bookings?status=IN_PROGRESS'),
       ])
 
       console.log('[Dashboard] kpiRes:', kpiRes)
@@ -332,6 +385,9 @@ export class DashboardScreen {
 
       // KPI: Overdue
       this.setText(el, 'kpi-overdue', d.overdueInvoices?.toString() || '0')
+
+      // Live Workshop Status
+      this._renderWorkshopStatus(el, mechanicsRes, activeBookingsRes)
 
       // Recent Bookings
       const bookingsList = el.querySelector('#recent-bookings-list')
@@ -540,6 +596,78 @@ export class DashboardScreen {
       }
     })
 
+    // Trend Line Chart (dual axis: bookings & revenue)
+    const trendCanvas = document.getElementById('trendChart') as HTMLCanvasElement
+    if (trendCanvas) {
+      const labels = d.revenueByDay?.map((r: any) => {
+        const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+        const date = r.date ? new Date(r.date) : null
+        return date && !isNaN(date.getTime()) ? dayNames[date.getDay()] : ''
+      }) || ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+      const revenueData = d.revenueByDay?.map((r: any) => r.amount || 0) || []
+      const bookingsData = d.bookingsByDay?.map((b: any) => b.count || 0) || []
+      new Chart(trendCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'الإيرادات',
+              data: revenueData,
+              borderColor: '#003594',
+              backgroundColor: 'rgba(0, 53, 148, 0.1)',
+              yAxisID: 'y',
+              tension: 0.4,
+              fill: true,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+            {
+              label: 'الحجوزات',
+              data: bookingsData,
+              borderColor: '#E31E24',
+              backgroundColor: 'rgba(227, 30, 36, 0.1)',
+              yAxisID: 'y1',
+              tension: 0.4,
+              fill: false,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' } }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: { display: true, text: 'الإيرادات (ل.س)', font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' },
+              grid: { color: '#E2E8F0', borderDash: [5, 5] },
+              ticks: { font: { family: 'JetBrains Mono' }, color: '#94A3B8' }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: { display: true, text: 'عدد الحجوزات', font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' },
+              grid: { display: false },
+              ticks: { font: { family: 'JetBrains Mono' }, color: '#94A3B8' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' }
+            }
+          }
+        }
+      })
+    }
+
     // Update HTML legend percentages (keep all visible even at 0%)
     this.updateStatusLabel('status-pending', statusMap['PENDING'] || 0, total)
     this.updateStatusLabel('status-confirmed', statusMap['CONFIRMED'] || 0, total)
@@ -553,6 +681,81 @@ export class DashboardScreen {
   private updateStatusLabel(id: string, val: number, total: number) {
     const el = document.getElementById(id)
     if (el) el.textContent = total ? `${Math.round((val / total) * 100)}%` : '0%'
+  }
+
+  private _renderWorkshopStatus(el: HTMLElement, mechanicsRes: any, activeBookingsRes: any) {
+    const mechanics = mechanicsRes?.success && mechanicsRes.data ? (Array.isArray(mechanicsRes.data) ? mechanicsRes.data : (mechanicsRes.data.data || [])) : []
+    const activeBookings = activeBookingsRes?.success && activeBookingsRes.data ? (Array.isArray(activeBookingsRes.data) ? activeBookingsRes.data : (activeBookingsRes.data.data || [])) : []
+
+    const totalMechanics = mechanics.length
+    const activeJobs = activeBookings.length
+    // Assume 1 bay per mechanic as a simple heuristic
+    const totalBays = Math.max(totalMechanics, 1)
+    const availableBays = Math.max(totalBays - activeJobs, 0)
+    const utilization = totalBays ? Math.round((activeJobs / totalBays) * 100) : 0
+
+    this.setText(el, 'workshop-bays', totalBays.toString())
+    this.setText(el, 'workshop-active', activeJobs.toString())
+    this.setText(el, 'workshop-available', availableBays.toString())
+    this.setText(el, 'workshop-mechanics', totalMechanics.toString())
+
+    const dot = el.querySelector('#workshop-dot') as HTMLElement
+    const label = el.querySelector('#workshop-status-label') as HTMLElement
+    if (dot && label) {
+      if (activeJobs === 0) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-tertiary'
+        label.textContent = 'خامل'
+        label.className = 'text-sm font-medium text-tertiary'
+      } else if (utilization >= 90) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-error animate-pulse'
+        label.textContent = 'مشغول بالكامل'
+        label.className = 'text-sm font-medium text-error'
+      } else if (utilization >= 60) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-warning animate-pulse'
+        label.textContent = 'مشغول'
+        label.className = 'text-sm font-medium text-warning'
+      } else {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-info animate-pulse'
+        label.textContent = 'نشط'
+        label.className = 'text-sm font-medium text-info'
+      }
+    }
+
+    const list = el.querySelector('#workshop-jobs-list')
+    if (list) {
+      if (activeBookings.length === 0) {
+        list.innerHTML = `<div class="text-center py-4 text-on-surface-variant text-sm">لا توجد مهام قيد العمل حالياً</div>`
+      } else {
+        list.innerHTML = activeBookings.slice(0, 8).map((b: any) => {
+          const statusLabels: Record<string, string> = {
+            PENDING: 'قيد الانتظار',
+            CONFIRMED: 'مؤكد',
+            IN_PROGRESS: 'قيد العمل',
+            WAITING_PARTS: 'بانتظار المواد',
+            READY: 'جاهز',
+            COMPLETED: 'مكتمل',
+            CANCELLED: 'ملغى',
+          }
+          const statusClass = 'bg-info/10 text-info'
+          const mechanic = b.mechanic?.fullName || b.assignedTo?.fullName || 'غير معين'
+          return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+              <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-info"></div>
+                <div>
+                  <p class="text-sm font-semibold text-on-surface">${b.customer?.fullName || '-'}</p>
+                  <p class="text-xs text-on-surface-variant">${b.vehicle?.licensePlate || '-'} · ${mechanic}</p>
+                </div>
+              </div>
+              <span class="text-xs font-medium px-2 py-1 rounded-full ${statusClass}">${statusLabels[b.status] || b.status}</span>
+            </div>
+          `
+        }).join('')
+      }
+    }
+
+    const updatedEl = el.querySelector('#workshop-last-updated')
+    if (updatedEl) updatedEl.textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-SA')}`
   }
 
   private setText(el: HTMLElement, id: string, text: string) {

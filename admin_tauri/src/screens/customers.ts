@@ -3,7 +3,7 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { isPhone } from '../utils/validation'
-import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
+import { emptyTableRow, exportToCSV, debounce } from '../utils/dom-helpers'
 
 export class CustomersScreen {
   constructor(private _auth: AuthService, private api: ApiClient, private router: Router) {}
@@ -199,10 +199,10 @@ export class CustomersScreen {
     // Filters
     const searchInput = c.querySelector('#customer-search') as HTMLInputElement
     const statusSelect = c.querySelector('#status-filter') as HTMLSelectElement
-    searchInput?.addEventListener('input', () => {
+    searchInput?.addEventListener('input', debounce(() => {
       filterTerm = searchInput.value.trim()
       applyFilters()
-    })
+    }, 250))
     statusSelect?.addEventListener('change', () => {
       filterStatus = statusSelect.value
       applyFilters()

@@ -2,7 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
-import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
+import { emptyTableRow, exportToCSV, debounce } from '../utils/dom-helpers'
 
 export class BookingsScreen {
   private allBookings: any[] = []
@@ -195,7 +195,7 @@ export class BookingsScreen {
     content.querySelector('#new-booking-btn')?.addEventListener('click', () => this.router.navigate('/bookings/new'))
     content.querySelector('#existing-booking-btn')?.addEventListener('click', () => this.router.navigate('/bookings/existing'))
     content.querySelector('#bookings-fab')?.addEventListener('click', () => this.router.navigate('/bookings/new'))
-    content.querySelector('#booking-search')?.addEventListener('input', () => this.applyFilters(content))
+    content.querySelector('#booking-search')?.addEventListener('input', debounce(() => this.applyFilters(content), 250))
     content.querySelector('#status-filter')?.addEventListener('change', () => this.applyFilters(content))
     content.querySelector('#clear-filters')?.addEventListener('click', () => {
       const searchInput = content.querySelector('#booking-search') as HTMLInputElement
