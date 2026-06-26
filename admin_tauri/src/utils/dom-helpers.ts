@@ -130,3 +130,49 @@ export function showSuccess(message: string) {
 export function showWarning(message: string) {
   ;(window as any).toast?.show?.({ message, type: 'warning' })
 }
+
+// Unified empty state for tables, cards, and lists
+export function emptyState(options: { icon: string; title: string; description?: string; action?: { label: string; route: string } }): string {
+  const actionHtml = options.action
+    ? `<a href="${options.action.route}" data-route="${options.action.route}" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary-container/10 text-primary rounded-lg hover:bg-primary-container/20 transition-colors text-sm font-medium touch-safe">${options.action.label}</a>`
+    : ''
+  return `
+    <div class="empty-state flex flex-col items-center justify-center py-12 px-4 text-center">
+      <span class="material-symbols-outlined text-5xl mb-3 text-on-surface-variant/50" aria-hidden="true">${options.icon}</span>
+      <h3 class="font-body-md font-semibold text-on-surface-variant mb-1">${options.title}</h3>
+      ${options.description ? `<p class="text-sm text-on-surface-variant/70 max-w-xs">${options.description}</p>` : ''}
+      ${actionHtml}
+    </div>
+  `
+}
+
+export function emptyTableRow(cols: number, options: { icon: string; title: string; description?: string; action?: { label: string; route: string } }): string {
+  return `<tr><td colspan="${cols}" class="px-6 py-8">
+    ${emptyState(options)}
+  </td></tr>`
+}
+
+// Export data as CSV
+export function exportToCSV(filename: string, rows: Record<string, string | number>[]) {
+  if (!rows.length) {
+    ;(window as any).toast?.show?.({ message: 'لا توجد بيانات للتصدير', type: 'warning' })
+    return
+  }
+  const headers = Object.keys(rows[0])
+  const escape = (val: string | number) => {
+    const s = String(val ?? '').replace(/"/g, '""')
+    return /[\,\n\"]/.test(s) ? `"${s}"` : s
+  }
+  const csv = [
+    headers.join(','),
+    ...rows.map(row => headers.map(h => escape(row[h])).join(','))
+  ].join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+}

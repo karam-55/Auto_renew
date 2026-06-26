@@ -127,6 +127,8 @@ export class AppLayout {
   private activeRoute: string
   private resizeHandler: (() => void) | null = null
   private escHandler: ((e: KeyboardEvent) => void) | null = null
+  private keyboardShortcutsHandler: ((e: KeyboardEvent) => void) | null = null
+  private goKeyPending = false
 
   constructor(auth: AuthService, router: Router, title: string, activeRoute: string, api: ApiClient | null = null) {
     this.auth = auth
@@ -139,8 +141,11 @@ export class AppLayout {
   destroy() {
     if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler)
     if (this.escHandler)    document.removeEventListener('keydown', this.escHandler)
+    if (this.keyboardShortcutsHandler) document.removeEventListener('keydown', this.keyboardShortcutsHandler)
     this.resizeHandler = null
     this.escHandler    = null
+    this.keyboardShortcutsHandler = null
+    this.goKeyPending = false
   }
 
   private renderBreadcrumbs(): string {
@@ -271,6 +276,62 @@ export class AppLayout {
           ${this.renderBreadcrumbs()}
         </div>
       </main>
+
+      <!-- Global Command Palette -->
+      <div id="command-palette" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+        <div class="bg-surface-container-lowest rounded-2xl shadow-2xl border border-border w-full max-w-lg overflow-hidden">
+          <div class="p-4 border-b border-border flex items-center gap-3">
+            <span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">search</span>
+            <input id="command-palette-input" type="text" class="flex-1 bg-transparent outline-none text-on-surface placeholder-on-surface-variant text-base" placeholder="البحث السريع... (Ctrl+K)" aria-label="البحث السريع" autocomplete="off" />
+            <kbd class="hidden sm:inline-block px-2 py-1 text-xs bg-surface-container-high rounded text-on-surface-variant">ESC</kbd>
+          </div>
+          <div id="command-palette-results" class="max-h-[60vh] overflow-y-auto p-2"></div>
+          <div class="p-3 border-t border-border text-xs text-on-surface-variant flex items-center justify-between">
+            <span>↑↓ للتنقل، Enter للاختيار</span>
+            <span>Ctrl+K للفتح</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard Shortcuts Help -->
+      <div id="shortcuts-help" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="shortcuts-help-title">
+        <div class="bg-surface-container-lowest rounded-2xl shadow-2xl border border-border w-full max-w-md p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 id="shortcuts-help-title" class="font-headline-md text-on-surface font-bold">اختصارات لوحة المفاتيح</h2>
+            <button id="close-shortcuts-help" class="touch-safe w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-error transition-colors" aria-label="إغلاق نافذة الاختصارات"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">فتح البحث السريع</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">Ctrl</kbd><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">K</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">إظهار الاختصارات</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">?</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">الصفحة الرئيسية</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">G</kbd><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">H</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">الحجوزات</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">G</kbd><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">B</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">الفواتير</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">G</kbd><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">I</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-border">
+              <span class="text-on-surface">العملاء</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">G</kbd><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">C</kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-2">
+              <span class="text-on-surface">إغلاق النافذة/القائمة</span>
+              <div class="flex gap-1"><kbd class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant">Esc</kbd></div>
+            </div>
+          </div>
+        </div>
+      </div>
     `
 
     const pageContent = wrapper.querySelector('.page-content')!
@@ -281,16 +342,16 @@ export class AppLayout {
       (this.router as any).setCurrentLayout(this)
     }
 
-    // ── Nav links ──
-    wrapper.querySelectorAll('a[data-route]').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault()
-        const route = item.getAttribute('data-route')
-        if (route) {
-          this.closeSidebar(wrapper)
-          this.router.navigate(route)
-        }
-      })
+    // ── Nav links (event delegation to handle dynamically added links) ──
+    wrapper.addEventListener('click', (e) => {
+      const item = (e.target as HTMLElement).closest('a[data-route]') as HTMLElement | null
+      if (!item) return
+      e.preventDefault()
+      const route = item.getAttribute('data-route')
+      if (route) {
+        this.closeSidebar(wrapper)
+        this.router.navigate(route)
+      }
     })
 
     // ── Sidebar search filter ──
@@ -376,6 +437,97 @@ export class AppLayout {
       this.closeSidebar(wrapper)
     }
     document.addEventListener('keydown', this.escHandler)
+
+    // ── Keyboard shortcuts ──
+    this.keyboardShortcutsHandler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
+
+      // Close command palette / shortcuts help on Escape
+      if (e.key === 'Escape') {
+        const palette = wrapper.querySelector('#command-palette') as HTMLElement
+        const help = wrapper.querySelector('#shortcuts-help') as HTMLElement
+        if (palette && !palette.classList.contains('hidden')) {
+          this.hideCommandPalette(wrapper)
+          e.stopPropagation()
+          return
+        }
+        if (help && !help.classList.contains('hidden')) {
+          this.hideShortcutsHelp(wrapper)
+          e.stopPropagation()
+          return
+        }
+      }
+
+      // Ctrl+K / Cmd+K opens command palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        this.showCommandPalette(wrapper)
+        return
+      }
+
+      // ? shows shortcuts help (unless typing)
+      if (!isTyping && e.key === '?') {
+        e.preventDefault()
+        this.showShortcutsHelp(wrapper)
+        return
+      }
+
+      // Go to routes: G then H/B/I/C
+      if (!isTyping && e.key.toLowerCase() === 'g') {
+        this.goKeyPending = true
+        setTimeout(() => { this.goKeyPending = false }, 1000)
+        return
+      }
+      if (this.goKeyPending && !isTyping) {
+        const key = e.key.toLowerCase()
+        const routes: Record<string, string> = { h: '/dashboard', b: '/bookings', i: '/invoices', c: '/customers' }
+        if (routes[key]) {
+          e.preventDefault()
+          this.goKeyPending = false
+          this.router.navigate(routes[key])
+        }
+      }
+    }
+    document.addEventListener('keydown', this.keyboardShortcutsHandler)
+
+    // ── Command palette input ──
+    const paletteInput = wrapper.querySelector('#command-palette-input') as HTMLInputElement | null
+    const paletteResults = wrapper.querySelector('#command-palette-results') as HTMLElement | null
+    if (paletteInput && paletteResults) {
+      paletteInput.addEventListener('input', () => this.renderCommandPaletteResults(wrapper, paletteInput.value))
+      paletteInput.addEventListener('keydown', (e) => this.handleCommandPaletteKeydown(e, wrapper))
+    }
+
+    // ── Command palette item click ──
+    paletteResults?.addEventListener('click', (e) => {
+      const item = (e.target as HTMLElement).closest('[data-route]') as HTMLElement | null
+      if (!item) return
+      const route = item.getAttribute('data-route')
+      if (route) {
+        this.hideCommandPalette(wrapper)
+        this.router.navigate(route)
+      }
+    })
+
+    // ── Click outside to close command palette / shortcuts help ──
+    const palette = wrapper.querySelector('#command-palette') as HTMLElement
+    if (palette) {
+      palette.addEventListener('click', (e) => {
+        if (e.target === palette) this.hideCommandPalette(wrapper)
+      })
+    }
+    const help = wrapper.querySelector('#shortcuts-help') as HTMLElement
+    if (help) {
+      help.addEventListener('click', (e) => {
+        if (e.target === help) this.hideShortcutsHelp(wrapper)
+      })
+    }
+
+    // ── Close shortcuts help ──
+    wrapper.querySelector('#close-shortcuts-help')?.addEventListener('click', () => {
+      this.hideShortcutsHelp(wrapper)
+    })
 
     // ── Responsive: update layout on resize ──
     const updateLayout = () => {
@@ -463,6 +615,97 @@ export class AppLayout {
     if (overlay)  overlay.classList.remove('visible')
     if (hamburger) hamburger.setAttribute('aria-expanded', 'false')
     document.body.style.overflow = ''
+  }
+
+  private showCommandPalette(wrapper: HTMLElement) {
+    const palette = wrapper.querySelector('#command-palette') as HTMLElement
+    const input = wrapper.querySelector('#command-palette-input') as HTMLInputElement
+    if (!palette || !input) return
+    palette.classList.remove('hidden')
+    palette.classList.add('flex')
+    input.value = ''
+    input.focus()
+    this.renderCommandPaletteResults(wrapper, '')
+  }
+
+  private hideCommandPalette(wrapper: HTMLElement) {
+    const palette = wrapper.querySelector('#command-palette') as HTMLElement
+    if (!palette) return
+    palette.classList.add('hidden')
+    palette.classList.remove('flex')
+  }
+
+  private showShortcutsHelp(wrapper: HTMLElement) {
+    const help = wrapper.querySelector('#shortcuts-help') as HTMLElement
+    if (!help) return
+    help.classList.remove('hidden')
+    help.classList.add('flex')
+    ;(help.querySelector('#close-shortcuts-help') as HTMLElement)?.focus()
+  }
+
+  private hideShortcutsHelp(wrapper: HTMLElement) {
+    const help = wrapper.querySelector('#shortcuts-help') as HTMLElement
+    if (!help) return
+    help.classList.add('hidden')
+    help.classList.remove('flex')
+  }
+
+  private getCommandPaletteItems(): Array<{ label: string; route: string; icon: string; keywords: string }> {
+    const items: Array<{ label: string; route: string; icon: string; keywords: string }> = []
+    for (const group of MENU_GROUPS) {
+      for (const item of group.items) {
+        items.push({ label: item.label, route: item.route, icon: item.icon, keywords: `${item.label} ${group.label}` })
+      }
+    }
+    return items
+  }
+
+  private renderCommandPaletteResults(wrapper: HTMLElement, query: string) {
+    const results = wrapper.querySelector('#command-palette-results') as HTMLElement
+    if (!results) return
+    const q = query.trim().toLowerCase()
+    const items = this.getCommandPaletteItems().filter(item => item.keywords.toLowerCase().includes(q))
+    if (items.length === 0) {
+      results.innerHTML = `<div class="p-4 text-center text-on-surface-variant text-sm">لا توجد نتائج</div>`
+      return
+    }
+    results.innerHTML = items.map((item, idx) => `
+      <button class="command-palette-item w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-right ${idx === 0 ? 'bg-surface-container-high/50' : ''}" data-route="${item.route}" data-index="${idx}">
+        <span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">${item.icon}</span>
+        <span class="text-on-surface text-sm">${item.label}</span>
+      </button>
+    `).join('')
+  }
+
+  private handleCommandPaletteKeydown(e: KeyboardEvent, wrapper: HTMLElement) {
+    const results = wrapper.querySelector('#command-palette-results') as HTMLElement
+    if (!results) return
+    const items = results.querySelectorAll('.command-palette-item') as NodeListOf<HTMLElement>
+    if (!items.length) return
+
+    let activeIndex = Array.from(items).findIndex(item => item.classList.contains('bg-surface-container-high'))
+    if (activeIndex < 0) activeIndex = 0
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      items[activeIndex].classList.remove('bg-surface-container-high', 'bg-surface-container-high/50')
+      activeIndex = (activeIndex + 1) % items.length
+      items[activeIndex].classList.add('bg-surface-container-high')
+      items[activeIndex].scrollIntoView({ block: 'nearest' })
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      items[activeIndex].classList.remove('bg-surface-container-high', 'bg-surface-container-high/50')
+      activeIndex = (activeIndex - 1 + items.length) % items.length
+      items[activeIndex].classList.add('bg-surface-container-high')
+      items[activeIndex].scrollIntoView({ block: 'nearest' })
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const route = items[activeIndex].getAttribute('data-route')
+      if (route) {
+        this.hideCommandPalette(wrapper)
+        this.router.navigate(route)
+      }
+    }
   }
 
   private async fetchBookingsBadge() {

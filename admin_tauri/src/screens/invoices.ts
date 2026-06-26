@@ -2,8 +2,11 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
 
 export class InvoicesScreen {
+  private invoices: any[] = []
+
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
   render(): HTMLElement {
@@ -44,6 +47,10 @@ export class InvoicesScreen {
               <span class="material-symbols-outlined text-[20px]">sync</span>
               تحديث
             </button>
+            <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="export-invoices-btn">
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
+              تصدير
+            </button>
           </div>
         </div>
         <div class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
@@ -81,6 +88,18 @@ export class InvoicesScreen {
       tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-on-surface-variant"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>'
       this.loadInvoices(content)
     })
+    content.querySelector('#export-invoices-btn')?.addEventListener('click', () => {
+      const data = this.invoices.map((i: any) => ({
+        رقم_الفاتورة: i.invoiceNumber || i.id?.slice(0, 8) || '',
+        العميل: i.customer?.fullName || '-',
+        التاريخ: i.invoiceDate ? new Date(i.invoiceDate).toLocaleDateString('ar-SA') : (i.createdAt ? new Date(i.createdAt).toLocaleDateString('ar-SA') : '-'),
+        المبلغ: i.totalAmount ?? i.total ?? 0,
+        الحالة: i.status,
+        المدفوع: i.paidAmount ?? 0,
+        المتبقي: (i.totalAmount ?? i.total ?? 0) - (i.paidAmount ?? 0),
+      }))
+      exportToCSV('invoices.csv', data)
+    })
     return layout.render(content)
   }
 
@@ -90,7 +109,8 @@ export class InvoicesScreen {
       const tbody = el.querySelector('#invoices-tbody')!
       if (res.success && res.data) {
         const invoices = Array.isArray(res.data) ? res.data : res.data.data || []
-        if (invoices.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">receipt_long</span><br/>لا توجد فواتير</td></tr>'; return }
+        this.invoices = invoices
+        if (invoices.length === 0) { tbody.innerHTML = emptyTableRow(6, { icon: 'receipt_long', title: 'لا توجد فواتير', description: 'يمكنك إنشاء فاتورة جديدة من زر الإضافة', action: { label: 'فاتورة جديدة', route: '/invoices/new' } }); return }
         tbody.innerHTML = invoices.map((i: any) => `
           <tr class="border-b border-glass-border hover:bg-white/40 hover:translate-y-[-2px] hover:shadow-sm transition-all duration-300 group">
             <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-lg bg-surface-container text-financial-data text-on-surface text-sm">${i.invoiceNumber || i.id?.slice(0,8)}</span></td>

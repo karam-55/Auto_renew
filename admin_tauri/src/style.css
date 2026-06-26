@@ -278,6 +278,28 @@ textarea:focus-visible {
   box-sizing: border-box;
 }
 
+/* Command palette item focus/hover */
+.command-palette-item {
+  width: 100%;
+  text-align: right;
+  transition: background var(--transition-fast);
+}
+
+.command-palette-item:focus,
+.command-palette-item:hover,
+.command-palette-item.active {
+  background: var(--surface-container-high);
+  outline: none;
+}
+
+/* Keyboard shortcut kbd styling */
+kbd {
+  font-family: var(--font-body);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1;
+}
+
 /* ============================================
    APP LAYOUT
    ============================================ */

@@ -3,6 +3,7 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { isPhone } from '../utils/validation'
+import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
 
 export class CustomersScreen {
   constructor(private _auth: AuthService, private api: ApiClient, private router: Router) {}
@@ -187,7 +188,7 @@ export class CustomersScreen {
       this.updateBulkBar(c)
       if (filtered.length === 0) {
         const tbody = c.querySelector('#customers-tbody')!
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-text-secondary font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">group</span><br/>لا يوجد عملاء</td></tr>'
+        tbody.innerHTML = emptyTableRow(7, { icon: 'group', title: 'لا يوجد عملاء', description: 'ابدأ بإضافة عميل جديد من زر الإضافة' })
       } else {
         this.renderRows(c, filtered)
       }
@@ -243,12 +244,7 @@ export class CustomersScreen {
         المركبات: c.vehicleCount || c._count?.vehicles || 0,
         الحالة: c.status === 'ACTIVE' ? 'نشط' : 'غير نشط',
       }))
-      const csv = [Object.keys(data[0] || {}).join(','), ...data.map((row: any) => Object.values(row).join(','))].join('\n')
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = 'customers.csv'
-      link.click()
+      exportToCSV('customers.csv', data)
     })
 
     this.load(c, applyFilters)
@@ -265,11 +261,11 @@ export class CustomersScreen {
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.data || []
         this.allCustomers = items
-        if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-text-secondary font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">group</span><br/>لا يوجد عملاء</td></tr>'; return }
+        if (items.length === 0) { tbody.innerHTML = emptyTableRow(7, { icon: 'group', title: 'لا يوجد عملاء', description: 'ابدأ بإضافة عميل جديد من زر الإضافة' }); return }
         this.renderRows(el, items)
       }
       if (callback) callback()
-    } catch { el.querySelector('#customers-tbody')!.innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</td></tr>' }
+    } catch { el.querySelector('#customers-tbody')!.innerHTML = emptyTableRow(7, { icon: 'error', title: 'حدث خطأ', description: 'تأكد من الاتصال بالخادم وأعد المحاولة' }) }
   }
 
   private renderRows(el: HTMLElement, items: any[]) {

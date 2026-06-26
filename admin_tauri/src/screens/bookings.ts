@@ -2,12 +2,15 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { emptyTableRow, exportToCSV } from '../utils/dom-helpers'
 
 export class BookingsScreen {
   private allBookings: any[] = []
   private filteredBookings: any[] = []
   private currentPage = 1
   private readonly pageSize = 20
+  private calendarDate = new Date()
+  private calendarView = false
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
@@ -59,6 +62,14 @@ export class BookingsScreen {
               <span class="material-symbols-outlined text-[20px]">sync</span>
               تحديث
             </button>
+            <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="export-bookings-btn">
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
+              تصدير
+            </button>
+            <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="calendar-view-btn" aria-pressed="false">
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">calendar_month</span>
+              <span id="calendar-view-label">تقويم</span>
+            </button>
           </div>
         </div>
         <!-- Bulk Actions Bar -->
@@ -88,7 +99,7 @@ export class BookingsScreen {
           </div>
         </div>
         <!-- Table -->
-        <div class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
+        <div id="bookings-table-view" class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
           <div class="overflow-x-auto">
             <table class="w-full">
               <thead>
@@ -134,6 +145,24 @@ export class BookingsScreen {
               <span class="material-symbols-outlined">chevron_left</span>
             </button>
           </div>
+        </div>
+        <!-- Calendar View -->
+        <div id="calendar-view" class="hidden glass-card rounded-2xl p-4 stagger-entry stagger-entry-2">
+          <div class="flex items-center justify-between mb-4">
+            <button id="calendar-prev" class="touch-safe w-10 h-10 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface" aria-label="الشهر السابق"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
+            <h3 id="calendar-month-label" class="font-headline-md font-bold text-on-surface"></h3>
+            <button id="calendar-next" class="touch-safe w-10 h-10 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface" aria-label="الشهر التالي"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
+          </div>
+          <div class="grid grid-cols-7 gap-1 text-center mb-2">
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الأحد</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الإثنين</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الثلاثاء</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الأربعاء</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الخميس</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">الجمعة</span>
+            <span class="text-xs font-semibold text-on-surface-variant py-2">السبت</span>
+          </div>
+          <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
         </div>
         <!-- Delete Confirmation Modal -->
         <div id="delete-modal" class="fixed inset-0 z-50 backdrop-blur-sm flex items-center justify-center hidden" role="dialog" aria-modal="true">
@@ -197,6 +226,30 @@ export class BookingsScreen {
         this.allBookings = bookings
         this.applyFilters(content)
       })
+    })
+    content.querySelector('#export-bookings-btn')?.addEventListener('click', () => {
+      const data = this.filteredBookings.map((b: any) => ({
+        رقم_الحجز: b.bookingNumber || b.id?.slice(0, 8) || '',
+        العميل: b.customer?.fullName || b.customer?.name || '-',
+        المركبة: b.vehicle ? `${b.vehicle.make || ''} ${b.vehicle.model || ''}`.trim() : '-',
+        اللوحة: b.vehicle?.licensePlate || '-',
+        الحالة: b.status,
+        التاريخ: b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('ar-SA') : '-',
+        المبلغ: b.totalCost ?? b.totalAmount ?? 0,
+      }))
+      exportToCSV('bookings.csv', data)
+    })
+    content.querySelector('#calendar-view-btn')?.addEventListener('click', () => {
+      this.calendarView = !this.calendarView
+      this.toggleCalendarView(content)
+    })
+    content.querySelector('#calendar-prev')?.addEventListener('click', () => {
+      this.calendarDate.setMonth(this.calendarDate.getMonth() - 1)
+      this.renderCalendar(content)
+    })
+    content.querySelector('#calendar-next')?.addEventListener('click', () => {
+      this.calendarDate.setMonth(this.calendarDate.getMonth() + 1)
+      this.renderCalendar(content)
     })
     content.querySelector('#pagination-prev')?.addEventListener('click', () => {
       if (this.currentPage > 1) { this.currentPage--; this.renderPage(content) }
@@ -271,11 +324,11 @@ export class BookingsScreen {
         }
         this.renderBookings(el, bookings)
       } else {
-        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">calendar_month</span><br/>لا توجد حجوزات</td></tr>`
+        tbody.innerHTML = emptyTableRow(8, { icon: 'calendar_month', title: 'لا توجد حجوزات', description: 'يمكنك إنشاء حجز جديد من زر الإضافة بالأسفل', action: { label: 'حجز جديد', route: '/bookings/new' } })
       }
     } catch {
       const tbody = el.querySelector('#bookings-tbody')!
-      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ أثناء التحميل</td></tr>`
+      tbody.innerHTML = emptyTableRow(8, { icon: 'error', title: 'حدث خطأ أثناء التحميل', description: 'تأكد من الاتصال بالخادم وأعد المحاولة' })
     }
   }
 
@@ -285,7 +338,7 @@ export class BookingsScreen {
     const tbody = el.querySelector('#bookings-tbody')!
     const selectAll = el.querySelector('#select-all') as HTMLInputElement
     if (bookings.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">calendar_month</span><br/>لا توجد حجوزات</td></tr>`
+      tbody.innerHTML = emptyTableRow(8, { icon: 'calendar_month', title: 'لا توجد حجوزات', description: 'يمكنك إنشاء حجز جديد من زر الإضافة بالأسفل', action: { label: 'حجز جديد', route: '/bookings/new' } })
       this.updateBulkActions(el)
       if (selectAll) selectAll.checked = false
       return
@@ -344,6 +397,104 @@ export class BookingsScreen {
       bar.classList.add('hidden')
     }
     this._hideBulkConfirm(el)
+  }
+
+  private toggleCalendarView(el: HTMLElement) {
+    const tableView = el.querySelector('#bookings-table-view') as HTMLElement | null
+    const paginationBar = el.querySelector('#pagination-bar') as HTMLElement | null
+    const bulkActions = el.querySelector('#bulk-actions') as HTMLElement | null
+    const calendarView = el.querySelector('#calendar-view') as HTMLElement | null
+    const btn = el.querySelector('#calendar-view-btn') as HTMLButtonElement | null
+    const label = el.querySelector('#calendar-view-label') as HTMLElement | null
+
+    if (this.calendarView) {
+      tableView?.classList.add('hidden')
+      paginationBar?.classList.add('hidden')
+      bulkActions?.classList.add('hidden')
+      calendarView?.classList.remove('hidden')
+      if (label) label.textContent = 'قائمة'
+      if (btn) btn.setAttribute('aria-pressed', 'true')
+      this.renderCalendar(el)
+    } else {
+      tableView?.classList.remove('hidden')
+      paginationBar?.classList.remove('hidden')
+      calendarView?.classList.add('hidden')
+      if (label) label.textContent = 'تقويم'
+      if (btn) btn.setAttribute('aria-pressed', 'false')
+    }
+  }
+
+  private renderCalendar(el: HTMLElement) {
+    const grid = el.querySelector('#calendar-grid') as HTMLElement
+    const label = el.querySelector('#calendar-month-label') as HTMLElement
+    if (!grid || !label) return
+
+    const year = this.calendarDate.getFullYear()
+    const month = this.calendarDate.getMonth()
+    label.textContent = this.calendarDate.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' })
+
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const startDay = firstDay.getDay() // 0=Sun, 6=Sat
+    const daysInMonth = lastDay.getDate()
+
+    let html = ''
+    // Empty cells before start
+    for (let i = 0; i < startDay; i++) {
+      html += `<div class="min-h-[80px] p-2 rounded-lg bg-surface-subtle/50"></div>`
+    }
+
+    // Days
+    const bookingsByDay: Record<string, any[]> = {}
+    for (const b of this.filteredBookings) {
+      const d = b.scheduledDate || b.date
+      if (!d) continue
+      const date = new Date(d)
+      if (date.getFullYear() === year && date.getMonth() === month) {
+        const key = date.getDate()
+        if (!bookingsByDay[key]) bookingsByDay[key] = []
+        bookingsByDay[key].push(b)
+      }
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayBookings = bookingsByDay[day] || []
+      const count = dayBookings.length
+      const statusColors: Record<string, string> = {
+        PENDING: 'bg-warning/20 text-warning',
+        CONFIRMED: 'bg-primary/20 text-primary',
+        IN_PROGRESS: 'bg-info/20 text-info',
+        COMPLETED: 'bg-tertiary/20 text-tertiary',
+        CANCELLED: 'bg-error/20 text-error',
+      }
+      const dotClass = count > 0 ? (statusColors[dayBookings[0].status] || 'bg-surface-container text-on-surface') : ''
+      html += `
+        <div class="min-h-[80px] p-2 rounded-lg border border-border hover:bg-surface-container-low transition-colors flex flex-col gap-1">
+          <span class="text-sm font-semibold text-on-surface w-7 h-7 flex items-center justify-center rounded-full ${count > 0 ? 'bg-surface-container' : ''}">${day}</span>
+          ${count > 0 ? `<button class="text-xs text-right truncate touch-safe px-1 py-0.5 rounded ${dotClass}" data-action="calendar-day" data-day="${day}" aria-label="${count} حجز يوم ${day}">${count} حجز</button>` : ''}
+        </div>
+      `
+    }
+    grid.innerHTML = html
+
+    // Day click: show bookings in a simple alert for now (could be a modal)
+    grid.querySelectorAll('button[data-action="calendar-day"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const day = Number(btn.getAttribute('data-day'))
+        const list = bookingsByDay[day] || []
+        if (list.length === 1) {
+          this.router.navigate(`/bookings/${list[0].id}`)
+        } else if (list.length > 1) {
+          // Filter table to this day and switch to list view
+          const dayStr = new Date(year, month, day).toISOString().split('T')[0]
+          const search = el.querySelector('#booking-search') as HTMLInputElement
+          if (search) search.value = dayStr
+          this.calendarView = false
+          this.toggleCalendarView(el)
+          this.applyFilters(el)
+        }
+      })
+    })
   }
 
   private _showBulkConfirm(el: HTMLElement, count: number) {

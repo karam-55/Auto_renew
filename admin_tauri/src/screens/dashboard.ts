@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { emptyState } from '../utils/dom-helpers'
 
 export class DashboardScreen {
   private auth: AuthService
@@ -378,13 +379,7 @@ export class DashboardScreen {
             </table>
           `
         } else {
-          bookingsList.innerHTML = `
-            <div class="p-8 text-center">
-              <span class="material-symbols-outlined text-text-tertiary text-4xl mb-2">calendar_month</span>
-              <p class="text-text-tertiary text-sm">لا توجد حجوزات حالياً</p>
-              <button class="mt-3 text-primary font-medium text-sm" data-route="/bookings/new">إنشاء حجز جديد</button>
-            </div>
-          `
+          bookingsList.innerHTML = emptyState({ icon: 'calendar_month', title: 'لا توجد حجوزات حالياً', description: 'أضف حجزاً جديداً للبدء', action: { label: 'إنشاء حجز جديد', route: '/bookings/new' } })
         }
       }
 
@@ -421,12 +416,7 @@ export class DashboardScreen {
             </div>
           `
         } else {
-          activityList.innerHTML = `
-            <div class="text-center py-6">
-              <span class="material-symbols-outlined text-text-tertiary text-3xl mb-2">history</span>
-              <p class="text-text-tertiary text-sm">لا يوجد نشاط حديث</p>
-            </div>
-          `
+          activityList.innerHTML = emptyState({ icon: 'history', title: 'لا يوجد نشاط حديث', description: 'سيظهر هنا آخر الأنشطة بالنظام' })
         }
       }
 
