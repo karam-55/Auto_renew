@@ -381,7 +381,6 @@ export class AppLayout {
       e.preventDefault()
       const route = item.getAttribute('data-route')
       if (route) {
-        this.closeSidebar(wrapper)
         this.router.navigate(route)
       }
     })
@@ -592,7 +591,6 @@ export class AppLayout {
     // ── Brand icon click ──
     wrapper.querySelector('[data-route="/dashboard"]')?.addEventListener('click', (e) => {
       e.preventDefault()
-      this.closeSidebar(wrapper)
       this.router.navigate('/dashboard')
     })
 
