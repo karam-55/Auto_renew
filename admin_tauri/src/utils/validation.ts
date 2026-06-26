@@ -50,7 +50,7 @@ export interface ValidationError {
 }
 
 export function validateFields(
-  rules: Array<{ field: string; value: unknown; label: string; validators: Array<{ check: (v: unknown) => boolean; msg: string }> }>
+  rules: Array<{ field: string; value: unknown; label: string; validators: Array<{ check: (v: any) => boolean; msg: string }> }>
 ): ValidationError[] {
   const errors: ValidationError[] = []
   for (const rule of rules) {
@@ -64,14 +64,17 @@ export function validateFields(
   return errors
 }
 
-// Show validation errors via toast and highlight fields
-export function showValidationErrors(errors: ValidationError[], container: HTMLElement) {
-  // Clear previous highlights
+export function clearValidationErrors(container: HTMLElement) {
   container.querySelectorAll('.validation-error').forEach((el) => {
     el.classList.remove('validation-error', 'border-error', 'ring-error')
-    const msg = el.parentElement?.querySelector('.field-error-msg')
-    msg?.remove()
   })
+  container.querySelectorAll('.field-error-msg').forEach((el) => el.remove())
+}
+
+// Show validation errors via toast and highlight fields
+export function showValidationErrors(errors: ValidationError[], container: HTMLElement) {
+  clearValidationErrors(container)
+  if (!errors.length) return
 
   const firstEl = container.querySelector(`[name="${errors[0].field}"], #${errors[0].field}`) as HTMLElement | null
   for (const err of errors) {
@@ -100,4 +103,23 @@ export function showValidationErrors(errors: ValidationError[], container: HTMLE
 
   // Focus first error
   firstEl?.focus()
+}
+
+// Unified form-level error banner
+export function showFormError(container: HTMLElement, message: string): HTMLElement {
+  const existing = container.querySelector('.form-error-banner')
+  if (existing) existing.remove()
+
+  const banner = document.createElement('div')
+  banner.className = 'form-error-banner bg-error/10 border border-error/20 rounded-xl p-4 mb-4 flex items-center gap-2 text-error text-sm'
+  banner.innerHTML = `
+    <span class="material-symbols-outlined" aria-hidden="true">error</span>
+    <span>${message}</span>
+  `
+  container.prepend(banner)
+  return banner
+}
+
+export function clearFormError(container: HTMLElement) {
+  container.querySelector('.form-error-banner')?.remove()
 }

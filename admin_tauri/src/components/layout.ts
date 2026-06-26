@@ -191,8 +191,15 @@ export class AppLayout {
           <h2 class="font-bold text-xl text-primary font-beVietnamPro">Auto Renew</h2>
           <p class="text-xs mt-1 text-on-surface-variant">الإدارة المتقدمة</p>
         </div>
+        <!-- Sidebar Search -->
+        <div class="px-4 py-3" style="border-bottom:1px solid rgba(255,255,255,0.4)">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]" aria-hidden="true">search</span>
+            <input id="sidebar-search" type="text" class="w-full h-10 bg-white/40 border border-glass-border rounded-lg pr-10 pl-4 text-sm text-on-surface placeholder:text-on-surface-variant input-glow transition-all focus:bg-white/60" placeholder="البحث في القائمة..." aria-label="البحث في القائمة الجانبية" autocomplete="off" />
+          </div>
+        </div>
         <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar">
+        <nav id="sidebar-nav" class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar">
           ${MENU_GROUPS.map((group, gi) => `
             <div class="menu-group" data-group-index="${gi}">
               <button class="menu-group-header w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors hover:bg-white/40 text-on-surface-variant" style="font-size:12px" aria-expanded="true" aria-controls="menu-group-${gi}">
@@ -203,7 +210,7 @@ export class AppLayout {
                 ${group.items.map((item, ii) => {
                   const isActive = this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', '')
                   return `
-                    <a href="${item.route}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative ${isActive ? 'text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full nav-active-glow' : 'text-on-surface-variant hover:bg-white/40 hover:text-primary hover:translate-x-[-8px]'}" data-route="${item.route}" style="animation-delay: ${(gi + 1) * 100 + ii * 50}ms">
+                    <a href="${item.route}" class="sidebar-nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative ${isActive ? 'text-primary font-bold bg-primary-container/10 border-r-4 border-primary rounded-l-full nav-active-glow' : 'text-on-surface-variant hover:bg-white/40 hover:text-primary hover:translate-x-[-8px]'}" data-route="${item.route}" data-label="${item.label}" data-group="${group.label}" style="animation-delay: ${(gi + 1) * 100 + ii * 50}ms">
                       <span class="material-symbols-outlined transition-all duration-300 group-hover:scale-110" style="font-variation-settings:'FILL' ${isActive ? '1' : '0'};${isActive ? '' : 'color:#737685'}">${item.icon}</span>
                       <span class="text-sm">${item.label}</span>
                       ${item.route === '/bookings' ? `<span id="bookings-badge" class="mr-auto text-xs font-bold px-2 py-0.5 rounded-full hidden bg-error text-white">0</span>` : ''}
@@ -242,6 +249,9 @@ export class AppLayout {
             <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size:18px">search</span>
             <input class="h-9 pl-4 pr-9 rounded-full border border-glass-border bg-white/50 outline-none text-sm input-glow transition-all text-on-surface placeholder-on-surface-variant" style="width:14rem" placeholder="بحث..." type="text" aria-label="بحث"/>
           </div>
+          <button id="theme-toggle" class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" aria-label="تبديل الوضع الداكن">
+            <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true" id="theme-icon">dark_mode</span>
+          </button>
           <button class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications" aria-label="التنبيهات">
             <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true">notifications</span>
             <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70" aria-hidden="true"></span>
@@ -283,6 +293,29 @@ export class AppLayout {
       })
     })
 
+    // ── Sidebar search filter ──
+    const sidebarSearch = wrapper.querySelector('#sidebar-search') as HTMLInputElement | null
+    if (sidebarSearch) {
+      sidebarSearch.addEventListener('input', () => {
+        const query = sidebarSearch.value.trim().toLowerCase()
+        const nav = wrapper.querySelector('#sidebar-nav') as HTMLElement
+        if (!nav) return
+        const groups = nav.querySelectorAll('.menu-group')
+        groups.forEach(group => {
+          const items = group.querySelectorAll('.sidebar-nav-item')
+          let hasMatch = false
+          items.forEach(item => {
+            const label = item.getAttribute('data-label') || ''
+            const groupName = item.getAttribute('data-group') || ''
+            const match = !query || label.toLowerCase().includes(query) || groupName.toLowerCase().includes(query)
+            ;(item as HTMLElement).style.display = match ? 'flex' : 'none'
+            if (match) hasMatch = true
+          })
+          ;(group as HTMLElement).style.display = hasMatch ? 'flex' : 'none'
+        })
+      })
+    }
+
     // ── Menu group toggles ──
     wrapper.querySelectorAll('.menu-group-header').forEach(header => {
       header.addEventListener('click', () => {
@@ -292,6 +325,33 @@ export class AppLayout {
         if (chevron) chevron.style.transform = group.classList.contains('open') ? 'rotate(180deg)' : ''
       })
     })
+
+    // ── Theme toggle ──
+    const themeToggle = wrapper.querySelector('#theme-toggle') as HTMLButtonElement | null
+    const themeIcon = wrapper.querySelector('#theme-icon') as HTMLElement | null
+    const updateThemeIcon = (isDark: boolean) => {
+      if (themeIcon) themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode'
+      if (themeToggle) themeToggle.setAttribute('aria-label', isDark ? 'تبديل إلى الوضع الفاتح' : 'تبديل إلى الوضع الداكن')
+    }
+    if (themeToggle) {
+      const applyTheme = (dark: boolean) => {
+        if (dark) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+        localStorage.setItem('admin-theme', dark ? 'dark' : 'light')
+        updateThemeIcon(dark)
+      }
+      const saved = localStorage.getItem('admin-theme')
+      const prefersDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+      applyTheme(prefersDark)
+
+      themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark')
+        applyTheme(!isDark)
+      })
+    }
 
     // ── Hamburger (open) ──
     wrapper.querySelector('#hamburger-btn')?.addEventListener('click', () => {
@@ -308,9 +368,12 @@ export class AppLayout {
       this.closeSidebar(wrapper)
     })
 
-    // ── ESC key closes sidebar ──
+    // ── ESC key closes sidebar (unless a modal overlay is open) ──
     this.escHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') this.closeSidebar(wrapper)
+      if (e.key !== 'Escape') return
+      const openModal = document.querySelector('.fixed.inset-0:not(.hidden)')
+      if (openModal) return
+      this.closeSidebar(wrapper)
     }
     document.addEventListener('keydown', this.escHandler)
 

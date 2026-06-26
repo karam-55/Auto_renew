@@ -1,15 +1,83 @@
 // Shared DOM helpers to reduce code duplication across screens
 
+interface FocusTrap {
+  element: HTMLElement
+  previousActiveElement: Element | null
+  keydownHandler: (e: KeyboardEvent) => void
+}
+
+let activeTrap: FocusTrap | null = null
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selectors = [
+    'button:not([disabled])',
+    'a[href]',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ]
+  return Array.from(container.querySelectorAll(selectors.join(', ')))
+    .filter(el => {
+      const style = window.getComputedStyle(el as HTMLElement)
+      return style.display !== 'none' && style.visibility !== 'hidden'
+    }) as HTMLElement[]
+}
+
+function trapFocus(modal: HTMLElement): FocusTrap {
+  const focusable = getFocusableElements(modal)
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const previousActiveElement = document.activeElement
+
+  const keydownHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      hideModal(modal)
+      return
+    }
+    if (e.key !== 'Tab' || !first || !last) return
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
+  modal.addEventListener('keydown', keydownHandler)
+  if (first) first.focus()
+
+  return { element: modal, previousActiveElement, keydownHandler }
+}
+
+function releaseFocus(trap: FocusTrap | null) {
+  if (!trap) return
+  trap.element.removeEventListener('keydown', trap.keydownHandler)
+  if (trap.previousActiveElement instanceof HTMLElement) {
+    trap.previousActiveElement.focus()
+  }
+}
+
 export function showModal(modal: HTMLElement | null) {
   if (!modal) return
+  if (activeTrap && activeTrap.element !== modal) {
+    releaseFocus(activeTrap)
+  }
   modal.classList.remove('hidden')
   modal.classList.add('flex')
+  activeTrap = trapFocus(modal)
 }
 
 export function hideModal(modal: HTMLElement | null) {
   if (!modal) return
   modal.classList.add('hidden')
   modal.classList.remove('flex')
+  if (activeTrap && activeTrap.element === modal) {
+    releaseFocus(activeTrap)
+    activeTrap = null
+  }
 }
 
 export function skeletonRow(cols: number): string {

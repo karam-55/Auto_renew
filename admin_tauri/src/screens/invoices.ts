@@ -23,12 +23,12 @@ export class InvoicesScreen {
           </button>
         </div>
         <div class="glass-card rounded-2xl p-card-padding stagger-entry stagger-entry-1">
-          <div class="flex flex-col md:flex-row gap-4 items-center">
+          <div class="flex flex-col sm:flex-row gap-4 items-center">
             <div class="relative flex-1 w-full">
               <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
               <input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl pr-10 pl-4 font-body-md text-on-surface placeholder:text-on-surface-variant input-glow transition-all" placeholder="بحث برقم الفاتورة أو العميل..." id="invoice-search"/>
             </div>
-            <select class="h-12 bg-white/50 border border-glass-border rounded-xl pr-4 pl-10 font-body-md text-on-surface input-glow transition-all w-full md:w-48 appearance-none cursor-pointer" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23737685%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;" id="status-filter">
+            <select class="h-12 bg-white/50 border border-glass-border rounded-xl pr-4 pl-10 font-body-md text-on-surface input-glow transition-all w-full sm:w-48 appearance-none cursor-pointer" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23737685%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;" id="status-filter">
               <option value="">كل الحالات</option>
               <option value="DRAFT">مسودة</option>
               <option value="ISSUED">مصدرة</option>
@@ -40,7 +40,7 @@ export class InvoicesScreen {
               <option value="CANCELLED">ملغية</option>
               <option value="VOID">باطلة</option>
             </select>
-            <button class="h-12 px-4 bg-primary/10 text-primary font-body-md rounded-xl border border-primary/20 hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full md:w-auto justify-center" id="refresh-invoices">
+            <button class="h-12 px-4 bg-primary/10 text-primary font-body-md rounded-xl border border-primary/20 hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="refresh-invoices">
               <span class="material-symbols-outlined text-[20px]">sync</span>
               تحديث
             </button>

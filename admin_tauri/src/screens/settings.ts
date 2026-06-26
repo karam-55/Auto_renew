@@ -2,7 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
-import { isPhone } from '../utils/validation'
+import { isPhone, isRequired, validateFields, showValidationErrors, clearValidationErrors, showFormError, clearFormError } from '../utils/validation'
 
 export class SettingsScreen {
   private auth: AuthService
@@ -124,12 +124,27 @@ export class SettingsScreen {
     const exchangeRate = (c.querySelector('#setting-exchange-rate') as HTMLInputElement)?.value
     const tax = (c.querySelector('#setting-tax') as HTMLInputElement)?.value
 
-    if (!name) { ;(window as any).toast?.show?.({ message: 'اسم المرآب مطلوب', type: 'warning' }); return }
-    if (!isPhone(phone)) { ;(window as any).toast?.show?.({ message: 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام', type: 'warning' }); return }
+    clearValidationErrors(c)
+    clearFormError(c)
+
+    const errors = validateFields([
+      { field: 'setting-garage-name', value: name, label: 'اسم المرآب', validators: [{ check: isRequired, msg: 'اسم المرآب مطلوب' }] },
+      { field: 'setting-phone', value: phone, label: 'رقم الهاتف', validators: [{ check: isRequired, msg: 'رقم الهاتف مطلوب' }, { check: isPhone, msg: 'رقم الهاتف يجب أن يبدأ بـ 09 ويتبعه 8 أرقام' }] },
+    ])
+
     const erNum = exchangeRate !== '' && exchangeRate != null ? Number(exchangeRate) : null
-    if (erNum != null && erNum < 0) { ;(window as any).toast?.show?.({ message: 'سعر الصرف لا يمكن أن يكون سالباً', type: 'warning' }); return }
+    if (erNum != null && erNum < 0) {
+      errors.push({ field: 'setting-exchange-rate', message: 'سعر الصرف لا يمكن أن يكون سالباً' })
+    }
     const taxNum = tax !== '' && tax != null ? Number(tax) : null
-    if (taxNum != null && (taxNum < 0 || taxNum > 100)) { ;(window as any).toast?.show?.({ message: 'نسبة الضريبة يجب أن تكون بين 0 و 100', type: 'warning' }); return }
+    if (taxNum != null && (taxNum < 0 || taxNum > 100)) {
+      errors.push({ field: 'setting-tax', message: 'نسبة الضريبة يجب أن تكون بين 0 و 100' })
+    }
+
+    if (errors.length > 0) {
+      showValidationErrors(errors, c)
+      return
+    }
 
     const btn = c.querySelector('#settings-save') as HTMLButtonElement
     if (btn) {
@@ -151,10 +166,10 @@ export class SettingsScreen {
       if (res.success) {
         ;(window as any).toast?.show?.({ message: 'تم حفظ الإعدادات بنجاح', type: 'success' })
       } else {
-        ;(window as any).toast?.show?.({ message: res.message || 'فشل حفظ الإعدادات', type: 'error' })
+        showFormError(c, res.message || 'فشل حفظ الإعدادات')
       }
     } catch (err: any) {
-      ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء الحفظ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
+      showFormError(c, 'حدث خطأ أثناء الحفظ: ' + (err.message || 'فشل الاتصال'))
     } finally {
       if (btn) {
         btn.disabled = false
