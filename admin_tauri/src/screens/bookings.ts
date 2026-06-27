@@ -76,10 +76,22 @@ export class BookingsScreen {
         <div id="bulk-actions" class="hidden glass-card border border-error/20 rounded-2xl p-4 stagger-entry overflow-hidden" style="min-height: 72px">
           <div id="bulk-normal" class="flex items-center justify-between transition-all duration-300 ease-out">
             <span class="text-body-md text-error font-semibold" id="bulk-count">0 محدد</span>
-            <button class="h-10 px-4 bg-error text-white font-body-md rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-error/20" id="bulk-delete-btn">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
-              حذف المحدد
-            </button>
+            <div class="flex items-center gap-2">
+              <select id="bulk-status-select" class="h-10 px-3 bg-white/50 border border-glass-border rounded-xl font-body-md text-on-surface text-sm appearance-none cursor-pointer" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23737685%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.5rem center; background-size: 0.75rem; padding-left: 1.5rem;">
+                <option value="">تغيير الحالة...</option>
+                <option value="PENDING">قيد الانتظار</option>
+                <option value="CONFIRMED">مؤكد</option>
+                <option value="IN_PROGRESS">قيد العمل</option>
+                <option value="WAITING_PARTS">بانتظار المواد</option>
+                <option value="READY">جاهز</option>
+                <option value="COMPLETED">مكتمل</option>
+                <option value="CANCELLED">ملغى</option>
+              </select>
+              <button class="h-10 px-4 bg-error text-white font-body-md rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-error/20" id="bulk-delete-btn">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+                حذف
+              </button>
+            </div>
           </div>
           <div id="bulk-confirm" class="hidden flex items-center justify-between opacity-0 scale-95 transition-all duration-300 ease-out">
             <span class="flex items-center gap-2 text-error font-semibold">
@@ -270,6 +282,13 @@ export class BookingsScreen {
     })
     content.querySelector('#bulk-confirm-no')?.addEventListener('click', () => {
       this._hideBulkConfirm(content)
+    })
+    content.querySelector('#bulk-status-select')?.addEventListener('change', async (e) => {
+      const target = e.target as HTMLSelectElement
+      const status = target.value
+      if (!status || this.selectedIds.size === 0) return
+      await this.executeBulkStatusChange(content, Array.from(this.selectedIds), status)
+      target.value = ''
     })
     // Event delegation on tbody for checkboxes and row actions (performance fix)
     const tbody = content.querySelector('#bookings-tbody') as HTMLElement
@@ -588,6 +607,42 @@ export class BookingsScreen {
       })
     } catch (err: any) {
       ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء الحذف', type: 'error' })
+    }
+  }
+
+  private async executeBulkStatusChange(el: HTMLElement, ids: string[], status: string) {
+    try {
+      const promises = ids.map(id => this.api.patch(`/api/bookings/${id}`, { status }))
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.success)
+      if (failed.length > 0) {
+        throw new Error(`فشل تحديث ${failed.length} حجز`)
+      }
+      ids.forEach(id => this.selectedIds.delete(id))
+      this.updateBulkActions(el)
+      this.api.clearCache()
+      const tbody = el.querySelector('#bookings-tbody')!
+      tbody.innerHTML = `
+        ${[1,2,3,4,5].map(() => `
+          <tr class="border-b border-glass-border/30">
+            <td class="px-3 py-4"><div class="skeleton w-4 h-4 rounded"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-20"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-24"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-20"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-28"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-16"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-20"></div></td>
+            <td class="px-6 py-4"><div class="skeleton skeleton-text w-12"></div></td>
+          </tr>
+        `).join('')}
+      `
+      this.loadBookings(el, (bookings) => {
+        this.allBookings = bookings
+        this.applyFilters(el)
+      })
+      ;(window as any).toast?.show?.({ message: `تم تحديث حالة ${ids.length} حجز`, type: 'success' })
+    } catch (err: any) {
+      ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء تحديث الحالة', type: 'error' })
     }
   }
 
