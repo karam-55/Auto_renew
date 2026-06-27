@@ -1,6 +1,7 @@
 import { AuthService } from './services/auth'
 import { ApiClient } from './api/client'
 import { AppLayout } from './components/layout'
+import { canAccess } from './utils/role-permissions'
 import { LoginScreen } from './screens/login'
 import { DashboardScreen } from './screens/dashboard'
 import { BookingsScreen } from './screens/bookings'
@@ -127,6 +128,17 @@ export class Router {
       path = '/'
       window.location.hash = '#'
       return
+    }
+
+    // Role-based route guard
+    if (this.auth.isAuthenticated() && path !== '/login') {
+      const user = this.auth.getUser()
+      if (user && !canAccess(user.role, path)) {
+        console.log('[DEBUG] Access denied for role:', user.role, 'to path:', path)
+        path = '/dashboard'
+        window.location.hash = '#dashboard'
+        return
+      }
     }
 
     // Update hash to match path (triggers hashchange which calls navigate again)

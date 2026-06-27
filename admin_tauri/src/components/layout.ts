@@ -1,6 +1,7 @@
 import { AuthService } from '../services/auth'
 import { Router } from '../router'
 import { ApiClient } from '../api/client'
+import { filterMenuByRole } from '../utils/role-permissions'
 
 interface MenuGroup {
   label: string
@@ -129,6 +130,7 @@ export class AppLayout {
   private escHandler: ((e: KeyboardEvent) => void) | null = null
   private keyboardShortcutsHandler: ((e: KeyboardEvent) => void) | null = null
   private goKeyPending = false
+  private notificationPollInterval: number | null = null
 
   constructor(auth: AuthService, router: Router, title: string, activeRoute: string, api: ApiClient | null = null) {
     this.auth = auth
@@ -142,10 +144,12 @@ export class AppLayout {
     if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler)
     if (this.escHandler)    document.removeEventListener('keydown', this.escHandler)
     if (this.keyboardShortcutsHandler) document.removeEventListener('keydown', this.keyboardShortcutsHandler)
+    if (this.notificationPollInterval) window.clearInterval(this.notificationPollInterval)
     this.resizeHandler = null
     this.escHandler    = null
     this.keyboardShortcutsHandler = null
     this.goKeyPending = false
+    this.notificationPollInterval = null
   }
 
   private renderBreadcrumbs(): string {
@@ -205,7 +209,7 @@ export class AppLayout {
         </div>
         <!-- Navigation -->
         <nav id="sidebar-nav" class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar">
-          ${MENU_GROUPS.map((group, gi) => {
+          ${filterMenuByRole(this.auth.getUser()?.role, MENU_GROUPS).map((group, gi) => {
             const isGroupActive = group.items.some(item => this.activeRoute === item.icon || this.activeRoute === item.route.replace('/', ''))
             return `
               <div class="menu-group ${isGroupActive ? 'open' : ''}" data-group-index="${gi}">
@@ -260,10 +264,25 @@ export class AppLayout {
           <button id="theme-toggle" class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" aria-label="تبديل الوضع الداكن">
             <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true" id="theme-icon">dark_mode</span>
           </button>
-          <button class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" data-route="/notifications" aria-label="التنبيهات">
-            <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true">notifications</span>
-            <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70" aria-hidden="true"></span>
-          </button>
+          <div class="relative" id="notif-dropdown-container">
+            <button id="notif-dropdown-btn" class="touch-safe p-2 transition-all relative rounded-full hover:bg-primary-container/10 text-on-surface-variant" aria-label="التنبيهات" aria-haspopup="true" aria-expanded="false">
+              <span class="material-symbols-outlined transition-transform hover:scale-110" style="font-size:22px;font-variation-settings:'FILL' 0" aria-hidden="true">notifications</span>
+              <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 hidden bg-error ring-white/70" aria-hidden="true"></span>
+            </button>
+            <!-- Notification Dropdown -->
+            <div id="notif-dropdown" class="hidden absolute left-0 top-full mt-2 w-80 max-w-[calc(100vw-1rem)] bg-surface-container-lowest rounded-2xl shadow-2xl border border-border z-50 overflow-hidden" role="menu" aria-label="قائمة التنبيهات">
+              <div class="flex items-center justify-between p-4 border-b border-border">
+                <h3 class="font-headline-md text-sm font-bold text-on-surface">التنبيهات</h3>
+                <button id="notif-mark-all-read" class="text-xs text-primary hover:underline touch-safe">تعيين الكل مقروء</button>
+              </div>
+              <div id="notif-list" class="max-h-[320px] overflow-y-auto custom-scrollbar">
+                <div class="text-center py-6 text-on-surface-variant text-sm">جاري تحميل التنبيهات...</div>
+              </div>
+              <div class="p-3 border-t border-border text-center">
+                <a href="#/notifications" class="text-sm text-primary hover:underline font-medium" data-route="/notifications">عرض الكل</a>
+              </div>
+            </div>
+          </div>
           <button id="profile-btn" class="touch-safe flex items-center gap-2 hover:bg-white/50 p-1 pr-2 rounded-full transition-all" aria-label="الملف الشخصي">
             <span class="text-sm hidden sm:block text-on-surface font-semibold max-w-[100px] truncate">${this.auth.getUser()?.fullName || 'المسؤول'}</span>
             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold overflow-hidden border-2 border-primary/20 bg-primary-fixed text-primary flex-shrink-0 touch-safe" aria-hidden="true">
@@ -604,14 +623,47 @@ export class AppLayout {
       this.router.navigate('/bookings/new')
     })
 
-    // ── Notifications ──
-    const notifBtn = wrapper.querySelector('nav [data-route="/notifications"]')
-    if (notifBtn) {
-      notifBtn.addEventListener('click', (e) => {
-        e.preventDefault()
-        this.router.navigate('/notifications')
+    // ── Notifications Dropdown ──
+    const notifDropdownBtn = wrapper.querySelector('#notif-dropdown-btn') as HTMLButtonElement
+    const notifDropdown = wrapper.querySelector('#notif-dropdown') as HTMLElement
+    const notifMarkAllRead = wrapper.querySelector('#notif-mark-all-read') as HTMLButtonElement
+
+    if (notifDropdownBtn && notifDropdown) {
+      let dropdownOpen = false
+      const toggleDropdown = () => {
+        dropdownOpen = !dropdownOpen
+        notifDropdown.classList.toggle('hidden', !dropdownOpen)
+        notifDropdownBtn.setAttribute('aria-expanded', dropdownOpen ? 'true' : 'false')
+        if (dropdownOpen) this.loadNotificationsDropdown(wrapper)
+      }
+      notifDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        toggleDropdown()
+      })
+      // Close dropdown on outside click
+      document.addEventListener('click', (e) => {
+        if (dropdownOpen && !notifDropdown.contains(e.target as Node) && !notifDropdownBtn.contains(e.target as Node)) {
+          dropdownOpen = false
+          notifDropdown.classList.add('hidden')
+          notifDropdownBtn.setAttribute('aria-expanded', 'false')
+        }
       })
     }
+
+    if (notifMarkAllRead) {
+      notifMarkAllRead.addEventListener('click', async () => {
+        try {
+          await this.api?.post?.('/api/notifications/read-all', {})
+          this.fetchNotificationsBadge()
+          this.loadNotificationsDropdown(wrapper)
+        } catch { /* ignore */ }
+      })
+    }
+
+    // Poll notifications every 30 seconds
+    this.notificationPollInterval = window.setInterval(() => {
+      this.fetchNotificationsBadge()
+    }, 30000)
 
     // ── Profile ──
     wrapper.querySelector('#profile-btn')?.addEventListener('click', () => {
@@ -772,12 +824,72 @@ export class AppLayout {
       if (res.success) {
         const count = (res.data?.count as number) ?? 0
         const badge = document.getElementById('notif-badge')
-        if (badge && count > 0) {
-          badge.classList.remove('hidden')
+        if (badge) {
+          badge.classList.toggle('hidden', count === 0)
         }
       }
     } catch (e) {
       // Silently fail if API is unavailable
+    }
+  }
+
+  private async loadNotificationsDropdown(wrapper: HTMLElement) {
+    const list = wrapper.querySelector('#notif-list') as HTMLElement
+    if (!list || !this.api) return
+    list.innerHTML = '<div class="text-center py-6 text-on-surface-variant text-sm">جاري التحميل...</div>'
+    try {
+      const res = await this.api.get<any>('/api/notifications?limit=10')
+      if (res.success && res.data) {
+        const notifications = Array.isArray(res.data) ? res.data : (res.data.data || [])
+        if (notifications.length === 0) {
+          list.innerHTML = `<div class="text-center py-6 text-on-surface-variant text-sm flex flex-col items-center gap-2"><span class="material-symbols-outlined text-3xl opacity-30">notifications_off</span>لا توجد تنبيهات</div>`
+          return
+        }
+        list.innerHTML = notifications.map((n: any) => {
+          const isUnread = !n.isRead && !n.readAt
+          const iconMap: Record<string, string> = {
+            BOOKING: 'calendar_month',
+            INVOICE: 'receipt_long',
+            PAYMENT: 'payments',
+            SYSTEM: 'info',
+            ALERT: 'warning',
+          }
+          const icon = iconMap[n.type] || 'notifications'
+          const time = n.createdAt ? new Date(n.createdAt).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : ''
+          return `
+            <div class="flex items-start gap-3 p-3 hover:bg-surface-container-high transition-colors cursor-pointer border-b border-border/50 last:border-0 ${isUnread ? 'bg-primary/5' : ''}" data-notif-id="${n.id}">
+              <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">${icon}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-on-surface font-medium truncate">${n.title || 'تنبيه'}</p>
+                <p class="text-xs text-on-surface-variant line-clamp-2">${n.message || n.body || ''}</p>
+                <p class="text-[11px] text-on-surface-variant mt-1">${time}</p>
+              </div>
+              ${isUnread ? '<div class="w-2 h-2 rounded-full bg-error mt-1 shrink-0"></div>' : ''}
+            </div>
+          `
+        }).join('')
+        // Click to mark as read
+        list.querySelectorAll('[data-notif-id]').forEach(el => {
+          el.addEventListener('click', async () => {
+            const id = el.getAttribute('data-notif-id')
+            if (id) {
+              try {
+                await this.api?.post?.(`/api/notifications/${id}/read`, {})
+                el.classList.remove('bg-primary/5')
+                const dot = el.querySelector('.bg-error')
+                if (dot) dot.remove()
+                this.fetchNotificationsBadge()
+              } catch { /* ignore */ }
+            }
+          })
+        })
+      } else {
+        list.innerHTML = `<div class="text-center py-6 text-on-surface-variant text-sm">لا توجد تنبيهات</div>`
+      }
+    } catch {
+      list.innerHTML = `<div class="text-center py-6 text-error text-sm">فشل تحميل التنبيهات</div>`
     }
   }
 
