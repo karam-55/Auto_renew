@@ -424,7 +424,7 @@ export class WatchimpService {
 
   async checkConnection(): Promise<WhatsAppNotificationResult> {
     if (!this.isEnabled()) {
-      return { success: false, message: 'Watchimp not enabled or not configured' };
+      return { success: false, error: 'Watchimp not enabled or not configured' };
     }
 
     // If we have all connection credentials, try to verify account connection
@@ -432,16 +432,16 @@ export class WatchimpService {
       try {
         const result = await this.connectAccount();
         if (result.success) {
-          return { success: true, message: 'Watchimp account connected successfully' };
+          return { success: true, messageId: 'connected' };
         }
-        return { success: false, message: result.error || 'Watchimp connection failed' };
+        return { success: false, error: result.error || 'Watchimp connection failed' };
       } catch (error) {
-        return { success: false, message: this.extractError(error) };
+        return { success: false, error: this.extractError(error) };
       }
     }
 
     // Otherwise, sending configuration is ready
-    return { success: true, message: 'Watchimp sending configuration is ready' };
+    return { success: true, messageId: 'ready' };
   }
 
   private normalizePhone(phone: string): string {
