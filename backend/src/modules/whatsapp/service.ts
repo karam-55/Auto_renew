@@ -482,7 +482,7 @@ ${fullPdfUrl ? `\n📄 ملف الكفالة:\n${fullPdfUrl}` : '\nتجد ملف
 
     if (this.useWatchimp()) {
       const result = await this.watchimpService.checkConnection();
-      return { success: result.success, message: result.message || result.error || 'Watchimp connection test completed' };
+      return { success: result.success, message: result.error || 'Watchimp connection test completed' };
     }
 
     try {
