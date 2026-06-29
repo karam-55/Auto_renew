@@ -39,6 +39,26 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 178.105.209.59 >> ~/.ssh/known_hosts
 
+      - name: Update server .env with WhatsApp Business API (WhatChimp) vars
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
+            ${{ secrets.SERVER_USER }}@178.105.209.59 "
+              ENV_FILE=/opt/auto-renew/deploy/.env
+              if ! grep -q 'WATCHIMP_ENABLED' \$ENV_FILE 2>/dev/null; then
+                echo '' >> \$ENV_FILE
+                echo '# WhatsApp Business API (WhatChimp)' >> \$ENV_FILE
+                echo 'WATCHIMP_ENABLED=true' >> \$ENV_FILE
+                echo 'WATCHIMP_API_KEY=${{ secrets.WATCHIMP_API_KEY }}' >> \$ENV_FILE
+                echo 'WATCHIMP_API_URL=https://app.whatchimp.com/api/v1' >> \$ENV_FILE
+                echo 'WATCHIMP_PHONE_NUMBER_ID=${{ secrets.WATCHIMP_PHONE_NUMBER_ID }}' >> \$ENV_FILE
+                echo 'WATCHIMP_BUSINESS_ACCOUNT_ID=${{ secrets.WATCHIMP_BUSINESS_ACCOUNT_ID }}' >> \$ENV_FILE
+                echo 'BASE_URL=http://178.105.209.59' >> \$ENV_FILE
+                echo 'Updated .env with WhatChimp vars'
+              else
+                echo 'WhatChimp vars already in .env'
+              fi
+            "
+
       - name: Copy backend source to server
         run: |
           rsync -avz --delete --exclude='node_modules' \

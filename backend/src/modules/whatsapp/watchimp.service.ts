@@ -183,52 +183,167 @@ export class WatchimpService {
     }
   }
 
+  /**
+   * Send a PDF document via WhatsApp
+   */
+  async sendDocument(
+    to: string,
+    documentUrl: string,
+    caption: string = '',
+    filename: string = 'document.pdf'
+  ): Promise<WhatsAppNotificationResult> {
+    if (!this.isEnabled()) {
+      return { success: false, error: 'Watchimp not enabled' };
+    }
+
+    const phone = this.normalizePhone(to);
+
+    try {
+      const response = await axios.post(
+        `${this.config.apiUrl}/whatsapp/send-document`,
+        {
+          apiToken: this.config.apiKey,
+          phone_number_id: this.config.phoneNumberId,
+          phone_number: phone,
+          document_url: documentUrl,
+          caption: caption,
+          filename: filename,
+        },
+        {
+          timeout: 15000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      Logger.debug('Watchimp document sent successfully', { messageId: response.data?.wa_message_id });
+      return {
+        success: response.data?.status === '1' || response.data?.status === 1,
+        messageId: response.data?.wa_message_id,
+      };
+    } catch (error) {
+      Logger.error('Error sending Watchimp document', error);
+      return { success: false, error: this.extractError(error) };
+    }
+  }
+
+  /**
+   * Send invoice PDF to customer
+   */
+  async sendInvoicePdf(
+    customerPhone: string,
+    invoicePdfUrl: string,
+    invoiceNumber: string,
+    totalAmount: number
+  ): Promise<WhatsAppNotificationResult> {
+    const caption = `فاتورتك رقم ${invoiceNumber} - الإجمالي: ${totalAmount.toLocaleString()} ل.س`;
+    const filename = `invoice_${invoiceNumber}.pdf`;
+    return this.sendDocument(customerPhone, invoicePdfUrl, caption, filename);
+  }
+
   async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتم استلام حجزك بنجاح في ${data.garageName}.\nرقم الحجز: ${data.bookingId}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\nالتاريخ: ${data.scheduledDate}\n\nشكراً لثقتك بنا!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.bookingId },
+          { type: 'text', text: `${data.vehicleMake} ${data.vehicleModel}` },
+          { type: 'text', text: data.scheduledDate },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'booking_confirmation', 'ar', components);
   }
 
   async sendBookingStatusUpdate(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتحديث حالة حجزك رقم ${data.bookingId}.\nالحالة الجديدة: ${data.status}\n\nشكراً لثقتك بنا!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const statusMessages: Record<string, string> = {
+      'IN_PROGRESS': 'جاري العمل',
+      'WAITING_PARTS': 'بانتظار قطع الغيار',
+      'READY': 'جاهز للاستلام',
+      'COMPLETED': 'مكتمل',
+      'CANCELLED': 'ملغى',
+    };
+    const statusText = statusMessages[data.status] || data.status;
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.bookingId },
+          { type: 'text', text: statusText },
+          { type: 'text', text: `${data.vehicleMake} ${data.vehicleModel}` },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'booking_status_updatee', 'ar', components);
   }
 
   async sendInstallmentReminder(data: InstallmentReminderData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتذكير بدفعة قسط بقيمة ${data.installmentAmount} ل.س\nمستحقة بتاريخ: ${data.dueDate}\nرقم الفاتورة: ${data.invoiceNumber}\n\nشكراً لك!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: String(data.installmentAmount) },
+          { type: 'text', text: data.dueDate },
+          { type: 'text', text: data.invoiceNumber },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'installment_reminder', 'ar', components);
   }
 
   async sendInstallmentOverdue(data: InstallmentReminderData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتنبيه: دفعة قسط متأخرة بقيمة ${data.installmentAmount} ل.س\nكانت مستحقة بتاريخ: ${data.dueDate}\nرقم الفاتورة: ${data.invoiceNumber}\n\nيرجى التسديد في أقرب وقت.`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: String(data.installmentAmount) },
+          { type: 'text', text: data.dueDate },
+          { type: 'text', text: data.invoiceNumber },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'installment_overdue', 'ar', components);
   }
 
   async sendInvoiceNotification(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتم إصدار فاتورة جديدة رقم ${data.invoiceNumber}\nالإجمالي: ${data.totalAmount} ل.س\nتاريخ الاستحقاق: ${data.dueDate}\n\nشكراً لثقتك بنا!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.invoiceNumber },
+          { type: 'text', text: String(data.totalAmount) },
+          { type: 'text', text: data.dueDate },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'invoice_new', 'ar', components);
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nتم استلام دفعة بقيمة ${data.totalAmount} ل.س\nرقم الفاتورة: ${data.invoiceNumber}\n\nشكراً لك!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.invoiceNumber },
+          { type: 'text', text: String(data.totalAmount) },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'payment_received', 'ar', components);
   }
 
   async sendLoyaltyPointsEarned(
@@ -237,11 +352,17 @@ export class WatchimpService {
     points: number,
     garageName: string
   ): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${customerName}،\n\nتم إضافة ${points} نقطة ولاء لحسابك في ${garageName}!\n\nشكراً لولائك المستمر.`;
-    return this.sendMessage({
-      to: customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: customerName },
+          { type: 'text', text: garageName },
+          { type: 'text', text: String(points) },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(customerPhone, 'loyalty_pointss', 'ar', components);
   }
 
   async sendLoyaltyTierUpgrade(
@@ -250,11 +371,17 @@ export class WatchimpService {
     newTier: string,
     garageName: string
   ): Promise<WhatsAppNotificationResult> {
-    const message = `مبروك ${customerName}!\n\nلقد تم ترقية حسابك إلى مستوى ${newTier} في ${garageName}.\nاستمتع بالمزايا الحصرية!`;
-    return this.sendMessage({
-      to: customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: customerName },
+          { type: 'text', text: newTier },
+          { type: 'text', text: garageName },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(customerPhone, 'loyalty_upgrade', 'ar', components);
   }
 
   async sendWelcomeMessage(
@@ -262,11 +389,16 @@ export class WatchimpService {
     customerPhone: string,
     garageName: string
   ): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${customerName}،\n\nأهلاً بك في ${garageName}!\nنحن هنا لخدمتك.\n\nلأي استفسار، تواصل معنا.`;
-    return this.sendMessage({
-      to: customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: customerName },
+          { type: 'text', text: garageName },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(customerPhone, 'welcome', 'ar', components);
   }
 
   async sendWarrantyNotification(data: {
@@ -276,11 +408,18 @@ export class WatchimpService {
     expiryDate: string;
     garageName: string;
   }): Promise<WhatsAppNotificationResult> {
-    const message = `مرحباً ${data.customerName}،\n\nضمانك رقم ${data.warrantyNumber} سينتهي بتاريخ ${data.expiryDate}.\nيرجى مراجعة ${data.garageName} للتجديد إذا رغبت.\n\nشكراً لك!`;
-    return this.sendMessage({
-      to: data.customerPhone,
-      message,
-    });
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.warrantyNumber },
+          { type: 'text', text: data.expiryDate },
+        ],
+      },
+    ];
+    return this.sendTemplateMessage(data.customerPhone, 'warranty_new', 'ar', components);
   }
 
   async checkConnection(): Promise<WhatsAppNotificationResult> {

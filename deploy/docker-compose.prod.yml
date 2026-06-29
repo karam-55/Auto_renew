@@ -134,6 +134,12 @@ services:
       WHATSAPP_API_KEY: ${EVO_API_KEY}
       WHATSAPP_INSTANCE_NAME: ${EVO_INSTANCE_NAME:-garage}
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-default}
+      WATCHIMP_ENABLED: "true"
+      WATCHIMP_API_KEY: ${WATCHIMP_API_KEY}
+      WATCHIMP_API_URL: ${WATCHIMP_API_URL:-https://app.whatchimp.com/api/v1}
+      WATCHIMP_PHONE_NUMBER_ID: ${WATCHIMP_PHONE_NUMBER_ID}
+      WATCHIMP_BUSINESS_ACCOUNT_ID: ${WATCHIMP_BUSINESS_ACCOUNT_ID}
+      BASE_URL: ${BASE_URL:-http://178.105.209.59}
     networks:
       - garage_network
     healthcheck:

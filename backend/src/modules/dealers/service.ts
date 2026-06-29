@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
 import { generateWarrantyPdf } from './pdf-generator';
 import { WhatsAppService } from '../whatsapp/service';
+import { WatchimpService } from '../whatsapp/watchimp.service';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -214,24 +215,45 @@ export class DealerService {
         data: { pdfUrl: pdfResult.pdfUrl },
       });
 
-      // Send WhatsApp notification with warranty PDF link
+      // Send WhatsApp notification with warranty PDF via WhatChimp
       try {
-        const whatsappService = new WhatsAppService();
-        const waResult = await whatsappService.sendWarrantyNotification({
+        const watchimpService = new WatchimpService();
+        const baseUrl = process.env.BASE_URL || process.env.SERVER_URL || '';
+        const fullPdfUrl = pdfResult.pdfUrl
+          ? `${baseUrl.replace(/\/$/, '')}${pdfResult.pdfUrl}`
+          : undefined;
+
+        // 1. Send warranty template message
+        const templateResult = await watchimpService.sendWarrantyNotification({
           customerName: data.customerName,
           customerPhone: data.customerPhone,
-          vehicleModel: data.vehicleModel,
-          plateNumber: data.plateNumber,
-          durationMonths: data.durationMonths,
-          pdfUrl: pdfResult.pdfUrl,
-          pdfBase64: pdfResult.base64,
+          warrantyNumber: warranty.id.substring(0, 8).toUpperCase(),
+          expiryDate: endDate.toLocaleDateString('ar-SY'),
+          garageName: dealer.companyName || dealer.name || 'Auto Renew',
         });
 
-        if (!waResult.success) {
-          Logger.warn('Failed to send WhatsApp warranty notification', { error: waResult.error, warrantyId: warranty.id });
+        if (!templateResult.success) {
+          Logger.warn('Failed to send WhatChimp warranty template', { error: templateResult.error, warrantyId: warranty.id });
+        }
+
+        // 2. Send PDF document if available
+        if (fullPdfUrl && watchimpService.isEnabled()) {
+          try {
+            const docResult = await watchimpService.sendDocument(
+              data.customerPhone,
+              fullPdfUrl,
+              `شهادة كفالة رقم ${warranty.id.substring(0, 8).toUpperCase()}`,
+              `warranty_${warranty.id.substring(0, 8).toUpperCase()}.pdf`
+            );
+            if (!docResult.success) {
+              Logger.warn('Failed to send WhatChimp warranty PDF', { error: docResult.error, warrantyId: warranty.id });
+            }
+          } catch (docError) {
+            Logger.error('Error sending WhatChimp warranty PDF', docError);
+          }
         }
       } catch (waError) {
-        Logger.error('Error sending WhatsApp warranty notification', waError);
+        Logger.error('Error sending WhatChimp warranty notification', waError);
       }
     } catch (err) {
       Logger.error('Error generating PDF for warranty', err);
