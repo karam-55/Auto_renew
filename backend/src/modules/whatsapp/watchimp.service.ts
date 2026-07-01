@@ -243,7 +243,12 @@ export class WatchimpService {
     return this.sendDocument(customerPhone, invoicePdfUrl, caption, filename);
   }
 
-  async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
+  async sendBookingConfirmation(data: BookingNotificationData & { trackingUrl?: string; qrImageUrl?: string }): Promise<WhatsAppNotificationResult> {
+    // Build free-form fallback message
+    const trackingInfo = data.trackingUrl ? `\n\nرابط تتبع الحجز:\n${data.trackingUrl}\n\nيمكنك مسح الكود QR المرفق لمتابعة حالة صيانة سيارتك.` : '';
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم استلام حجزك في ${data.garageName} بنجاح.\n\nرقم الحجز: ${data.bookingId}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\nالتاريخ: ${data.scheduledDate}${trackingInfo}\n\nشكراً لثقتك بنا!`;
+
+    // Try template first
     const components = [
       {
         type: 'body',
@@ -256,7 +261,19 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(data.customerPhone, 'booking_confirmation', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_confirmation', 'ar', components);
+    if (templateResult.success) {
+      // If template succeeded and we have a QR image, send it as a separate image message
+      if (data.qrImageUrl) {
+        try {
+          await this.sendDocument(data.customerPhone, data.qrImageUrl, 'امسح الكود QR لمتابعة حالة الحجز', 'booking_qr.png');
+        } catch (e) { /* ignore QR send failure */ }
+      }
+      return templateResult;
+    }
+
+    // Fallback: free-form message
+    return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
   }
 
   async sendBookingStatusUpdate(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
@@ -268,6 +285,8 @@ export class WatchimpService {
       'CANCELLED': 'ملغى',
     };
     const statusText = statusMessages[data.status] || data.status;
+
+    // Try template first, fallback to free-form text
     const components = [
       {
         type: 'body',
@@ -280,7 +299,12 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(data.customerPhone, 'booking_status_updatee', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_status_update', 'ar', components);
+    if (templateResult.success) return templateResult;
+
+    // Fallback: free-form message
+    const message = `مرحباً ${data.customerName}،\n\nتم تحديث حالة حجزك في ${data.garageName}.\n\nرقم الحجز: ${data.bookingId}\nالحالة الجديدة: ${statusText}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\n\nيمكنك متابعة التفاصيل عبر رابط التتبع الخاص بك.`;
+    return this.sendMessage({ to: data.customerPhone, message });
   }
 
   async sendInstallmentReminder(data: InstallmentReminderData): Promise<WhatsAppNotificationResult> {
@@ -315,7 +339,9 @@ export class WatchimpService {
     return this.sendTemplateMessage(data.customerPhone, 'installment_overdue', 'ar', components);
   }
 
-  async sendInvoiceNotification(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
+  async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nفاتورتك جاهزة في ${data.garageName}.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمجموع: ${data.totalAmount.toLocaleString()} ل.س\nتاريخ الاستحقاق: ${data.dueDate}\n\nسيتم إرسال نسخة PDF من الفاتورة في الرسالة التالية.`;
+
     const components = [
       {
         type: 'body',
@@ -328,7 +354,27 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(data.customerPhone, 'invoice_new', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'invoice_neww', 'ar', components);
+    if (templateResult.success) {
+      if (data.pdfUrl && this.isEnabled()) {
+        try {
+          await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
+        } catch (e) {
+          Logger.warn('Failed to send invoice PDF', { error: e, invoiceNumber: data.invoiceNumber });
+        }
+      }
+      return templateResult;
+    }
+
+    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
+    if (data.pdfUrl && this.isEnabled()) {
+      try {
+        await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
+      } catch (e) {
+        Logger.warn('Failed to send invoice PDF (fallback)', { error: e });
+      }
+    }
+    return textResult;
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
@@ -343,7 +389,7 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(data.customerPhone, 'payment_received', 'ar', components);
+    return this.sendTemplateMessage(data.customerPhone, 'payment_receivedd', 'ar', components);
   }
 
   async sendLoyaltyPointsEarned(
@@ -362,7 +408,11 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(customerPhone, 'loyalty_pointss', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(customerPhone, 'loyalty_points', 'ar', components);
+    if (templateResult.success) return templateResult;
+
+    const freeFormMessage = `مرحباً ${customerName}،\n\nلقد ربحت ${points} نقطة جديدة في ${garageName}. شكراً لولائك!`;
+    return this.sendMessage({ to: customerPhone, message: freeFormMessage });
   }
 
   async sendLoyaltyTierUpgrade(
@@ -389,6 +439,8 @@ export class WatchimpService {
     customerPhone: string,
     garageName: string
   ): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${customerName}!\n\nأهلاً وسهلاً بك في ${garageName}. نحن سعداء بانضمامك لعائلتنا ونتطلع لخدمة سيارتك على أفضل وجه.\n\nيمكنك حجز موعد الصيانة في أي وقت عبر موقعنا أو بالاتصال بنا.`;
+
     const components = [
       {
         type: 'body',
@@ -398,7 +450,10 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(customerPhone, 'welcome', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(customerPhone, 'welcomee', 'ar', components);
+    if (templateResult.success) return templateResult;
+
+    return this.sendMessage({ to: customerPhone, message: freeFormMessage });
   }
 
   async sendWarrantyNotification(data: {
@@ -407,7 +462,10 @@ export class WatchimpService {
     warrantyNumber: string;
     expiryDate: string;
     garageName: string;
+    pdfUrl?: string;
   }): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم إنشاء كفالة جديدة لك في ${data.garageName}.\n\nرقم الكفالة: ${data.warrantyNumber}\nتاريخ الانتهاء: ${data.expiryDate}\n\nشهادة الكفالة PDF مرفقة أدناه.`;
+
     const components = [
       {
         type: 'body',
@@ -419,7 +477,77 @@ export class WatchimpService {
         ],
       },
     ];
-    return this.sendTemplateMessage(data.customerPhone, 'warranty_new', 'ar', components);
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'warranty_new', 'ar', components);
+    if (templateResult.success) {
+      // Send PDF if available
+      if (data.pdfUrl && this.isEnabled()) {
+        try {
+          await this.sendDocument(
+            data.customerPhone,
+            data.pdfUrl,
+            `شهادة كفالة رقم ${data.warrantyNumber}`,
+            `warranty_${data.warrantyNumber}.pdf`
+          );
+        } catch (e) {
+          Logger.warn('Failed to send warranty PDF via Watchimp', { error: e, warrantyNumber: data.warrantyNumber });
+        }
+      }
+      return templateResult;
+    }
+
+    // Fallback: send free-form text, then PDF separately
+    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
+    if (data.pdfUrl && this.isEnabled()) {
+      try {
+        await this.sendDocument(
+          data.customerPhone,
+          data.pdfUrl,
+          `شهادة كفالة رقم ${data.warrantyNumber}`,
+          `warranty_${data.warrantyNumber}.pdf`
+        );
+      } catch (e) {
+        Logger.warn('Failed to send warranty PDF via Watchimp (fallback)', { error: e });
+      }
+    }
+    return textResult;
+  }
+
+  async sendPaymentConfirmationWithPdf(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم استلام دفعتك في ${data.garageName} بنجاح.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمبلغ المدفوع: ${data.totalAmount.toLocaleString()} ل.س\n\nشكراً لك! نسخة PDF من الفاتورة المدفوعة مرفقة أدناه.`;
+
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: data.customerName },
+          { type: 'text', text: data.garageName },
+          { type: 'text', text: data.invoiceNumber },
+          { type: 'text', text: String(data.totalAmount) },
+        ],
+      },
+    ];
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'payment_receivedd', 'ar', components);
+    if (templateResult.success) {
+      if (data.pdfUrl && this.isEnabled()) {
+        try {
+          await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
+        } catch (e) {
+          Logger.warn('Failed to send invoice PDF after payment', { error: e, invoiceNumber: data.invoiceNumber });
+        }
+      }
+      return templateResult;
+    }
+
+    // Fallback: free-form + PDF
+    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
+    if (data.pdfUrl && this.isEnabled()) {
+      try {
+        await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
+      } catch (e) {
+        Logger.warn('Failed to send invoice PDF after payment (fallback)', { error: e });
+      }
+    }
+    return textResult;
   }
 
   async checkConnection(): Promise<WhatsAppNotificationResult> {

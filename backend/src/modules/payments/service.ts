@@ -9,6 +9,9 @@ import {
 import { Logger } from '../../infrastructure/logging/logger';
 import { PaymentMethod } from '@prisma/client';
 import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { WatchimpService } from '../whatsapp/watchimp.service';
+import { PdfWorker } from '../../workers/pdf.worker';
+import fs from 'fs';
 
 export class PaymentService {
   /**
@@ -101,6 +104,80 @@ export class PaymentService {
     } catch (error) {
       Logger.error('Error creating journal entry for payment:', error);
     }
+
+    // Send WhatsApp payment confirmation with invoice PDF via WhatChimp
+    setImmediate(async () => {
+      try {
+        const paymentWithDetails = await prisma.payment.findUnique({
+          where: { id: payment.id },
+          include: {
+            invoice: {
+              include: {
+                items: true,
+                customer: { select: { fullName: true, phone: true } },
+                booking: { select: { publicToken: true } },
+              },
+            },
+          },
+        });
+
+        if (!paymentWithDetails?.invoice?.customer?.phone) return;
+
+        const invoice = paymentWithDetails.invoice;
+        const customer = invoice.customer;
+        if (!customer) return;
+        const customerPhone = customer.phone;
+        const customerName = customer.fullName;
+        const invoiceId = invoice.id;
+        const invoiceNumber = invoice.invoiceNumber || invoiceId.substring(0, 8).toUpperCase();
+        const totalPaid = Number(invoice.paidSYP);
+
+        // Generate invoice PDF if not exists
+        const pdfPath = `uploads/pdfs/invoices/${invoiceId}.pdf`;
+        let pdfUrl = `/uploads/pdfs/invoices/${invoiceId}.pdf`;
+        const baseUrl = process.env.BASE_URL || process.env.SERVER_URL || '';
+        const fullPdfUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}${pdfUrl}` : pdfUrl;
+
+        if (!fs.existsSync(pdfPath)) {
+          try {
+            const pdfResult = await PdfWorker.generateInvoicePdf({
+              invoiceId,
+              invoiceNumber,
+              customerName,
+              date: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              status: invoice.status,
+              items: invoice.items?.map((item: any) => ({
+                name: item.description || 'خدمة',
+                quantity: item.quantity || 1,
+                price: Number(item.priceSYP || 0),
+                total: Number(item.totalSYP || item.priceSYP || 0),
+              })),
+              subtotal: Number(invoice.subtotalSYP || 0),
+              tax: Number(invoice.taxSYP || 0),
+              discount: Number(invoice.discountSYP || 0),
+              total: Number(invoice.totalSYP || 0),
+            });
+            pdfUrl = pdfResult.pdfUrl;
+          } catch (pdfError) {
+            Logger.error('Failed to generate invoice PDF for WhatsApp:', pdfError);
+          }
+        }
+
+        // Send WhatsApp payment confirmation with PDF
+        const watchimpService = new WatchimpService();
+        await watchimpService.sendPaymentConfirmationWithPdf({
+          customerName,
+          customerPhone,
+          invoiceNumber,
+          totalAmount: totalPaid,
+          dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('ar-SY') : new Date().toLocaleDateString('ar-SY'),
+          garageName: 'Garage Go',
+          pdfUrl: fullPdfUrl,
+        });
+      } catch (whatsappError) {
+        Logger.error('Error sending WhatsApp payment confirmation via WhatChimp:', whatsappError);
+      }
+    });
 
     return this.mapToPaymentResponse(payment);
   }

@@ -223,34 +223,18 @@ export class DealerService {
           ? `${baseUrl.replace(/\/$/, '')}${pdfResult.pdfUrl}`
           : undefined;
 
-        // 1. Send warranty template message
-        const templateResult = await watchimpService.sendWarrantyNotification({
+        // Send warranty notification (template + PDF handled internally with fallback)
+        const result = await watchimpService.sendWarrantyNotification({
           customerName: data.customerName,
           customerPhone: data.customerPhone,
           warrantyNumber: warranty.id.substring(0, 8).toUpperCase(),
           expiryDate: endDate.toLocaleDateString('ar-SY'),
           garageName: dealer.companyName || dealer.name || 'Auto Renew',
+          pdfUrl: fullPdfUrl,
         });
 
-        if (!templateResult.success) {
-          Logger.warn('Failed to send WhatChimp warranty template', { error: templateResult.error, warrantyId: warranty.id });
-        }
-
-        // 2. Send PDF document if available
-        if (fullPdfUrl && watchimpService.isEnabled()) {
-          try {
-            const docResult = await watchimpService.sendDocument(
-              data.customerPhone,
-              fullPdfUrl,
-              `شهادة كفالة رقم ${warranty.id.substring(0, 8).toUpperCase()}`,
-              `warranty_${warranty.id.substring(0, 8).toUpperCase()}.pdf`
-            );
-            if (!docResult.success) {
-              Logger.warn('Failed to send WhatChimp warranty PDF', { error: docResult.error, warrantyId: warranty.id });
-            }
-          } catch (docError) {
-            Logger.error('Error sending WhatChimp warranty PDF', docError);
-          }
+        if (!result.success) {
+          Logger.warn('Failed to send WhatChimp warranty notification', { error: result.error, warrantyId: warranty.id });
         }
       } catch (waError) {
         Logger.error('Error sending WhatChimp warranty notification', waError);

@@ -153,8 +153,9 @@ export class PdfWorker {
 
   /**
    * Generate invoice PDF
+   * @public - can be called directly from services (e.g. payment service)
    */
-  private static async generateInvoicePdf(data: any): Promise<any> {
+  public static async generateInvoicePdf(data: any): Promise<any> {
     LoggingMiddleware.logCacheEvent('INVOICE_PDF_GENERATE', 'job', { invoiceId: data.invoiceId });
     const pdfDir = path.join(process.cwd(), 'uploads', 'pdfs', 'invoices');
     fs.mkdirSync(pdfDir, { recursive: true });
