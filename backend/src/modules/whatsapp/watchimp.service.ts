@@ -25,13 +25,19 @@ export class WatchimpService {
   private io: SocketIOServer | null = null;
 
   constructor() {
+    const apiKey = process.env.WATCHIMP_API_KEY || '';
+    // Parse API key format: "user_id|access_token"
+    const [parsedUserId, parsedAccessToken] = apiKey.includes('|')
+      ? apiKey.split('|')
+      : ['', apiKey];
+
     this.config = {
-      apiKey: process.env.WATCHIMP_API_KEY || '',
+      apiKey,
       apiUrl: process.env.WATCHIMP_API_URL || 'https://app.whatchimp.com/api/v1',
-      userId: process.env.WATCHIMP_USER_ID,
+      userId: process.env.WATCHIMP_USER_ID || parsedUserId,
       businessAccountId: process.env.WATCHIMP_BUSINESS_ACCOUNT_ID,
       phoneNumberId: process.env.WATCHIMP_PHONE_NUMBER_ID || '',
-      accessToken: process.env.WATCHIMP_ACCESS_TOKEN,
+      accessToken: process.env.WATCHIMP_ACCESS_TOKEN || parsedAccessToken,
       appId: process.env.WATCHIMP_APP_ID,
       isEnabled: process.env.WATCHIMP_ENABLED === 'true',
     };
@@ -178,8 +184,9 @@ export class WatchimpService {
         messageId: response.data?.messages?.[0]?.id || response.data?.id?.toString(),
       };
     } catch (error) {
-      Logger.error('Error sending Watchimp template', error);
-      return { success: false, error: this.extractError(error) };
+      const errMsg = this.extractError(error);
+      Logger.error('Error sending Watchimp template', { error: errMsg, template: templateName, phone, userId: this.config.userId });
+      return { success: false, error: errMsg };
     }
   }
 
