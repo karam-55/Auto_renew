@@ -63,24 +63,81 @@ export class WatchimpService {
   }
 
   /**
-   * Connect WhatsApp Business Account to Watchimp
+   * Create or update a subscriber with custom fields on WhatChimp.
+   * WhatChimp uses custom fields to auto-fill template variables.
    */
-  async connectAccount(): Promise<WhatsAppNotificationResult> {
+  private async setSubscriberCustomFields(
+    phone: string,
+    customFields: Record<string, string>
+  ): Promise<boolean> {
+    try {
+      // First, create/update subscriber
+      const subscriberPayload: any = {
+        apiToken: this.config.apiKey,
+        phone_number_id: this.config.phoneNumberId,
+        phone_number: phone,
+      };
+
+      await axios.post(
+        `${this.config.apiUrl}/whatsapp/subscriber/create`,
+        subscriberPayload,
+        { timeout: 10000, headers: { 'Content-Type': 'application/json' } }
+      );
+
+      // Then assign custom fields
+      const fieldsPayload = {
+        apiToken: this.config.apiKey,
+        phone_number_id: this.config.phoneNumberId,
+        phone_number: phone,
+        custom_fields: JSON.stringify(customFields),
+      };
+
+      await axios.post(
+        `${this.config.apiUrl}/whatsapp/subscriber/chat/assign-custom-fields`,
+        fieldsPayload,
+        { timeout: 10000, headers: { 'Content-Type': 'application/json' } }
+      );
+
+      Logger.debug('WhatChimp subscriber custom fields set', { phone, fields: Object.keys(customFields) });
+      return true;
+    } catch (error) {
+      Logger.error('Error setting WhatChimp subscriber custom fields', { error: this.extractError(error), phone });
+      return false;
+    }
+  }
+
+  /**
+   * Send a templated message via WhatChimp.
+   * WhatChimp templates pull variables from subscriber's custom fields (NOT inline components).
+   */
+  async sendTemplateMessage(
+    to: string,
+    templateName: string,
+    language: string = 'ar',
+    customFields: Record<string, string> = {}
+  ): Promise<WhatsAppNotificationResult> {
     if (!this.isEnabled()) {
-      return { success: false, error: 'Watchimp not enabled or not configured' };
+      return { success: false, error: 'Watchimp not enabled' };
     }
 
+    const phone = this.normalizePhone(to);
+
     try {
+      // Step 1: Set custom fields on subscriber
+      await this.setSubscriberCustomFields(phone, customFields);
+
+      // Step 2: Send template (WhatChimp auto-fills from subscriber custom fields)
       const response = await axios.post(
-        `${this.config.apiUrl}/whatsapp/account/connect`,
+        `${this.config.apiUrl}/whatsapp/send`,
         {
           apiToken: this.config.apiKey,
-          user_id: this.config.userId,
-          whatsapp_business_account_id: this.config.businessAccountId,
-          access_token: this.config.accessToken,
+          phone_number_id: this.config.phoneNumberId,
+          phone_number: phone,
+          template_name: templateName,
+          language_code: language,
         },
         {
-          timeout: 15000,
+          timeout: 10000,
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -88,11 +145,22 @@ export class WatchimpService {
         }
       );
 
-      Logger.info('Watchimp account connected successfully', { data: response.data });
-      return { success: true, messageId: response.data?.id?.toString() };
+      const respData = response.data;
+      Logger.debug('WhatChimp template sent', {
+        status: respData?.status,
+        messageId: respData?.wa_message_id,
+        template: templateName,
+        phone,
+      });
+
+      return {
+        success: respData?.status === '1' || respData?.status === 1,
+        messageId: respData?.wa_message_id,
+      };
     } catch (error) {
-      Logger.error('Error connecting Watchimp account', error);
-      return { success: false, error: this.extractError(error) };
+      const errMsg = this.extractError(error);
+      Logger.error('Error sending WhatChimp template', { error: errMsg, template: templateName, phone });
+      return { success: false, error: errMsg };
     }
   }
 
@@ -133,60 +201,6 @@ export class WatchimpService {
     } catch (error) {
       Logger.error('Error sending Watchimp message', error);
       return { success: false, error: this.extractError(error) };
-    }
-  }
-
-  /**
-   * Send a templated message
-   */
-  async sendTemplateMessage(
-    to: string,
-    templateName: string,
-    language: string = 'ar',
-    components: any[] = []
-  ): Promise<WhatsAppNotificationResult> {
-    if (!this.isEnabled()) {
-      return { success: false, error: 'Watchimp not enabled' };
-    }
-
-    const phone = this.normalizePhone(to);
-
-    try {
-      const response = await axios.post(
-        `${this.config.apiUrl}/whatsapp/send-template`,
-        {
-          apiToken: this.config.apiKey,
-          user_id: this.config.userId,
-          whatsapp_business_account_id: this.config.businessAccountId,
-          phone_number_id: this.config.phoneNumberId,
-          access_token: this.config.accessToken,
-          to: phone,
-          template: {
-            name: templateName,
-            language: {
-              code: language,
-            },
-            components,
-          },
-        },
-        {
-          timeout: 8000,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      Logger.debug('Watchimp template sent successfully', { messageId: response.data?.messages?.[0]?.id });
-      return {
-        success: true,
-        messageId: response.data?.messages?.[0]?.id || response.data?.id?.toString(),
-      };
-    } catch (error) {
-      const errMsg = this.extractError(error);
-      Logger.error('Error sending Watchimp template', { error: errMsg, template: templateName, phone, userId: this.config.userId });
-      return { success: false, error: errMsg };
     }
   }
 
@@ -250,27 +264,25 @@ export class WatchimpService {
     return this.sendDocument(customerPhone, invoicePdfUrl, caption, filename);
   }
 
+  // ============================================
+  // NOTIFICATION METHODS (Updated for WhatChimp Custom Fields)
+  // ============================================
+
   async sendBookingConfirmation(data: BookingNotificationData & { trackingUrl?: string; qrImageUrl?: string }): Promise<WhatsAppNotificationResult> {
-    // Build free-form fallback message
     const trackingInfo = data.trackingUrl ? `\n\nرابط تتبع الحجز:\n${data.trackingUrl}\n\nيمكنك مسح الكود QR المرفق لمتابعة حالة صيانة سيارتك.` : '';
     const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم استلام حجزك في ${data.garageName} بنجاح.\n\nرقم الحجز: ${data.bookingId}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\nالتاريخ: ${data.scheduledDate}${trackingInfo}\n\nشكراً لثقتك بنا!`;
 
-    // Try template first
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.bookingId },
-          { type: 'text', text: `${data.vehicleMake} ${data.vehicleModel}` },
-          { type: 'text', text: data.scheduledDate },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_confirmation', 'ar', components);
+    // WhatChimp Custom Fields for booking_confirmation template
+    const customFields: Record<string, string> = {
+      customer_name: data.customerName,
+      garage_name: data.garageName,
+      booking_id: data.bookingId,
+      vehicle_info: `${data.vehicleMake} ${data.vehicleModel}`,
+      scheduled_date: data.scheduledDate,
+    };
+
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_confirmation', 'ar', customFields);
     if (templateResult.success) {
-      // If template succeeded and we have a QR image, send it as a separate image message
       if (data.qrImageUrl) {
         try {
           await this.sendDocument(data.customerPhone, data.qrImageUrl, 'امسح الكود QR لمتابعة حالة الحجز', 'booking_qr.png');
@@ -279,7 +291,6 @@ export class WatchimpService {
       return templateResult;
     }
 
-    // Fallback: free-form message
     return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
   }
 
@@ -293,152 +304,21 @@ export class WatchimpService {
     };
     const statusText = statusMessages[data.status] || data.status;
 
-    // Try template first, fallback to free-form text
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.bookingId },
-          { type: 'text', text: statusText },
-          { type: 'text', text: `${data.vehicleMake} ${data.vehicleModel}` },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_status_update', 'ar', components);
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم تحديث حالة حجزك في ${data.garageName}.\n\nرقم الحجز: ${data.bookingId}\nالحالة الجديدة: ${statusText}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\n\nيمكنك متابعة التفاصيل عبر رابط التتبع الخاص بك.`;
+
+    // WhatChimp Custom Fields for booking_status_update template
+    const customFields: Record<string, string> = {
+      customer_name: data.customerName,
+      garage_name: data.garageName,
+      booking_id: data.bookingId,
+      status_text: statusText,
+      vehicle_info: `${data.vehicleMake} ${data.vehicleModel}`,
+    };
+
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'booking_status_update', 'ar', customFields);
     if (templateResult.success) return templateResult;
 
-    // Fallback: free-form message
-    const message = `مرحباً ${data.customerName}،\n\nتم تحديث حالة حجزك في ${data.garageName}.\n\nرقم الحجز: ${data.bookingId}\nالحالة الجديدة: ${statusText}\nالمركبة: ${data.vehicleMake} ${data.vehicleModel}\n\nيمكنك متابعة التفاصيل عبر رابط التتبع الخاص بك.`;
-    return this.sendMessage({ to: data.customerPhone, message });
-  }
-
-  async sendInstallmentReminder(data: InstallmentReminderData): Promise<WhatsAppNotificationResult> {
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: String(data.installmentAmount) },
-          { type: 'text', text: data.dueDate },
-          { type: 'text', text: data.invoiceNumber },
-        ],
-      },
-    ];
-    return this.sendTemplateMessage(data.customerPhone, 'installment_reminder', 'ar', components);
-  }
-
-  async sendInstallmentOverdue(data: InstallmentReminderData): Promise<WhatsAppNotificationResult> {
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: String(data.installmentAmount) },
-          { type: 'text', text: data.dueDate },
-          { type: 'text', text: data.invoiceNumber },
-        ],
-      },
-    ];
-    return this.sendTemplateMessage(data.customerPhone, 'installment_overdue', 'ar', components);
-  }
-
-  async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
-    const freeFormMessage = `مرحباً ${data.customerName}،\n\nفاتورتك جاهزة في ${data.garageName}.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمجموع: ${data.totalAmount.toLocaleString()} ل.س\nتاريخ الاستحقاق: ${data.dueDate}\n\nسيتم إرسال نسخة PDF من الفاتورة في الرسالة التالية.`;
-
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.invoiceNumber },
-          { type: 'text', text: String(data.totalAmount) },
-          { type: 'text', text: data.dueDate },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'invoice_neww', 'ar', components);
-    if (templateResult.success) {
-      if (data.pdfUrl && this.isEnabled()) {
-        try {
-          await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
-        } catch (e) {
-          Logger.warn('Failed to send invoice PDF', { error: e, invoiceNumber: data.invoiceNumber });
-        }
-      }
-      return templateResult;
-    }
-
-    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
-    if (data.pdfUrl && this.isEnabled()) {
-      try {
-        await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
-      } catch (e) {
-        Logger.warn('Failed to send invoice PDF (fallback)', { error: e });
-      }
-    }
-    return textResult;
-  }
-
-  async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.invoiceNumber },
-          { type: 'text', text: String(data.totalAmount) },
-        ],
-      },
-    ];
-    return this.sendTemplateMessage(data.customerPhone, 'payment_receivedd', 'ar', components);
-  }
-
-  async sendLoyaltyPointsEarned(
-    customerName: string,
-    customerPhone: string,
-    points: number,
-    garageName: string
-  ): Promise<WhatsAppNotificationResult> {
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: customerName },
-          { type: 'text', text: garageName },
-          { type: 'text', text: String(points) },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(customerPhone, 'loyalty_points', 'ar', components);
-    if (templateResult.success) return templateResult;
-
-    const freeFormMessage = `مرحباً ${customerName}،\n\nلقد ربحت ${points} نقطة جديدة في ${garageName}. شكراً لولائك!`;
-    return this.sendMessage({ to: customerPhone, message: freeFormMessage });
-  }
-
-  async sendLoyaltyTierUpgrade(
-    customerName: string,
-    customerPhone: string,
-    newTier: string,
-    garageName: string
-  ): Promise<WhatsAppNotificationResult> {
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: customerName },
-          { type: 'text', text: newTier },
-          { type: 'text', text: garageName },
-        ],
-      },
-    ];
-    return this.sendTemplateMessage(customerPhone, 'loyalty_upgrade', 'ar', components);
+    return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
   }
 
   async sendWelcomeMessage(
@@ -448,16 +328,13 @@ export class WatchimpService {
   ): Promise<WhatsAppNotificationResult> {
     const freeFormMessage = `مرحباً ${customerName}!\n\nأهلاً وسهلاً بك في ${garageName}. نحن سعداء بانضمامك لعائلتنا ونتطلع لخدمة سيارتك على أفضل وجه.\n\nيمكنك حجز موعد الصيانة في أي وقت عبر موقعنا أو بالاتصال بنا.`;
 
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: customerName },
-          { type: 'text', text: garageName },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(customerPhone, 'welcomee', 'ar', components);
+    // WhatChimp Custom Fields for welcomee template
+    const customFields: Record<string, string> = {
+      customer_name: customerName,
+      garage_name: garageName,
+    };
+
+    const templateResult = await this.sendTemplateMessage(customerPhone, 'welcomee', 'ar', customFields);
     if (templateResult.success) return templateResult;
 
     return this.sendMessage({ to: customerPhone, message: freeFormMessage });
@@ -473,117 +350,115 @@ export class WatchimpService {
   }): Promise<WhatsAppNotificationResult> {
     const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم إنشاء كفالة جديدة لك في ${data.garageName}.\n\nرقم الكفالة: ${data.warrantyNumber}\nتاريخ الانتهاء: ${data.expiryDate}\n\nشهادة الكفالة PDF مرفقة أدناه.`;
 
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.warrantyNumber },
-          { type: 'text', text: data.expiryDate },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'warranty_new', 'ar', components);
+    // WhatChimp Custom Fields for warranty_new template
+    const customFields: Record<string, string> = {
+      customer_name: data.customerName,
+      garage_name: data.garageName,
+      warranty_number: data.warrantyNumber,
+      expiry_date: data.expiryDate,
+    };
+
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'warranty_new', 'ar', customFields);
     if (templateResult.success) {
-      // Send PDF if available
       if (data.pdfUrl && this.isEnabled()) {
         try {
           await this.sendDocument(
             data.customerPhone,
             data.pdfUrl,
-            `شهادة كفالة رقم ${data.warrantyNumber}`,
+            `شهادة الكفالة - رقم ${data.warrantyNumber}`,
             `warranty_${data.warrantyNumber}.pdf`
           );
-        } catch (e) {
-          Logger.warn('Failed to send warranty PDF via Watchimp', { error: e, warrantyNumber: data.warrantyNumber });
+        } catch (docError) {
+          Logger.error('Error sending warranty PDF via WhatChimp', docError);
         }
       }
       return templateResult;
     }
 
-    // Fallback: send free-form text, then PDF separately
-    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
-    if (data.pdfUrl && this.isEnabled()) {
-      try {
-        await this.sendDocument(
-          data.customerPhone,
-          data.pdfUrl,
-          `شهادة كفالة رقم ${data.warrantyNumber}`,
-          `warranty_${data.warrantyNumber}.pdf`
-        );
-      } catch (e) {
-        Logger.warn('Failed to send warranty PDF via Watchimp (fallback)', { error: e });
-      }
-    }
-    return textResult;
+    return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
   }
 
-  async sendPaymentConfirmationWithPdf(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
-    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم استلام دفعتك في ${data.garageName} بنجاح.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمبلغ المدفوع: ${data.totalAmount.toLocaleString()} ل.س\n\nشكراً لك! نسخة PDF من الفاتورة المدفوعة مرفقة أدناه.`;
+  async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nفاتورتك جاهزة في ${data.garageName}.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمجموع: ${data.totalAmount.toLocaleString()} ل.س\nتاريخ الاستحقاق: ${data.dueDate}\n\nسيتم إرسال نسخة PDF من الفاتورة في الرسالة التالية.`;
 
-    const components = [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: data.customerName },
-          { type: 'text', text: data.garageName },
-          { type: 'text', text: data.invoiceNumber },
-          { type: 'text', text: String(data.totalAmount) },
-        ],
-      },
-    ];
-    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'payment_receivedd', 'ar', components);
+    // WhatChimp Custom Fields for invoice_neww template
+    const customFields: Record<string, string> = {
+      customer_name: data.customerName,
+      garage_name: data.garageName,
+      invoice_number: data.invoiceNumber,
+      total_amount: data.totalAmount.toLocaleString(),
+      due_date: data.dueDate,
+    };
+
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'invoice_neww', 'ar', customFields);
     if (templateResult.success) {
-      if (data.pdfUrl && this.isEnabled()) {
+      if (data.pdfUrl) {
         try {
-          await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
-        } catch (e) {
-          Logger.warn('Failed to send invoice PDF after payment', { error: e, invoiceNumber: data.invoiceNumber });
+          await this.sendInvoicePdf(
+            data.customerPhone,
+            data.pdfUrl,
+            data.invoiceNumber,
+            data.totalAmount
+          );
+        } catch (docError) {
+          Logger.error('Error sending invoice PDF via WhatChimp', docError);
         }
       }
       return templateResult;
     }
 
-    // Fallback: free-form + PDF
-    const textResult = await this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
-    if (data.pdfUrl && this.isEnabled()) {
-      try {
-        await this.sendInvoicePdf(data.customerPhone, data.pdfUrl, data.invoiceNumber, data.totalAmount);
-      } catch (e) {
-        Logger.warn('Failed to send invoice PDF after payment (fallback)', { error: e });
-      }
-    }
-    return textResult;
+    return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
   }
 
-  async checkConnection(): Promise<WhatsAppNotificationResult> {
+  async sendPaymentReceivedNotification(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
+    const freeFormMessage = `مرحباً ${data.customerName}،\n\nتم استلام دفعتك بنجاح في ${data.garageName}.\n\nرقم الفاتورة: ${data.invoiceNumber}\nالمبلغ المدفوع: ${data.totalAmount.toLocaleString()} ل.س\nتاريخ الدفع: ${data.dueDate}\n\nشكراً لك!`;
+
+    // WhatChimp Custom Fields for payment_receivedd template
+    const customFields: Record<string, string> = {
+      customer_name: data.customerName,
+      garage_name: data.garageName,
+      invoice_number: data.invoiceNumber,
+      total_amount: data.totalAmount.toLocaleString(),
+      due_date: data.dueDate,
+    };
+
+    const templateResult = await this.sendTemplateMessage(data.customerPhone, 'payment_receivedd', 'ar', customFields);
+    if (templateResult.success) return templateResult;
+
+    return this.sendMessage({ to: data.customerPhone, message: freeFormMessage });
+  }
+
+  // ============================================
+  // UTILITY
+  // ============================================
+
+  async testConnection(): Promise<WhatsAppNotificationResult> {
     if (!this.isEnabled()) {
       return { success: false, error: 'Watchimp not enabled or not configured' };
     }
 
-    // If we have all connection credentials, try to verify account connection
-    if (this.config.userId && this.config.businessAccountId && this.config.accessToken) {
-      try {
-        const result = await this.connectAccount();
-        if (result.success) {
-          return { success: true, messageId: 'connected' };
-        }
-        return { success: false, error: result.error || 'Watchimp connection failed' };
-      } catch (error) {
-        return { success: false, error: this.extractError(error) };
-      }
-    }
+    // Try template list to verify API connectivity
+    try {
+      const response = await axios.post(
+        `${this.config.apiUrl}/whatsapp/template/list`,
+        {
+          apiToken: this.config.apiKey,
+          phone_number_id: this.config.phoneNumberId,
+        },
+        { timeout: 10000, headers: { 'Content-Type': 'application/json' } }
+      );
 
-    // Otherwise, sending configuration is ready
-    return { success: true, messageId: 'ready' };
+      if (response.data?.status === '1' || response.data?.status === 1) {
+        return { success: true, messageId: 'connected' };
+      }
+      return { success: false, error: response.data?.message || 'Connection test failed' };
+    } catch (error) {
+      return { success: false, error: this.extractError(error) };
+    }
   }
 
   private normalizePhone(phone: string): string {
-    let cleaned = phone.replace(/\D/g, '');
-    if (!cleaned.startsWith('963') && cleaned.length === 9) {
-      cleaned = '963' + cleaned;
-    }
+    let cleaned = phone.replace(/\s/g, '').replace(/-/g, '');
     if (!cleaned.startsWith('+')) {
       cleaned = '+' + cleaned;
     }
@@ -597,5 +472,3 @@ export class WatchimpService {
     return error instanceof Error ? error.message : 'Unknown error';
   }
 }
-
-export default WatchimpService;
