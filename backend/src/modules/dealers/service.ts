@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
 import { generateWarrantyPdf } from './pdf-generator';
 import { WhatsAppService } from '../whatsapp/service';
-import { WatchimpService } from '../whatsapp/watchimp.service';
+import { MetaWhatsAppService } from '../whatsapp/meta.service';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -217,14 +217,14 @@ export class DealerService {
 
       // Send WhatsApp notification with warranty PDF via WhatChimp
       try {
-        const watchimpService = new WatchimpService();
+        const metaService = new MetaWhatsAppService();
         const baseUrl = process.env.BASE_URL || process.env.SERVER_URL || '';
         const fullPdfUrl = pdfResult.pdfUrl
           ? `${baseUrl.replace(/\/$/, '')}${pdfResult.pdfUrl}`
           : undefined;
 
         // Send warranty notification (template + PDF handled internally with fallback)
-        const result = await watchimpService.sendWarrantyNotification({
+        const result = await metaService.sendWarrantyNotification({
           customerName: data.customerName,
           customerPhone: data.customerPhone,
           warrantyNumber: warranty.id.substring(0, 8).toUpperCase(),

@@ -3,7 +3,7 @@ import { Prisma, Service, BookingStatus } from '@prisma/client';
 import { CreateBookingInput, UpdateBookingInput, BookingResponse } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
-import { WatchimpService } from '../whatsapp/watchimp.service';
+import { MetaWhatsAppService } from '../whatsapp/meta.service';
 import { FCMService } from '../fcm/service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { VehicleService } from '../vehicles/service';
@@ -15,7 +15,7 @@ import { PublicToken } from '../../domain/bookings/value-objects/PublicToken';
 export class BookingService {
   private io: SocketIOServer | null = null;
   private whatsappService: WhatsAppService;
-  private watchimpService: WatchimpService;
+  private metaService: MetaWhatsAppService;
   private fcmService: FCMService;
   private scheduleService: ScheduleService;
   private vehicleService: VehicleService;
@@ -25,7 +25,7 @@ export class BookingService {
   constructor(io?: SocketIOServer) {
     this.io = io || null;
     this.whatsappService = new WhatsAppService();
-    this.watchimpService = new WatchimpService();
+    this.metaService = new MetaWhatsAppService();
     this.fcmService = new FCMService();
     this.scheduleService = new ScheduleService();
     this.vehicleService = new VehicleService();
@@ -33,7 +33,7 @@ export class BookingService {
     this.invoiceService = new InvoiceService();
     if (io) {
       this.whatsappService.setIo(io);
-      this.watchimpService.setIo(io);
+      // Meta service does not need Socket.IO
       this.fcmService.setIo(io);
       this.invoiceService.setIo(io);
     }
@@ -486,7 +486,7 @@ export class BookingService {
           // A. Send welcome message for new customers
           if (isNewCustomer) {
             try {
-              await this.watchimpService.sendWelcomeMessage(
+              await this.metaService.sendWelcomeMessage(
                 booking.customer?.fullName || customer.fullName,
                 customerPhone,
                 'Garage Go'
@@ -497,7 +497,7 @@ export class BookingService {
           }
 
           // B. Send booking confirmation with tracking QR URL
-          await this.watchimpService.sendBookingConfirmation({
+          await this.metaService.sendBookingConfirmation({
             customerName: booking.customer?.fullName || customer.fullName,
             customerPhone,
             bookingId: booking.id,
@@ -743,7 +743,7 @@ export class BookingService {
       });
 
       if (customer && vehicle) {
-        await this.watchimpService.sendBookingStatusUpdate({
+        await this.metaService.sendBookingStatusUpdate({
           customerName: customer.fullName,
           customerPhone: customer.phone,
           bookingId: booking.id,
