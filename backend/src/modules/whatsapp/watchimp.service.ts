@@ -432,6 +432,13 @@ export class WatchimpService {
   // UTILITY
   // ============================================
 
+  /**
+   * Alias for testConnection for compatibility with WhatsAppService
+   */
+  async checkConnection(): Promise<WhatsAppNotificationResult> {
+    return this.testConnection();
+  }
+
   async testConnection(): Promise<WhatsAppNotificationResult> {
     if (!this.isEnabled()) {
       return { success: false, error: 'Watchimp not enabled or not configured' };

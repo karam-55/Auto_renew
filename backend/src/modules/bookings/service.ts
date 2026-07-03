@@ -3,7 +3,7 @@ import { Prisma, Service, BookingStatus } from '@prisma/client';
 import { CreateBookingInput, UpdateBookingInput, BookingResponse } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
-import { MetaWhatsAppService } from '../whatsapp/meta.service';
+import { WhatChimpService } from '../whatsapp/whatchimp.service';
 import { FCMService } from '../fcm/service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { VehicleService } from '../vehicles/service';
@@ -15,7 +15,7 @@ import { PublicToken } from '../../domain/bookings/value-objects/PublicToken';
 export class BookingService {
   private io: SocketIOServer | null = null;
   private whatsappService: WhatsAppService;
-  private metaService: MetaWhatsAppService;
+  private whatChimpService: WhatChimpService;
   private fcmService: FCMService;
   private scheduleService: ScheduleService;
   private vehicleService: VehicleService;
@@ -25,7 +25,7 @@ export class BookingService {
   constructor(io?: SocketIOServer) {
     this.io = io || null;
     this.whatsappService = new WhatsAppService();
-    this.metaService = new MetaWhatsAppService();
+    this.whatChimpService = new WhatChimpService();
     this.fcmService = new FCMService();
     this.scheduleService = new ScheduleService();
     this.vehicleService = new VehicleService();
@@ -486,7 +486,7 @@ export class BookingService {
           // A. Send welcome message for new customers
           if (isNewCustomer) {
             try {
-              await this.metaService.sendWelcomeMessage(
+              await this.whatChimpService.sendWelcomeMessage(
                 booking.customer?.fullName || customer.fullName,
                 customerPhone,
                 'Garage Go'
@@ -497,7 +497,7 @@ export class BookingService {
           }
 
           // B. Send booking confirmation with tracking QR URL
-          await this.metaService.sendBookingConfirmation({
+          await this.whatChimpService.sendBookingConfirmation({
             customerName: booking.customer?.fullName || customer.fullName,
             customerPhone,
             bookingId: booking.id,
@@ -743,7 +743,7 @@ export class BookingService {
       });
 
       if (customer && vehicle) {
-        await this.metaService.sendBookingStatusUpdate({
+        await this.whatChimpService.sendBookingStatusUpdate({
           customerName: customer.fullName,
           customerPhone: customer.phone,
           bookingId: booking.id,

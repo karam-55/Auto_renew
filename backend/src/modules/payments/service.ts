@@ -9,7 +9,7 @@ import {
 import { Logger } from '../../infrastructure/logging/logger';
 import { PaymentMethod } from '@prisma/client';
 import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
-import { MetaWhatsAppService } from '../whatsapp/meta.service';
+import { WhatChimpService } from '../whatsapp/whatchimp.service';
 import { PdfWorker } from '../../workers/pdf.worker';
 import fs from 'fs';
 
@@ -164,8 +164,8 @@ export class PaymentService {
         }
 
         // Send WhatsApp payment confirmation with PDF
-        const metaService = new MetaWhatsAppService();
-        await metaService.sendPaymentConfirmationWithPdf({
+        const whatChimpService = new WhatChimpService();
+        await whatChimpService.sendPaymentConfirmationWithPdf({
           customerName,
           customerPhone,
           invoiceNumber,
