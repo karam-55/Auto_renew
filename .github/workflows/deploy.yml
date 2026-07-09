@@ -82,6 +82,7 @@ jobs:
               cd /opt/auto-renew/deploy
               docker compose -f docker-compose.prod.yml build --no-cache backend
               docker compose -f docker-compose.prod.yml up -d backend
+              docker compose -f docker-compose.prod.yml restart nginx
               docker compose -f docker-compose.prod.yml exec backend npx prisma db push --accept-data-loss --skip-generate
               sleep 5
               echo '=== Backend status ==='
