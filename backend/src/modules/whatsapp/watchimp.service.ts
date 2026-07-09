@@ -334,7 +334,7 @@ export class WatchimpService {
       garage_name: garageName,
     };
 
-    const templateResult = await this.sendTemplateMessage(customerPhone, 'welcomee', 'ar', customFields);
+    const templateResult = await this.sendTemplateMessage(customerPhone, 'welcome', 'ar', customFields);
     if (templateResult.success) return templateResult;
 
     return this.sendMessage({ to: customerPhone, message: freeFormMessage });

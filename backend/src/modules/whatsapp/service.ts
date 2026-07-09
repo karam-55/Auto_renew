@@ -107,6 +107,11 @@ export class WhatsAppService {
   // ============================================
 
   async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
+    // Use WhatChimp templates when configured, fallback to free-form text
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendBookingConfirmation(data);
+    }
+
     let message = `🔧 *تأكيد حجز جديد*
 
 مرحباً ${data.customerName}،
@@ -130,6 +135,11 @@ export class WhatsAppService {
   }
 
   async sendBookingStatusUpdate(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
+    // Use WhatChimp templates when configured, fallback to free-form text
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendBookingStatusUpdate(data);
+    }
+
     const statusMessages: Record<string, string> = {
       'IN_PROGRESS': 'جاري العمل على مركبتك',
       'WAITING_PARTS': 'ننتظر وصول قطع الغيار',
@@ -209,7 +219,12 @@ ${data.garageName}`;
   // INVOICE NOTIFICATIONS
   // ============================================
 
-  async sendInvoiceNotification(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
+  async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
+    // Use WhatChimp templates when configured, fallback to free-form text
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendInvoiceNotification(data);
+    }
+
     const message = `📄 *فاتورة جديدة*
 
 مرحباً ${data.customerName}،
@@ -231,6 +246,11 @@ ${data.garageName}`;
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
+    // Use WhatChimp templates when configured, fallback to free-form text
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendPaymentReceivedNotification(data);
+    }
+
     let message = `✅ *تأكيد الدفع*
 
 مرحباً ${data.customerName}،
@@ -295,6 +315,11 @@ ${garageName}`;
   // ============================================
 
   async sendWelcomeMessage(customerName: string, customerPhone: string, garageName: string): Promise<WhatsAppNotificationResult> {
+    // Use WhatChimp templates when configured, fallback to free-form text
+    if (this.useWatchimp()) {
+      return this.watchimpService.sendWelcomeMessage(customerName, customerPhone, garageName);
+    }
+
     const message = `👋 *أهلاً وسهلاً*
 
 مرحباً ${customerName}،
