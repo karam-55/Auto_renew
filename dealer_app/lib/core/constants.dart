@@ -18,8 +18,11 @@ class AppColors {
 }
 
 class ApiConfig {
-  // Change this to your server IP
-  static const String baseUrl = 'http://178.105.209.59';
+  // Use --dart-define=SERVER_URL=http://... to override the production URL.
+  static const String baseUrl = String.fromEnvironment(
+    'SERVER_URL',
+    defaultValue: 'http://178.105.209.59',
+  );
   static const String dealerRegister = '/api/dealers/register';
   static const String dealerLogin = '/api/dealers/login';
   static const String dealerStats = '/api/dealers/me/stats';

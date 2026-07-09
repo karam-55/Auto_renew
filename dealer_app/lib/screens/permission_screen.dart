@@ -19,8 +19,8 @@ class _PermissionScreenState extends State<PermissionScreen> {
     setState(() => _checking = true);
     await Future.delayed(const Duration(milliseconds: 500));
 
-    final result = await Connectivity().checkConnectivity();
-    final hasNetwork = result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    final hasNetwork = results.isNotEmpty && !results.contains(ConnectivityResult.none);
 
     if (!hasNetwork && mounted) {
       setState(() => _checking = false);

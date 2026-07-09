@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants.dart';
 import '../services/api_service.dart';
-import 'warranty_form_screen.dart';
 
 class CustomerSearchScreen extends StatefulWidget {
   const CustomerSearchScreen({super.key});
@@ -125,7 +124,7 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                                 child: ListTile(
                                   contentPadding: const EdgeInsets.all(16),
                                   leading: CircleAvatar(
-                                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                                     child: const Icon(Icons.person, color: AppColors.primary),
                                   ),
                                   title: Text(

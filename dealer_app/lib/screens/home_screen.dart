@@ -163,13 +163,13 @@ class _HomeScreenState extends State<HomeScreen> {
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [s['color'] as Color, (s['color'] as Color).withOpacity(0.8)],
+              colors: [s['color'] as Color, (s['color'] as Color).withValues(alpha: 0.8)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
-              BoxShadow(color: (s['color'] as Color).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
+              BoxShadow(color: (s['color'] as Color).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 6)),
             ],
           ),
           padding: const EdgeInsets.all(16),
@@ -235,13 +235,13 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Column(
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withValues(alpha: 0.15),
               child: Icon(icon, color: color, size: 32),
             ),
             const SizedBox(height: 12),
@@ -273,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
             leading: CircleAvatar(
-              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: const Icon(Icons.shield, color: AppColors.primary),
             ),
             title: Text(w['customerName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),

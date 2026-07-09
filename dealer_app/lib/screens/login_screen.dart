@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         prefixIcon: Icon(icon, color: AppColors.primary),
         filled: true,
-        fillColor: AppColors.border.withOpacity(0.3),
+        fillColor: AppColors.border.withValues(alpha: 0.3),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(

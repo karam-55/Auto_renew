@@ -64,18 +64,21 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
+              final navigator = Navigator.of(context);
+              final result = await navigator.push(
                 MaterialPageRoute(builder: (_) => WarrantyFormScreen(warranty: w)),
               );
-              if (result == true && mounted) {
-                Navigator.pop(context, true); // Return to HomeScreen with refresh
+              if (!mounted) return;
+              if (result == true) {
+                navigator.pop(true); // Return to HomeScreen with refresh
               }
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
             onPressed: () async {
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -91,18 +94,17 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
                   ],
                 ),
               );
-              if (confirmed == true && mounted) {
+              if (confirmed == true) {
+                if (!mounted) return;
                 try {
                   await ApiService.deleteWarranty(w['id']);
-                  if (mounted) {
-                    Navigator.pop(context, true); // Return to HomeScreen with refresh
-                  }
+                  if (!mounted) return;
+                  navigator.pop(true); // Return to HomeScreen with refresh
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('خطأ: ${e.toString()}'), backgroundColor: AppColors.error),
-                    );
-                  }
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('خطأ: ${e.toString()}'), backgroundColor: AppColors.error),
+                  );
                 }
               }
             },
@@ -128,7 +130,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
                 padding: const EdgeInsets.all(16),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
+                  color: AppColors.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.success),
                 ),
@@ -181,7 +183,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12)],
         ),
         child: SafeArea(
           child: Row(
@@ -227,7 +229,7 @@ class _WarrantyDetailScreenState extends State<WarrantyDetailScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
