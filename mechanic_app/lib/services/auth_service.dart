@@ -11,16 +11,21 @@ class AuthService {
         'password': password,
       });
 
-      final user = response.data['user'];
-      final tokens = response.data['tokens'];
+      final body = response.data as Map<String, dynamic>? ?? {};
+      final user = body['data']?['user'] ?? body['user'];
+      final tokens = body['data']?['tokens'] ?? body['tokens'];
+
+      if (user == null || tokens == null) {
+        throw Exception('Invalid server response: missing user or tokens');
+      }
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('accessToken', tokens['accessToken']);
       await prefs.setString('refreshToken', tokens['refreshToken']);
       await prefs.setString('userId', user['id']);
-      await prefs.setString('tenantId', user['tenantId']);
+      await prefs.setString('tenantId', user['tenantId'] ?? '');
       await prefs.setString('userRole', user['role']);
-      await prefs.setString('userName', user['fullName']);
+      await prefs.setString('userName', user['fullName'] ?? user['username'] ?? '');
 
       return {
         'user': user,
@@ -45,7 +50,7 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
-    return token != null;
+    return token != null && token.isNotEmpty;
   }
 
   Future<String?> getUserId() async {

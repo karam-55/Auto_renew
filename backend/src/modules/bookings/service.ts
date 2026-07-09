@@ -3,7 +3,6 @@ import { Prisma, Service, BookingStatus } from '@prisma/client';
 import { CreateBookingInput, UpdateBookingInput, BookingResponse } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
-import { WhatChimpService } from '../whatsapp/whatchimp.service';
 import { FCMService } from '../fcm/service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { VehicleService } from '../vehicles/service';
@@ -15,7 +14,6 @@ import { PublicToken } from '../../domain/bookings/value-objects/PublicToken';
 export class BookingService {
   private io: SocketIOServer | null = null;
   private whatsappService: WhatsAppService;
-  private whatChimpService: WhatChimpService;
   private fcmService: FCMService;
   private scheduleService: ScheduleService;
   private vehicleService: VehicleService;
@@ -25,7 +23,6 @@ export class BookingService {
   constructor(io?: SocketIOServer) {
     this.io = io || null;
     this.whatsappService = new WhatsAppService();
-    this.whatChimpService = new WhatChimpService();
     this.fcmService = new FCMService();
     this.scheduleService = new ScheduleService();
     this.vehicleService = new VehicleService();
@@ -470,7 +467,7 @@ export class BookingService {
         });
       }
 
-      // 2. WhatsApp notifications via WhatChimp
+      // 2. WhatsApp notifications
       const customerPhone = booking.customer?.phone || customer.phone;
       if (customerPhone) {
         const baseUrl = process.env.BASE_URL || process.env.SERVER_URL || '';
@@ -486,7 +483,7 @@ export class BookingService {
           // A. Send welcome message for new customers
           if (isNewCustomer) {
             try {
-              await this.whatChimpService.sendWelcomeMessage(
+              await this.whatsappService.sendWelcomeMessage(
                 booking.customer?.fullName || customer.fullName,
                 customerPhone,
                 'Garage Go'
@@ -496,8 +493,8 @@ export class BookingService {
             }
           }
 
-          // B. Send booking confirmation with tracking QR URL
-          await this.whatChimpService.sendBookingConfirmation({
+          // B. Send booking confirmation with tracking URL
+          await this.whatsappService.sendBookingConfirmation({
             customerName: booking.customer?.fullName || customer.fullName,
             customerPhone,
             bookingId: booking.id,
@@ -509,7 +506,7 @@ export class BookingService {
             trackingUrl,
           });
         } catch (error) {
-          Logger.error('Error sending WhatsApp booking confirmation via WhatChimp:', error);
+          Logger.error('Error sending WhatsApp booking confirmation:', error);
         }
       }
 
@@ -730,7 +727,7 @@ export class BookingService {
       });
     }
 
-    // Send WhatsApp notification for status changes via WhatChimp
+    // Send WhatsApp notification for status changes
     try {
       const customer = await prisma.customer.findUnique({
         where: { id: booking.customerId },
@@ -743,7 +740,7 @@ export class BookingService {
       });
 
       if (customer && vehicle) {
-        await this.whatChimpService.sendBookingStatusUpdate({
+        await this.whatsappService.sendBookingStatusUpdate({
           customerName: customer.fullName,
           customerPhone: customer.phone,
           bookingId: booking.id,
@@ -755,7 +752,7 @@ export class BookingService {
         });
       }
     } catch (error) {
-      Logger.error('Error sending WhatsApp status update via WhatChimp:', error);
+      Logger.error('Error sending WhatsApp status update:', error);
       // Don't fail the booking update if WhatsApp fails
     }
 

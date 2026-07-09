@@ -13,6 +13,7 @@ class Booking {
   final Customer? customer;
   final Vehicle? vehicle;
   final List<Service>? services;
+  final List<MechanicAssignment>? mechanicAssignments;
 
   Booking({
     required this.id,
@@ -29,6 +30,7 @@ class Booking {
     this.customer,
     this.vehicle,
     this.services,
+    this.mechanicAssignments,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,9 @@ class Booking {
       services: json['services'] != null
           ? (json['services'] as List).map((s) => Service.fromJson(s)).toList()
           : null,
+      mechanicAssignments: json['mechanicAssignments'] != null
+          ? (json['mechanicAssignments'] as List).map((m) => MechanicAssignment.fromJson(m)).toList()
+          : null,
     );
   }
 
@@ -68,8 +73,16 @@ class Booking {
       'customer': customer?.toJson(),
       'vehicle': vehicle?.toJson(),
       'services': services?.map((s) => s.toJson()).toList(),
+      'mechanicAssignments': mechanicAssignments?.map((m) => m.toJson()).toList(),
     };
   }
+
+  // Computed properties for UI convenience
+  String get customerName => customer?.fullName ?? 'غير معروف';
+  String get vehicleInfo => vehicle != null
+      ? '${vehicle!.make} ${vehicle!.model} (${vehicle!.year}) - ${vehicle!.licensePlate}'
+      : 'غير معروف';
+  DateTime get bookingDate => scheduledDate;
 }
 
 class Customer {
@@ -168,6 +181,50 @@ class Service {
       'category': category,
       'duration': duration,
       'basePrice': basePrice,
+    };
+  }
+}
+
+class MechanicAssignment {
+  final String id;
+  final String mechanicUserId;
+  final String? mechanicName;
+  final String status;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final String? notes;
+
+  MechanicAssignment({
+    required this.id,
+    required this.mechanicUserId,
+    this.mechanicName,
+    required this.status,
+    this.startedAt,
+    this.completedAt,
+    this.notes,
+  });
+
+  factory MechanicAssignment.fromJson(Map<String, dynamic> json) {
+    return MechanicAssignment(
+      id: json['id'],
+      mechanicUserId: json['mechanicUserId'],
+      mechanicName: json['mechanicName'],
+      status: json['status'] ?? 'PENDING',
+      startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt']) : null,
+      completedAt: json['completedAt'] != null ? DateTime.parse(json['completedAt']) : null,
+      notes: json['notes'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'mechanicUserId': mechanicUserId,
+      'mechanicName': mechanicName,
+      'status': status,
+      'startedAt': startedAt?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
+      'notes': notes,
     };
   }
 }

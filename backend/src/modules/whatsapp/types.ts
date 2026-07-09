@@ -25,6 +25,7 @@ export interface BookingNotificationData {
   scheduledDate: string;
   status: string;
   garageName: string;
+  trackingUrl?: string;
 }
 
 export interface InstallmentReminderData {
@@ -43,6 +44,7 @@ export interface InvoiceNotificationData {
   totalAmount: number;
   dueDate: string;
   garageName: string;
+  pdfUrl?: string;
 }
 
 export interface WhatsAppNotificationResult {

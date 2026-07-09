@@ -1,19 +1,20 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
-  static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8080/api';
-    }
-    // For mobile/desktop: use environment variable or default
-    // The user can configure this in settings screen
-    return _serverUrl;
-  }
+  /// Server URL configured at build time via --dart-define=SERVER_URL=...
+  /// Default is localhost for development. Never hardcode production IPs in source.
+  static const String _defaultServerUrl = 'http://localhost:8080';
+  static const String _buildTimeServerUrl = String.fromEnvironment(
+    'SERVER_URL',
+    defaultValue: _defaultServerUrl,
+  );
 
-  static String _serverUrl = 'http://localhost:8080/api';
+  static String _serverUrl = _buildTimeServerUrl;
 
   static set serverUrl(String url) {
-    _serverUrl = url.endsWith('/api') ? url : '$url/api';
+    _serverUrl = url.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  static String get baseUrl {
+    return '$_serverUrl/api';
   }
 
   static String get serverUrl => _serverUrl;

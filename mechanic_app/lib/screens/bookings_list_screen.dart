@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../core/theme/luxury_theme.dart';
+import '../core/theme/app_theme.dart';
 import '../services/booking_service.dart';
 import '../models/booking.dart';
 
@@ -52,8 +52,8 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              LuxuryTheme.primaryColor.withOpacity(0.1),
-              LuxuryTheme.backgroundColor,
+              AppTheme.primaryColor.withValues(alpha: 0.1),
+              AppTheme.primaryBg,
             ],
           ),
         ),
@@ -63,10 +63,10 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
               decoration: BoxDecoration(
-                color: LuxuryTheme.cardColor,
+                color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -76,23 +76,23 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back),
-                    color: LuxuryTheme.primaryColor,
+                    color: AppTheme.primaryColor,
                     onPressed: () => Navigator.pop(context),
                   ),
                   SizedBox(width: 16.w),
                   Expanded(
                     child: Text(
-                      'حجوزاتي',
+                      'ط­ط¬ظˆط²ط§طھظٹ',
                       style: TextStyle(
                         fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
-                        color: LuxuryTheme.textColor,
+                        color: AppTheme.textColor,
                       ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    color: LuxuryTheme.primaryColor,
+                    color: AppTheme.primaryColor,
                     onPressed: _loadBookings,
                   ),
                 ],
@@ -121,23 +121,23 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
             Icon(Icons.error_outline, size: 64.sp, color: Colors.red),
             SizedBox(height: 16.h),
             Text(
-              'حدث خطأ',
-              style: TextStyle(fontSize: 18.sp, color: LuxuryTheme.textColor),
+              'ط­ط¯ط« ط®ط·ط£',
+              style: TextStyle(fontSize: 18.sp, color: AppTheme.textColor),
             ),
             SizedBox(height: 8.h),
             Text(
               _error!,
-              style: TextStyle(fontSize: 14.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
+              style: TextStyle(fontSize: 14.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 16.h),
             ElevatedButton(
               onPressed: _loadBookings,
               style: ElevatedButton.styleFrom(
-                backgroundColor: LuxuryTheme.primaryColor,
+                backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('إعادة المحاولة'),
+              child: const Text('ط¥ط¹ط§ط¯ط© ط§ظ„ظ…ط­ط§ظˆظ„ط©'),
             ),
           ],
         ),
@@ -149,11 +149,11 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_note, size: 64.sp, color: LuxuryTheme.textColor.withOpacity(0.5)),
+            Icon(Icons.event_note, size: 64.sp, color: AppTheme.textColor.withValues(alpha: 0.5)),
             SizedBox(height: 16.h),
             Text(
-              'لا توجد حجوزات',
-              style: TextStyle(fontSize: 18.sp, color: LuxuryTheme.textColor),
+              'ظ„ط§ طھظˆط¬ط¯ ط­ط¬ظˆط²ط§طھ',
+              style: TextStyle(fontSize: 18.sp, color: AppTheme.textColor),
             ),
           ],
         ),
@@ -175,11 +175,11 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
       margin: EdgeInsets.only(bottom: 16.h),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: LuxuryTheme.cardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -192,52 +192,46 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'حجز #${booking.id.substring(0, 8)}',
+                'ط­ط¬ط² #${booking.id.substring(0, 8)}',
                 style: TextStyle(
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
-                  color: LuxuryTheme.textColor,
+                  color: AppTheme.textColor,
                 ),
               ),
               _buildStatusBadge(booking.status),
             ],
           ),
           SizedBox(height: 12.h),
-          if (booking.customerName != null) ...[
-            Row(
-              children: [
-                Icon(Icons.person, size: 16.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
-                SizedBox(width: 8.w),
-                Text(
-                  booking.customerName!,
-                  style: TextStyle(fontSize: 14.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
-          ],
-          if (booking.vehicleInfo != null) ...[
-            Row(
-              children: [
-                Icon(Icons.directions_car, size: 16.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
-                SizedBox(width: 8.w),
-                Text(
-                  booking.vehicleInfo!,
-                  style: TextStyle(fontSize: 14.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
-          ],
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 16.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
+              Icon(Icons.person, size: 16.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
               SizedBox(width: 8.w),
               Text(
-                booking.bookingDate != null
-                    ? booking.bookingDate!.toString().split(' ')[0]
-                    : 'غير محدد',
-                style: TextStyle(fontSize: 14.sp, color: LuxuryTheme.textColor.withOpacity(0.7)),
+                booking.customerName,
+                style: TextStyle(fontSize: 14.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              Icon(Icons.directions_car, size: 16.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
+              SizedBox(width: 8.w),
+              Text(
+                booking.vehicleInfo,
+                style: TextStyle(fontSize: 14.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 16.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
+              SizedBox(width: 8.w),
+              Text(
+                '${booking.bookingDate.day}/${booking.bookingDate.month}/${booking.bookingDate.year}',
+                style: TextStyle(fontSize: 14.sp, color: AppTheme.textColor.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -252,27 +246,27 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
 
     switch (status.toUpperCase()) {
       case 'PENDING':
-        backgroundColor = Colors.orange.withOpacity(0.2);
+        backgroundColor = Colors.orange.withValues(alpha: 0.2);
         textColor = Colors.orange;
         break;
       case 'IN_PROGRESS':
-        backgroundColor = Colors.blue.withOpacity(0.2);
+        backgroundColor = Colors.blue.withValues(alpha: 0.2);
         textColor = Colors.blue;
         break;
       case 'READY':
-        backgroundColor = Colors.green.withOpacity(0.2);
+        backgroundColor = Colors.green.withValues(alpha: 0.2);
         textColor = Colors.green;
         break;
       case 'DELIVERED':
-        backgroundColor = Colors.grey.withOpacity(0.2);
+        backgroundColor = Colors.grey.withValues(alpha: 0.2);
         textColor = Colors.grey;
         break;
       case 'CANCELLED':
-        backgroundColor = Colors.red.withOpacity(0.2);
+        backgroundColor = Colors.red.withValues(alpha: 0.2);
         textColor = Colors.red;
         break;
       default:
-        backgroundColor = Colors.grey.withOpacity(0.2);
+        backgroundColor = Colors.grey.withValues(alpha: 0.2);
         textColor = Colors.grey;
     }
 
@@ -296,15 +290,15 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
   String _getStatusText(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING':
-        return 'قيد الانتظار';
+        return 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±';
       case 'IN_PROGRESS':
-        return 'قيد العمل';
+        return 'ظ‚ظٹط¯ ط§ظ„ط¹ظ…ظ„';
       case 'READY':
-        return 'جاهز';
+        return 'ط¬ط§ظ‡ط²';
       case 'DELIVERED':
-        return 'تم التسليم';
+        return 'طھظ… ط§ظ„طھط³ظ„ظٹظ…';
       case 'CANCELLED':
-        return 'ملغي';
+        return 'ظ…ظ„ط؛ظٹ';
       default:
         return status;
     }

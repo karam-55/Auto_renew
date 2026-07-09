@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:animate_do/animate_do.dart';
@@ -8,6 +8,7 @@ import '../services/booking_service.dart';
 import '../services/socket_service.dart';
 import '../models/booking.dart';
 import '../core/theme/app_theme.dart';
+import 'booking_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -100,11 +101,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مهامي'),
+        title: const Text('ظ…ظ‡ط§ظ…ظٹ'),
         actions: [
           // Connection status indicator
           ValueListenableBuilder(
@@ -114,26 +113,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Color color;
               String tooltip;
 
-              switch (state as SocketConnectionState) {
+              switch (state) {
                 case SocketConnectionState.connected:
                   icon = Icons.wifi;
                   color = AppTheme.successColor;
-                  tooltip = 'متصل';
+                  tooltip = 'ظ…طھطµظ„';
                   break;
                 case SocketConnectionState.connecting:
                   icon = Icons.sync;
                   color = AppTheme.warningColor;
-                  tooltip = 'جاري الاتصال...';
+                  tooltip = 'ط¬ط§ط±ظٹ ط§ظ„ط§طھطµط§ظ„...';
                   break;
                 case SocketConnectionState.error:
                   icon = Icons.wifi_off;
                   color = AppTheme.errorColor;
-                  tooltip = 'خطأ في الاتصال';
+                  tooltip = 'ط®ط·ط£ ظپظٹ ط§ظ„ط§طھطµط§ظ„';
                   break;
                 case SocketConnectionState.disconnected:
                   icon = Icons.wifi_off;
                   color = Colors.grey;
-                  tooltip = 'غير متصل';
+                  tooltip = 'ط؛ظٹط± ظ…طھطµظ„';
                   break;
               }
 
@@ -143,7 +142,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 tooltip: tooltip,
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('حالة الاتصال: $tooltip')),
+                    SnackBar(content: Text('ط­ط§ظ„ط© ط§ظ„ط§طھطµط§ظ„: $tooltip')),
                   );
                 },
               );
@@ -151,7 +150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'تسجيل الخروج',
+            tooltip: 'طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬',
             onPressed: () {
               // Disconnect socket before logout
               SocketService.instance.disconnect();
@@ -183,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         SizedBox(height: 16.h),
                         Text(
-                          'لا توجد حجوزات مسندة إليك',
+                          'ظ„ط§ طھظˆط¬ط¯ ط­ط¬ظˆط²ط§طھ ظ…ط³ظ†ط¯ط© ط¥ظ„ظٹظƒ',
                           style: TextStyle(
                             fontSize: 18.sp,
                             color: Theme.of(context).textTheme.bodyMedium?.color,
@@ -206,7 +205,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: _BookingCard(
                           booking: booking,
                           onStatusUpdate: (newStatus) {
-                            _updateBookingStatus(booking, newStatus);
+                            if (newStatus.isNotEmpty) {
+                              _updateBookingStatus(booking, newStatus);
+                            }
+                          },
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BookingDetailScreen(booking: booking),
+                              ),
+                            ).then((_) => _loadBookings());
                           },
                         ),
                       );
@@ -220,10 +229,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _BookingCard extends StatelessWidget {
   final Booking booking;
   final Function(String) onStatusUpdate;
+  final VoidCallback? onTap;
 
   const _BookingCard({
     required this.booking,
     required this.onStatusUpdate,
+    this.onTap,
   });
 
   Color _getStatusColor(String status) {
@@ -250,19 +261,19 @@ class _BookingCard extends StatelessWidget {
   String _getStatusText(String status) {
     switch (status) {
       case 'PENDING':
-        return 'قيد الانتظار';
+        return 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±';
       case 'CONFIRMED':
-        return 'مؤكد';
+        return 'ظ…ط¤ظƒط¯';
       case 'IN_PROGRESS':
-        return 'قيد التنفيذ';
+        return 'ظ‚ظٹط¯ ط§ظ„طھظ†ظپظٹط°';
       case 'WAITING_PARTS':
-        return 'في انتظار القطع';
+        return 'ظپظٹ ط§ظ†طھط¸ط§ط± ط§ظ„ظ‚ط·ط¹';
       case 'COMPLETED':
-        return 'مكتمل';
+        return 'ظ…ظƒطھظ…ظ„';
       case 'CANCELLED':
-        return 'ملغي';
+        return 'ظ…ظ„ط؛ظٹ';
       case 'NO_SHOW':
-        return 'لم يحضر';
+        return 'ظ„ظ… ظٹط­ط¶ط±';
       default:
         return status;
     }
@@ -279,48 +290,51 @@ class _BookingCard extends StatelessWidget {
             backgroundColor: AppTheme.successColor,
             foregroundColor: Colors.white,
             icon: Icons.play_arrow,
-            label: 'بدء',
+            label: 'ط¨ط¯ط،',
           ),
           SlidableAction(
             onPressed: (_) => onStatusUpdate('WAITING_PARTS'),
             backgroundColor: AppTheme.warningColor,
             foregroundColor: Colors.white,
             icon: Icons.inventory,
-            label: 'قطع',
+            label: 'ظ‚ط·ط¹',
           ),
           SlidableAction(
             onPressed: (_) => onStatusUpdate('COMPLETED'),
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             icon: Icons.check,
-            label: 'إكمال',
+            label: 'ط¥ظƒظ…ط§ظ„',
           ),
         ],
       ),
-      child: Card(
-        margin: EdgeInsets.only(bottom: 16.h),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        child: Card(
+          margin: EdgeInsets.only(bottom: 16.h),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            border: Border.all(
-              color: _getStatusColor(booking.status).withOpacity(0.3),
-              width: 1,
-            ),
           ),
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        booking.customer?.fullName ?? 'Unknown',
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              border: Border.all(
+                color: _getStatusColor(booking.status).withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          booking.customerName,
                         style: TextStyle(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
@@ -424,7 +438,7 @@ class _BookingCard extends StatelessWidget {
                 if (booking.services != null && booking.services!.isNotEmpty) ...[
                   SizedBox(height: 12.h),
                   Text(
-                    'الخدمات:',
+                    'ط§ظ„ط®ط¯ظ…ط§طھ:',
                     style: TextStyle(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
@@ -435,7 +449,7 @@ class _BookingCard extends StatelessWidget {
                   ...booking.services!.map((service) => Padding(
                         padding: EdgeInsets.only(left: 8.w, top: 2.h),
                         child: Text(
-                          '• ${service.name}',
+                          'â€¢ ${service.name}',
                           style: TextStyle(
                             fontSize: 12.sp,
                             color: Theme.of(context).textTheme.bodySmall?.color,
@@ -449,25 +463,25 @@ class _BookingCard extends StatelessWidget {
                   runSpacing: 8.h,
                   children: [
                     _StatusButton(
-                      label: 'بدء',
+                      label: 'ط¨ط¯ط،',
                       status: 'IN_PROGRESS',
                       color: AppTheme.successColor,
                       onPressed: () => onStatusUpdate('IN_PROGRESS'),
                     ),
                     _StatusButton(
-                      label: 'انتظار قطع',
+                      label: 'ط§ظ†طھط¸ط§ط± ظ‚ط·ط¹',
                       status: 'WAITING_PARTS',
                       color: AppTheme.warningColor,
                       onPressed: () => onStatusUpdate('WAITING_PARTS'),
                     ),
                     _StatusButton(
-                      label: 'إكمال',
+                      label: 'ط¥ظƒظ…ط§ظ„',
                       status: 'COMPLETED',
                       color: AppTheme.primaryColor,
                       onPressed: () => onStatusUpdate('COMPLETED'),
                     ),
                     _StatusButton(
-                      label: 'إلغاء',
+                      label: 'ط¥ظ„ط؛ط§ط،',
                       status: 'CANCELLED',
                       color: AppTheme.errorColor,
                       onPressed: () => onStatusUpdate('CANCELLED'),
@@ -479,7 +493,8 @@ class _BookingCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

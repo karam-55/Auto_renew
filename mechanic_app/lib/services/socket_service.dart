@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/app_config.dart';
+import '../core/config/app_keys.dart';
 
 enum SocketConnectionState {
   disconnected,
@@ -13,7 +15,7 @@ class SocketService {
   static SocketService? _instance;
   static SocketService get instance => _instance ??= SocketService._internal();
 
-  IO.Socket? _socket;
+  io.Socket? _socket;
   SocketConnectionState _connectionState = SocketConnectionState.disconnected;
   final _connectionStateController = ValueNotifier<SocketConnectionState>(SocketConnectionState.disconnected);
   String? _userId;
@@ -27,15 +29,15 @@ class SocketService {
   bool get isConnected => _connectionState == SocketConnectionState.connected;
   SocketConnectionState get currentConnectionState => _connectionState;
 
-  void setOnNewAssignmentCallback(VoidCallback callback) {
+  void setOnNewAssignmentCallback(VoidCallback? callback) {
     _onNewAssignment = callback;
   }
 
-  void setOnBookingStatusChangedCallback(VoidCallback callback) {
+  void setOnBookingStatusChangedCallback(VoidCallback? callback) {
     _onBookingStatusChanged = callback;
   }
 
-  Future<void> connect(BuildContext context) async {
+  Future<void> connect() async {
     if (_socket != null && _socket!.connected) {
       return;
     }
@@ -52,20 +54,20 @@ class SocketService {
         return;
       }
 
-      _socket = IO.io('http://localhost:8080', <String, dynamic>{
+      _socket = io.io(AppConfig.serverUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
       });
 
-      _setupSocketListeners(context);
+      _setupSocketListeners();
       _socket!.connect();
     } catch (e) {
       _setConnectionState(SocketConnectionState.error);
-      _showErrorNotification(context, 'Connection error: $e');
+      _showErrorNotification('Connection error: $e');
     }
   }
 
-  void _setupSocketListeners(BuildContext context) {
+  void _setupSocketListeners() {
     if (_socket == null) return;
 
     _socket!.onConnect((_) {
@@ -93,7 +95,7 @@ class SocketService {
     _socket!.onConnectError((error) {
       _setConnectionState(SocketConnectionState.error);
       debugPrint('Socket connection error: $error');
-      _showErrorNotification(context, 'Connection error: $error');
+      _showErrorNotification('Connection error: $error');
     });
 
     _socket!.onError((error) {
@@ -103,33 +105,33 @@ class SocketService {
     // Listen for new mechanic assignments
     _socket!.on('mechanic:assignment-created', (data) {
       debugPrint('New mechanic assignment: $data');
-      _showAssignmentNotification(context, data);
+      _showAssignmentNotification(data);
       _onNewAssignment?.call();
     });
 
     // Listen for assignment removals
     _socket!.on('mechanic:assignment-removed', (data) {
       debugPrint('Mechanic assignment removed: $data');
-      _showAssignmentRemovedNotification(context, data);
+      _showAssignmentRemovedNotification(data);
     });
 
     // Listen for booking status changes
     _socket!.on('booking:status-changed', (data) {
       debugPrint('Booking status changed: $data');
-      _showBookingStatusNotification(context, data);
+      _showBookingStatusNotification(data);
       _onBookingStatusChanged?.call();
     });
 
     // Listen for new notifications
     _socket!.on('notification:new', (data) {
       debugPrint('New notification: $data');
-      _showNotification(context, data);
+      _showNotification(data);
     });
 
     // Listen for broadcast notifications
     _socket!.on('notification:broadcast', (data) {
       debugPrint('Broadcast notification: $data');
-      _showNotification(context, data);
+      _showNotification(data);
     });
   }
 
@@ -138,16 +140,13 @@ class SocketService {
     _connectionStateController.value = state;
   }
 
-  void _showAssignmentNotification(BuildContext context, dynamic data) {
-    if (!context.mounted) return;
-
-    final bookingId = data['bookingId'] ?? 'Unknown';
+  void _showAssignmentNotification(dynamic data) {
     final customerName = data['customerName'] ?? 'Customer';
     final vehicleInfo = data['vehicleInfo'] ?? 'Vehicle';
     final scheduledDate = data['scheduledDate'];
     final status = data['status'] ?? 'PENDING';
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppKeys.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -174,12 +173,10 @@ class SocketService {
     );
   }
 
-  void _showAssignmentRemovedNotification(BuildContext context, dynamic data) {
-    if (!context.mounted) return;
-
+  void _showAssignmentRemovedNotification(dynamic data) {
     final bookingId = data['bookingId'] ?? 'Unknown';
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppKeys.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text('Removed from booking #$bookingId'),
         backgroundColor: Colors.orange,
@@ -188,14 +185,12 @@ class SocketService {
     );
   }
 
-  void _showBookingStatusNotification(BuildContext context, dynamic data) {
-    if (!context.mounted) return;
-
+  void _showBookingStatusNotification(dynamic data) {
     final bookingId = data['bookingId'] ?? 'Unknown';
     final oldStatus = data['oldStatus'] ?? 'Unknown';
     final newStatus = data['newStatus'] ?? 'Unknown';
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppKeys.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -212,9 +207,7 @@ class SocketService {
     );
   }
 
-  void _showNotification(BuildContext context, dynamic data) {
-    if (!context.mounted) return;
-
+  void _showNotification(dynamic data) {
     final title = data['title'] ?? 'Notification';
     final message = data['message'] ?? '';
     final type = data['type'] ?? 'INFO';
@@ -224,7 +217,7 @@ class SocketService {
     if (type == 'WARNING') backgroundColor = Colors.orange;
     if (type == 'ERROR') backgroundColor = Colors.red;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppKeys.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -241,10 +234,8 @@ class SocketService {
     );
   }
 
-  void _showErrorNotification(BuildContext context, String message) {
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
+  void _showErrorNotification(String message) {
+    AppKeys.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
@@ -260,12 +251,5 @@ class SocketService {
       _socket = null;
     }
     _setConnectionState(SocketConnectionState.disconnected);
-    _userId = null;
-    _tenantId = null;
-  }
-
-  void dispose() {
-    disconnect();
-    _connectionStateController.dispose();
   }
 }

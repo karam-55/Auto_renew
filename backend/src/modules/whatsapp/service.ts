@@ -107,7 +107,7 @@ export class WhatsAppService {
   // ============================================
 
   async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `🔧 *تأكيد حجز جديد*
+    let message = `🔧 *تأكيد حجز جديد*
 
 مرحباً ${data.customerName}،
 
@@ -115,11 +115,13 @@ export class WhatsAppService {
 
 📅 التاريخ: ${data.scheduledDate}
 🚗 المركبة: ${data.vehicleMake} ${data.vehicleModel}
-📋 رقم الحجز: ${data.bookingId}
+📋 رقم الحجز: ${data.bookingId}`;
 
-نتطلع لخدمتك قريباً!
+    if (data.trackingUrl) {
+      message += `\n\n🔗 رابط المتابعة: ${data.trackingUrl}`;
+    }
 
-${data.garageName}`;
+    message += `\n\nنتطلع لخدمتك قريباً!\n\n${data.garageName}`;
 
     return this.sendMessage({
       to: data.customerPhone,
@@ -229,18 +231,20 @@ ${data.garageName}`;
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    const message = `✅ *تأكيد الدفع*
+    let message = `✅ *تأكيد الدفع*
 
 مرحباً ${data.customerName}،
 
 تم استلام دفعتك بنجاح في ${data.garageName}.
 
 📋 رقم الفاتورة: ${data.invoiceNumber}
-💰 المبلغ: ${data.totalAmount.toLocaleString()} ل.س
+💰 المبلغ: ${data.totalAmount.toLocaleString()} ل.س`;
 
-شكراً لتعاملكم معنا!
+    if (data.pdfUrl) {
+      message += `\n\n📄 رابط الفاتورة: ${data.pdfUrl}`;
+    }
 
-${data.garageName}`;
+    message += `\n\nشكراً لتعاملكم معنا!\n\n${data.garageName}`;
 
     return this.sendMessage({
       to: data.customerPhone,

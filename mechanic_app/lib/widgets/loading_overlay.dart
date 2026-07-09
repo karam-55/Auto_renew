@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../core/theme/app_theme.dart';
 
@@ -7,10 +7,10 @@ class LoadingOverlay extends StatelessWidget {
   final bool isDismissible;
 
   const LoadingOverlay({
-    Key? key,
+    super.key,
     this.message,
     this.isDismissible = false,
-  }) : super(key: key);
+  });
 
   static void show(
     BuildContext context, {
@@ -33,8 +33,8 @@ class LoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => isDismissible,
+    return PopScope(
+      canPop: isDismissible,
       child: Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -45,7 +45,7 @@ class LoadingOverlay extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

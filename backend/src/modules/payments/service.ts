@@ -9,7 +9,7 @@ import {
 import { Logger } from '../../infrastructure/logging/logger';
 import { PaymentMethod } from '@prisma/client';
 import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
-import { WhatChimpService } from '../whatsapp/whatchimp.service';
+import { WhatsAppService } from '../whatsapp/service';
 import { PdfWorker } from '../../workers/pdf.worker';
 import fs from 'fs';
 
@@ -105,7 +105,7 @@ export class PaymentService {
       Logger.error('Error creating journal entry for payment:', error);
     }
 
-    // Send WhatsApp payment confirmation with invoice PDF via WhatChimp
+    // Send WhatsApp payment confirmation
     setImmediate(async () => {
       try {
         const paymentWithDetails = await prisma.payment.findUnique({
@@ -163,19 +163,22 @@ export class PaymentService {
           }
         }
 
+        // Recompute full PDF URL in case pdfUrl changed after generation
+        const finalFullPdfUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}${pdfUrl}` : pdfUrl;
+
         // Send WhatsApp payment confirmation with PDF
-        const whatChimpService = new WhatChimpService();
-        await whatChimpService.sendPaymentConfirmationWithPdf({
+        const whatsappService = new WhatsAppService();
+        await whatsappService.sendPaymentConfirmation({
           customerName,
           customerPhone,
           invoiceNumber,
           totalAmount: totalPaid,
           dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('ar-SY') : new Date().toLocaleDateString('ar-SY'),
           garageName: 'Garage Go',
-          pdfUrl: fullPdfUrl,
+          pdfUrl: finalFullPdfUrl,
         });
       } catch (whatsappError) {
-        Logger.error('Error sending WhatsApp payment confirmation via WhatChimp:', whatsappError);
+        Logger.error('Error sending WhatsApp payment confirmation:', whatsappError);
       }
     });
 
