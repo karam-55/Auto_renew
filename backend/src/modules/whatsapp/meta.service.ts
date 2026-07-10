@@ -218,7 +218,7 @@ export class MetaWhatsAppService {
       },
     ];
 
-    const templateResult = await this.sendTemplate(customerPhone, 'welcomee', 'ar', components);
+    const templateResult = await this.sendTemplate(customerPhone, 'welcome', 'ar', components);
     if (templateResult.success) return templateResult;
 
     // Fallback

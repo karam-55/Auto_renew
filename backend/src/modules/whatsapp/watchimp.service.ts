@@ -146,16 +146,19 @@ export class WatchimpService {
       );
 
       const respData = response.data;
-      Logger.debug('WhatChimp template sent', {
+      const success = respData?.status === '1' || respData?.status === 1;
+      Logger.debug('WhatChimp template response', {
         status: respData?.status,
+        message: respData?.message,
         messageId: respData?.wa_message_id,
         template: templateName,
         phone,
       });
 
       return {
-        success: respData?.status === '1' || respData?.status === 1,
+        success,
         messageId: respData?.wa_message_id,
+        error: success ? undefined : (respData?.message || 'WhatChimp template failed'),
       };
     } catch (error) {
       const errMsg = this.extractError(error);

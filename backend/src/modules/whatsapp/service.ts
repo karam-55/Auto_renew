@@ -10,25 +10,32 @@ import {
 } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WatchimpService } from './watchimp.service';
+import { MetaWhatsAppService } from './meta.service';
 
 export class WhatsAppService {
   private config: WhatsAppConfig;
   private io: SocketIOServer | null = null;
   private watchimpService: WatchimpService;
+  private metaWhatsAppService: MetaWhatsAppService;
 
   constructor() {
     this.config = {
       apiKey: process.env.WHATSAPP_API_KEY || '',
       apiUrl: process.env.WHATSAPP_API_URL || 'https://api.evolution-api.com',
       instanceName: process.env.WHATSAPP_INSTANCE_NAME || '',
-      isEnabled: process.env.WHATSAPP_ENABLED === 'true' || process.env.WATCHIMP_ENABLED === 'true',
+      isEnabled: process.env.WHATSAPP_ENABLED === 'true' || process.env.WATCHIMP_ENABLED === 'true' || process.env.META_WHATSAPP_ENABLED === 'true',
     };
     this.watchimpService = new WatchimpService();
+    this.metaWhatsAppService = new MetaWhatsAppService();
   }
 
   setIo(io: SocketIOServer) {
     this.io = io;
     this.watchimpService.setIo(io);
+  }
+
+  private useMeta(): boolean {
+    return this.metaWhatsAppService.isEnabled();
   }
 
   private useWatchimp(): boolean {
@@ -64,7 +71,10 @@ export class WhatsAppService {
       return { success: false, error: 'WhatsApp not enabled' };
     }
 
-    // Delegate to Watchimp when configured
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then Evolution
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendMessage(message.to, message.message);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendMessage(message);
     }
@@ -107,7 +117,10 @@ export class WhatsAppService {
   // ============================================
 
   async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    // Use WhatChimp templates when configured, fallback to free-form text
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendBookingConfirmation(data);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendBookingConfirmation(data);
     }
@@ -135,7 +148,10 @@ export class WhatsAppService {
   }
 
   async sendBookingStatusUpdate(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    // Use WhatChimp templates when configured, fallback to free-form text
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendBookingStatusUpdate(data);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendBookingStatusUpdate(data);
     }
@@ -220,7 +236,10 @@ ${data.garageName}`;
   // ============================================
 
   async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
-    // Use WhatChimp templates when configured, fallback to free-form text
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendInvoiceNotification(data);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendInvoiceNotification(data);
     }
@@ -246,7 +265,10 @@ ${data.garageName}`;
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    // Use WhatChimp templates when configured, fallback to free-form text
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendPaymentReceivedNotification(data);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendPaymentReceivedNotification(data);
     }
@@ -315,7 +337,10 @@ ${garageName}`;
   // ============================================
 
   async sendWelcomeMessage(customerName: string, customerPhone: string, garageName: string): Promise<WhatsAppNotificationResult> {
-    // Use WhatChimp templates when configured, fallback to free-form text
+    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendWelcomeMessage(customerName, customerPhone, garageName);
+    }
     if (this.useWatchimp()) {
       return this.watchimpService.sendWelcomeMessage(customerName, customerPhone, garageName);
     }
@@ -415,7 +440,7 @@ ${reminder.garageName}`;
       return { success: false, error: 'WhatsApp not enabled' };
     }
 
-    // Watchimp media support via text fallback (full media support can be added later)
+    // WhatChimp media support via text fallback (full media support can be added later)
     if (this.useWatchimp()) {
       return this.watchimpService.sendMessage({
         to: data.to,
