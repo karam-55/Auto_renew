@@ -47,10 +47,24 @@ export class MetaWhatsAppService {
 
   private normalizePhone(phone: string): string {
     let cleaned = phone.replace(/\s/g, '').replace(/-/g, '');
-    if (!cleaned.startsWith('+')) {
-      cleaned = '+' + cleaned;
+
+    // Already international format
+    if (cleaned.startsWith('+')) {
+      return cleaned;
     }
-    return cleaned;
+
+    // Remove international access prefix
+    if (cleaned.startsWith('00')) {
+      cleaned = cleaned.slice(2);
+    }
+
+    // Local Syrian mobile numbers start with 09; strip the trunk 0 and add +963.
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.slice(1);
+      cleaned = '963' + cleaned;
+    }
+
+    return '+' + cleaned;
   }
 
   /**
@@ -84,8 +98,15 @@ export class MetaWhatsAppService {
         messageId: response.data?.messages?.[0]?.id,
       };
     } catch (error: any) {
-      const errMsg = error.response?.data?.error?.message || error.message;
-      Logger.error('Meta WhatsApp send message error', { error: errMsg, phone });
+      const responseBody = error.response?.data;
+      const errMsg = responseBody?.error?.message || error.message;
+      const errCode = responseBody?.error?.code;
+      Logger.error('Meta WhatsApp send message error', {
+        error: errMsg,
+        code: errCode,
+        response: JSON.stringify(responseBody).substring(0, 1000),
+        phone,
+      });
       return { success: false, error: errMsg };
     }
   }
@@ -141,19 +162,29 @@ export class MetaWhatsAppService {
         messageId: response.data?.messages?.[0]?.id,
       };
     } catch (error: any) {
-      const errMsg = error.response?.data?.error?.message || error.message;
-      const errCode = error.response?.data?.error?.code;
+      const responseBody = error.response?.data;
+      const errMsg = responseBody?.error?.message || error.message;
+      const errCode = responseBody?.error?.code;
+      const errSubcode = responseBody?.error?.error_subcode;
 
       // If the template has hardcoded placeholder names (no {{1}} positional markers),
-      // Meta returns code 132000. Retry without components so the literal template is sent.
-      if (components && components.length > 0 && errCode === 132000) {
-        Logger.debug('Meta WhatsApp template parameter mismatch, retrying without components', { template: templateName, phone, code: errCode });
+      // Meta returns code 132000 or 131009. Retry without components so the literal template is sent.
+      if (components && components.length > 0 && (errCode === 132000 || errCode === 131009)) {
+        Logger.debug('Meta WhatsApp template parameter mismatch, retrying without components', {
+          template: templateName,
+          phone,
+          code: errCode,
+          subcode: errSubcode,
+          error: errMsg,
+        });
         return this.sendTemplate(to, templateName, languageCode, []);
       }
 
       Logger.error('Meta WhatsApp send template error', {
         error: errMsg,
         code: errCode,
+        subcode: errSubcode,
+        response: JSON.stringify(responseBody).substring(0, 1000),
         template: templateName,
         phone,
       });
