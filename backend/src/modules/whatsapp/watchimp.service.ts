@@ -469,10 +469,26 @@ export class WatchimpService {
 
   private normalizePhone(phone: string): string {
     let cleaned = phone.replace(/\s/g, '').replace(/-/g, '');
-    if (!cleaned.startsWith('+')) {
-      cleaned = '+' + cleaned;
+
+    // Already international format
+    if (cleaned.startsWith('+')) {
+      return cleaned;
     }
-    return cleaned;
+
+    // Remove international access prefix
+    if (cleaned.startsWith('00')) {
+      cleaned = cleaned.slice(2);
+    }
+
+    // Local mobile numbers starting with 05 are Saudi; 09 are Syrian.
+    // Strip the trunk 0 and add the matching country code.
+    if (cleaned.startsWith('05')) {
+      cleaned = '966' + cleaned.slice(1);
+    } else if (cleaned.startsWith('09')) {
+      cleaned = '963' + cleaned.slice(1);
+    }
+
+    return '+' + cleaned;
   }
 
   private extractError(error: any): string {

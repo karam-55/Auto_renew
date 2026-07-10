@@ -55,10 +55,12 @@ export class WhatsAppService {
   }
 
   isEnabled(): boolean {
-    return this.config.isEnabled === true && 
-           !!this.config.apiKey && 
-           !!this.config.apiUrl && 
-           !!this.config.instanceName;
+    return this.useMeta() || this.useWatchimp() || (
+      this.config.isEnabled === true &&
+      !!this.config.apiKey &&
+      !!this.config.apiUrl &&
+      !!this.config.instanceName
+    );
   }
 
   // ============================================
@@ -71,12 +73,12 @@ export class WhatsAppService {
       return { success: false, error: 'WhatsApp not enabled' };
     }
 
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then Evolution
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendMessage(message.to, message.message);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then Evolution
     if (this.useWatchimp()) {
       return this.watchimpService.sendMessage(message);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendMessage(message.to, message.message);
     }
 
     const formattedNumber = this.formatPhoneNumber(message.to);
@@ -117,12 +119,12 @@ export class WhatsAppService {
   // ============================================
 
   async sendBookingConfirmation(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendBookingConfirmation(data);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then free-form text
     if (this.useWatchimp()) {
       return this.watchimpService.sendBookingConfirmation(data);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendBookingConfirmation(data);
     }
 
     let message = `🔧 *تأكيد حجز جديد*
@@ -148,12 +150,12 @@ export class WhatsAppService {
   }
 
   async sendBookingStatusUpdate(data: BookingNotificationData): Promise<WhatsAppNotificationResult> {
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendBookingStatusUpdate(data);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then free-form text
     if (this.useWatchimp()) {
       return this.watchimpService.sendBookingStatusUpdate(data);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendBookingStatusUpdate(data);
     }
 
     const statusMessages: Record<string, string> = {
@@ -236,12 +238,12 @@ ${data.garageName}`;
   // ============================================
 
   async sendInvoiceNotification(data: InvoiceNotificationData & { pdfUrl?: string }): Promise<WhatsAppNotificationResult> {
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendInvoiceNotification(data);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then free-form text
     if (this.useWatchimp()) {
       return this.watchimpService.sendInvoiceNotification(data);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendInvoiceNotification(data);
     }
 
     const message = `📄 *فاتورة جديدة*
@@ -265,12 +267,12 @@ ${data.garageName}`;
   }
 
   async sendPaymentConfirmation(data: InvoiceNotificationData): Promise<WhatsAppNotificationResult> {
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendPaymentReceivedNotification(data);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then free-form text
     if (this.useWatchimp()) {
       return this.watchimpService.sendPaymentReceivedNotification(data);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendPaymentReceivedNotification(data);
     }
 
     let message = `✅ *تأكيد الدفع*
@@ -337,12 +339,12 @@ ${garageName}`;
   // ============================================
 
   async sendWelcomeMessage(customerName: string, customerPhone: string, garageName: string): Promise<WhatsAppNotificationResult> {
-    // Prefer Meta WhatsApp Cloud API, then WhatChimp, then free-form text
-    if (this.useMeta()) {
-      return this.metaWhatsAppService.sendWelcomeMessage(customerName, customerPhone, garageName);
-    }
+    // Prefer WhatChimp, then Meta WhatsApp Cloud API, then free-form text
     if (this.useWatchimp()) {
       return this.watchimpService.sendWelcomeMessage(customerName, customerPhone, garageName);
+    }
+    if (this.useMeta()) {
+      return this.metaWhatsAppService.sendWelcomeMessage(customerName, customerPhone, garageName);
     }
 
     const message = `👋 *أهلاً وسهلاً*
