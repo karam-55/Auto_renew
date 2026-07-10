@@ -147,7 +147,7 @@ export class MetaWhatsAppService {
       // If the template has hardcoded placeholder names (no {{1}} positional markers),
       // Meta returns code 132000. Retry without components so the literal template is sent.
       if (components && components.length > 0 && errCode === 132000) {
-        Logger.debug('Meta WhatsApp template retry without components', { template: templateName, phone });
+        Logger.debug('Meta WhatsApp template parameter mismatch, retrying without components', { template: templateName, phone, code: errCode });
         return this.sendTemplate(to, templateName, languageCode, []);
       }
 
