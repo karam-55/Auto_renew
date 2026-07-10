@@ -143,6 +143,14 @@ export class MetaWhatsAppService {
     } catch (error: any) {
       const errMsg = error.response?.data?.error?.message || error.message;
       const errCode = error.response?.data?.error?.code;
+
+      // If the template has hardcoded placeholder names (no {{1}} positional markers),
+      // Meta returns code 132000. Retry without components so the literal template is sent.
+      if (components && components.length > 0 && errCode === 132000) {
+        Logger.debug('Meta WhatsApp template retry without components', { template: templateName, phone });
+        return this.sendTemplate(to, templateName, languageCode, []);
+      }
+
       Logger.error('Meta WhatsApp send template error', {
         error: errMsg,
         code: errCode,
