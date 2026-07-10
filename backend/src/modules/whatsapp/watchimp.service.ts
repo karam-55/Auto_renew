@@ -24,6 +24,21 @@ export class WatchimpService {
   private config: WatchimpConfig;
   private io: SocketIOServer | null = null;
 
+  // WhatChimp internal template IDs (numeric) for the WhatsApp Business account.
+  // The /whatsapp/send/template endpoint requires these IDs, not the Meta template names.
+  private readonly templateIds: Record<string, string> = {
+    welcome: '401404',
+    welcomee: '401404',
+    booking_confirmation: '401378',
+    booking_status_update: '401389',
+    invoice_neww: '401393',
+    invoice_new: '401393',
+    payment_receivedd: '401400',
+    payment_received: '401400',
+    warranty_new: '401402',
+    service_completed: '401409',
+  };
+
   constructor() {
     const apiKey = process.env.WATCHIMP_API_KEY || '';
     // Parse API key format: "user_id|access_token"
@@ -68,14 +83,18 @@ export class WatchimpService {
    */
   private async setSubscriberCustomFields(
     phone: string,
-    customFields: Record<string, string>
+    customFields: Record<string, string>,
+    name: string = 'Customer'
   ): Promise<boolean> {
+    const apiPhone = phone.replace(/^\+/, '');
+
     try {
-      // First, create/update subscriber
+      // First, create/update subscriber using WhatChimp's camelCase parameters.
       const subscriberPayload: any = {
         apiToken: this.config.apiKey,
-        phone_number_id: this.config.phoneNumberId,
-        phone_number: phone,
+        phoneNumberID: this.config.phoneNumberId,
+        phoneNumber: apiPhone,
+        name,
       };
 
       await axios.post(
@@ -85,23 +104,25 @@ export class WatchimpService {
       );
 
       // Then assign custom fields
-      const fieldsPayload = {
-        apiToken: this.config.apiKey,
-        phone_number_id: this.config.phoneNumberId,
-        phone_number: phone,
-        custom_fields: JSON.stringify(customFields),
-      };
+      if (Object.keys(customFields).length > 0) {
+        const fieldsPayload = {
+          apiToken: this.config.apiKey,
+          phone_number_id: this.config.phoneNumberId,
+          phone_number: apiPhone,
+          custom_fields: JSON.stringify(customFields),
+        };
 
-      await axios.post(
-        `${this.config.apiUrl}/whatsapp/subscriber/chat/assign-custom-fields`,
-        fieldsPayload,
-        { timeout: 10000, headers: { 'Content-Type': 'application/json' } }
-      );
+        await axios.post(
+          `${this.config.apiUrl}/whatsapp/subscriber/chat/assign-custom-fields`,
+          fieldsPayload,
+          { timeout: 10000, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
 
-      Logger.debug('WhatChimp subscriber custom fields set', { phone, fields: Object.keys(customFields) });
+      Logger.debug('WhatChimp subscriber custom fields set', { phone: apiPhone, fields: Object.keys(customFields) });
       return true;
     } catch (error) {
-      Logger.error('Error setting WhatChimp subscriber custom fields', { error: this.extractError(error), phone });
+      Logger.error('Error setting WhatChimp subscriber custom fields', { error: this.extractError(error), phone: apiPhone });
       return false;
     }
   }
@@ -121,20 +142,26 @@ export class WatchimpService {
     }
 
     const phone = this.normalizePhone(to);
+    const apiPhone = phone.replace(/^\+/, '');
+    const templateId = this.templateIds[templateName];
+
+    if (!templateId) {
+      Logger.error('WhatChimp template ID not found', { template: templateName });
+      return { success: false, error: `WhatChimp template ID not found for ${templateName}` };
+    }
 
     try {
-      // Step 1: Set custom fields on subscriber
-      await this.setSubscriberCustomFields(phone, customFields);
+      // Step 1: Set custom fields on subscriber (optional, but kept for future variable support)
+      await this.setSubscriberCustomFields(apiPhone, customFields);
 
-      // Step 2: Send template (WhatChimp auto-fills from subscriber custom fields)
+      // Step 2: Send template via WhatChimp's template endpoint
       const response = await axios.post(
-        `${this.config.apiUrl}/whatsapp/send`,
+        `${this.config.apiUrl}/whatsapp/send/template`,
         {
           apiToken: this.config.apiKey,
           phone_number_id: this.config.phoneNumberId,
-          phone_number: phone,
-          template_name: templateName,
-          language_code: language,
+          template_id: templateId,
+          phone_number: apiPhone,
         },
         {
           timeout: 10000,
@@ -152,7 +179,8 @@ export class WatchimpService {
         message: respData?.message,
         messageId: respData?.wa_message_id,
         template: templateName,
-        phone,
+        templateId,
+        phone: apiPhone,
       });
 
       return {
@@ -162,7 +190,7 @@ export class WatchimpService {
       };
     } catch (error) {
       const errMsg = this.extractError(error);
-      Logger.error('Error sending WhatChimp template', { error: errMsg, template: templateName, phone });
+      Logger.error('Error sending WhatChimp template', { error: errMsg, template: templateName, templateId, phone: apiPhone });
       return { success: false, error: errMsg };
     }
   }
@@ -177,6 +205,7 @@ export class WatchimpService {
     }
 
     const phone = this.normalizePhone(message.to);
+    const apiPhone = phone.replace(/^\+/, '');
 
     try {
       const response = await axios.post(
@@ -185,7 +214,7 @@ export class WatchimpService {
           apiToken: this.config.apiKey,
           phone_number_id: this.config.phoneNumberId,
           message: message.message,
-          phone_number: phone,
+          phone_number: apiPhone,
         },
         {
           timeout: 8000,
@@ -221,6 +250,7 @@ export class WatchimpService {
     }
 
     const phone = this.normalizePhone(to);
+    const apiPhone = phone.replace(/^\+/, '');
 
     try {
       const response = await axios.post(
@@ -228,7 +258,7 @@ export class WatchimpService {
         {
           apiToken: this.config.apiKey,
           phone_number_id: this.config.phoneNumberId,
-          phone_number: phone,
+          phone_number: apiPhone,
           document_url: documentUrl,
           caption: caption,
           filename: filename,
