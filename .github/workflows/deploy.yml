@@ -75,7 +75,7 @@ jobs:
 
       - name: Copy deploy config to server
         run: |
-          rsync -avz --delete \
+          rsync -avz --delete --exclude='.env' \
             -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes" \
             deploy/ \
             ${{ secrets.SERVER_USER }}@178.105.209.59:/opt/auto-renew/deploy/
