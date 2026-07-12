@@ -30,24 +30,6 @@ services:
       retries: 5
 
   # ============================================
-  # PostgreSQL (Evolution API)
-  # ============================================
-  evolution-postgres:
-    image: postgres:15-alpine
-    container_name: evolution_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${EVO_POSTGRES_DB:-evolution_db}
-      POSTGRES_USER: ${EVO_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${EVO_POSTGRES_PASSWORD}
-    volumes:
-      - evolution_postgres_data:/var/lib/postgresql/data
-    networks:
-      - garage_network
-    expose:
-      - "5432"
-
-  # ============================================
   # Redis
   # ============================================
   redis:
@@ -57,21 +39,6 @@ services:
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-    networks:
-      - garage_network
-    expose:
-      - "6379"
-
-  # ============================================
-  # Redis (Evolution API)
-  # ============================================
-  evolution-redis:
-    image: redis:7-alpine
-    container_name: evolution_redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - evolution_redis_data:/data
     networks:
       - garage_network
     expose:
@@ -130,9 +97,6 @@ services:
       CUSTOMER_CORS_ORIGIN: ${CUSTOMER_CORS_ORIGIN:-*}
       MECHANIC_CORS_ORIGIN: ${MECHANIC_CORS_ORIGIN:-*}
       WHATSAPP_ENABLED: "true"
-      WHATSAPP_API_URL: http://evolution-api:8081
-      WHATSAPP_API_KEY: ${EVO_API_KEY}
-      WHATSAPP_INSTANCE_NAME: ${EVO_INSTANCE_NAME:-garage}
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-default}
       WATCHIMP_ENABLED: "true"
       WATCHIMP_API_KEY: ${WATCHIMP_API_KEY}
@@ -160,37 +124,6 @@ services:
       start_period: 40s
 
   # ============================================
-  # Evolution API (WhatsApp)
-  # ============================================
-  evolution-api:
-    image: evoapicloud/evolution-api:latest
-    container_name: evolution_api
-    restart: unless-stopped
-    depends_on:
-      - evolution-postgres
-      - evolution-redis
-    ports:
-      - "127.0.0.1:8081:8081"
-    volumes:
-      - evolution_instances:/evolution/instances
-    environment:
-      SERVER_TYPE: http
-      SERVER_PORT: 8081
-      SERVER_URL: http://localhost:8081
-      LOG_LEVEL: info
-      LOG_BAILEYS: error
-      DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@evolution-postgres:5432/${EVO_POSTGRES_DB:-evolution_db}?schema=evolution_api
-      DATABASE_SAVE_DATA_INSTANCE: "true"
-      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
-      CACHE_REDIS_ENABLED: "true"
-      CACHE_REDIS_URI: redis://evolution-redis:6379/6
-      AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: ${EVO_API_KEY}
-    networks:
-      - garage_network
-
-  # ============================================
   # Nginx Reverse Proxy
   # ============================================
   nginx:
@@ -199,7 +132,6 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-      - evolution-api
     ports:
       - "80:80"
     volumes:
@@ -210,8 +142,5 @@ services:
 
 volumes:
   postgres_data:
-  evolution_postgres_data:
   redis_data:
-  evolution_redis_data:
   minio_data:
-  evolution_instances:
