@@ -187,7 +187,7 @@ export class AccountService {
   }
 
   /**
-   * Delete account (soft delete by deactivating)
+   * Deactivate account (accounting accounts cannot be deleted if used in journal entries)
    */
   async deleteAccount(tenantId: string, accountId: string): Promise<void> {
     const account = await prisma.account.findFirst({

@@ -41,17 +41,9 @@ export class PrismaService {
           params.args.where = addDeletedAtNullFilter(params.args.where);
         }
 
-        if (params.action === 'delete') {
-          params.action = 'update';
-          params.args = params.args || {};
-          params.args.data = { deletedAt: new Date() };
-        }
-
-        if (params.action === 'deleteMany') {
-          params.action = 'updateMany';
-          params.args = params.args || {};
-          params.args.data = { deletedAt: new Date() };
-        }
+        // NOTE: Deletion is now hard delete. We keep the read filtering
+        // so existing soft-deleted records (deletedAt != null) remain hidden.
+        // All new delete operations will permanently remove records.
 
         return next(params);
       });

@@ -162,15 +162,14 @@ export class TenantController {
   };
 
   /**
-   * Delete tenant (soft delete)
+   * Delete tenant (hard delete)
    */
   deleteTenant = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
 
-      await prisma.tenant.update({
+      await prisma.tenant.delete({
         where: { id },
-        data: { deletedAt: new Date() },
       });
 
       res.status(200).json({

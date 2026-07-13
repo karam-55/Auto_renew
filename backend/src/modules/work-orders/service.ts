@@ -173,13 +173,12 @@ export class WorkOrderService {
 
   async deleteWorkOrder(tenantId: string, id: string) {
     const existing = await prisma.task.findFirst({
-      where: { id, tenantId, deletedAt: null },
+      where: { id, tenantId },
     });
     if (!existing) throw new Error('Work order not found');
 
-    await prisma.task.update({
+    await prisma.task.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
 
     return { success: true };

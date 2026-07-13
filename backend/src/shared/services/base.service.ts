@@ -4,7 +4,7 @@ import { Logger } from '../../infrastructure/logging/logger';
 
 /**
  * Base Service Class
- * Provides common CRUD operations with tenant isolation and soft delete awareness.
+ * Provides common CRUD operations with tenant isolation.
  * All entity services should extend this class.
  *
  * @template T - The Prisma model type
@@ -100,25 +100,9 @@ export abstract class BaseService<T extends string> {
   }
 
   /**
-   * Soft delete a record (sets deletedAt)
+   * Delete a record permanently
    */
   async delete(tenantId: string, id: string): Promise<boolean> {
-    const model = this.getModel();
-    const existing = await this.findById(tenantId, id);
-    if (!existing) {
-      return false;
-    }
-    await model.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return true;
-  }
-
-  /**
-   * Hard delete a record (use with caution)
-   */
-  async hardDelete(tenantId: string, id: string): Promise<boolean> {
     const model = this.getModel();
     const existing = await this.findById(tenantId, id);
     if (!existing) {
@@ -128,6 +112,14 @@ export abstract class BaseService<T extends string> {
       where: { id },
     });
     return true;
+  }
+
+  /**
+   * Hard delete a record (use with caution)
+   * @deprecated Use delete() instead. Hard delete is now the default behavior.
+   */
+  async hardDelete(tenantId: string, id: string): Promise<boolean> {
+    return this.delete(tenantId, id);
   }
 
   /**

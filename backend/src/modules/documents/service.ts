@@ -47,9 +47,8 @@ export class DocumentService {
   }
 
   async deleteDocument(id: string, tenantId: string) {
-    return prisma.document.updateMany({
+    return prisma.document.deleteMany({
       where: { id, tenantId },
-      data: { deletedAt: new Date() },
     });
   }
 
