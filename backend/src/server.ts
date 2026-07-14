@@ -70,6 +70,7 @@ import attendanceRoutes from './modules/attendance/routes';
 import payrollRoutes from './modules/payroll/routes';
 import loyaltyRoutes, { initLoyaltyRoutes } from './modules/loyalty/routes';
 import whatsappRoutes, { initWhatsAppRoutes } from './modules/whatsapp/routes';
+import telegramRoutes from './modules/telegram/routes';
 import fcmRoutes, { initFCMRoutes } from './modules/fcm/routes';
 import maintenanceRoutes, { initMaintenanceRoutes } from './modules/maintenance/routes';
 import inventoryCountRoutes, { initInventoryCountRoutes } from './modules/inventory-count/routes';
@@ -275,6 +276,7 @@ apiRouter.use('/attendance', attendanceRoutes);
 apiRouter.use('/payroll', payrollRoutes);
 apiRouter.use('/loyalty', loyaltyRoutes);
 apiRouter.use('/whatsapp', whatsappRoutes);
+apiRouter.use('/telegram', telegramRoutes);
 apiRouter.use('/fcm', fcmRoutes);
 apiRouter.use('/maintenance', maintenanceRoutes);
 apiRouter.use('/inventory-count', inventoryCountRoutes);
@@ -469,12 +471,22 @@ import('./scripts/apply-views').then(({ default: applyViews }) => {
   });
 });
 
+// Telegram bot service
+import { getTelegramService } from './modules/telegram/service';
+
 // Start server
 const PORT = process.env.PORT || 8080;
-const server = httpServer.listen(PORT, () => {
+const server = httpServer.listen(PORT, async () => {
   Logger.info(`Server running on port ${PORT}`);
   Logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   Logger.info(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
+
+  // Launch Telegram bot
+  try {
+    await getTelegramService().launchWebhook();
+  } catch (error) {
+    Logger.error('Failed to launch Telegram bot', error);
+  }
 });
 
 // Graceful shutdown handling
@@ -495,6 +507,14 @@ const gracefulShutdown = (signal: string) => {
       Logger.info('Cache disconnected');
     } catch (err) {
       Logger.error('Error disconnecting cache', err);
+    }
+
+    // Stop Telegram bot
+    try {
+      getTelegramService().stop();
+      Logger.info('Telegram bot stopped');
+    } catch (err) {
+      Logger.error('Error stopping Telegram bot', err);
     }
 
     Logger.info('Graceful shutdown complete');
