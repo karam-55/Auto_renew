@@ -36,10 +36,11 @@ export class TelegramService {
       Logger.info(`Telegram /start received from chatId: ${chatId}`);
       ctx.reply(
         `مرحباً بك في بوت Auto Renew\n` +
-        `رقم الـ Chat ID الخاص بك هو: \`${chatId}\`\n` +
-        `انسخ هذا الرقم والصقه بحقل "Telegram Chat ID" داخل التطبيق.`,
-        { parse_mode: 'MarkdownV2' }
-      );
+        `رقم الـ Chat ID الخاص بك هو: ${chatId}\n` +
+        `انسخ هذا الرقم والصقه بحقل Telegram Chat ID داخل التطبيق.`
+      ).catch((error) => {
+        Logger.error('Telegram /start reply failed', error);
+      });
     });
 
     this.bot.command('help', (ctx) => {
