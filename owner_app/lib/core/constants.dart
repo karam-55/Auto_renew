@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ApiConfig {
-  static const String baseUrl = 'http://178.105.209.59:8080';
+  static const String baseUrl = 'http://178.105.209.59';
 
   // Auth
   static const String login = '/api/auth/login';
