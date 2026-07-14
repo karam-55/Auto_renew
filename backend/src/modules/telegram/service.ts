@@ -1,3 +1,4 @@
+import { Request, Response } from 'express';
 import { Telegraf } from 'telegraf';
 import { TelegramConfig, TelegramNotificationResult } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
@@ -52,6 +53,15 @@ export class TelegramService {
 
   isEnabled(): boolean {
     return this.config.isEnabled && this.bot !== null;
+  }
+
+  webhookCallback(path: string = '/telegram/webhook') {
+    if (!this.bot || !this.isEnabled()) {
+      return (req: Request, res: Response) => {
+        res.status(503).json({ error: 'Telegram bot is not enabled' });
+      };
+    }
+    return this.bot.webhookCallback(path);
   }
 
   async launchWebhook(path?: string): Promise<void> {

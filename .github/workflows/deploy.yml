@@ -58,14 +58,22 @@ jobs:
                 echo 'WhatChimp vars already in .env'
               fi
 
-              if ! grep -q 'TELEGRAM_BOT_TOKEN' \$ENV_FILE 2>/dev/null; then
+              # Always update Telegram bot token to ensure latest value
+              if grep -q 'TELEGRAM_BOT_TOKEN' \$ENV_FILE 2>/dev/null; then
+                sed -i '/TELEGRAM_BOT_TOKEN=/c\TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' \$ENV_FILE
+              else
                 echo '' >> \$ENV_FILE
                 echo '# Telegram Bot' >> \$ENV_FILE
                 echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' >> \$ENV_FILE
-                echo 'Updated .env with Telegram bot token'
-              else
-                echo 'Telegram bot token already in .env'
               fi
+
+              if grep -q 'TELEGRAM_WEBHOOK_URL' \$ENV_FILE 2>/dev/null; then
+                sed -i '/TELEGRAM_WEBHOOK_URL=/c\TELEGRAM_WEBHOOK_URL=http://178.105.209.59' \$ENV_FILE
+              else
+                echo 'TELEGRAM_WEBHOOK_URL=http://178.105.209.59' >> \$ENV_FILE
+              fi
+
+              echo 'Updated .env with Telegram bot configuration'
             "
 
       - name: Copy backend source to server

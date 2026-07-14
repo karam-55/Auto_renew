@@ -174,6 +174,10 @@ app.use('/uploads', express.static('uploads'));
 // Make io available globally
 app.set('io', io);
 
+// Telegram webhook endpoint (must be before body parsers to handle raw body)
+import { getTelegramService } from './modules/telegram/service';
+app.use('/telegram/webhook', express.json(), getTelegramService().webhookCallback('/telegram/webhook'));
+
 // Initialize routes that need io
 initChequeRoutes(io);
 initInstallmentRoutes(io);
@@ -470,9 +474,6 @@ import('./scripts/apply-views').then(({ default: applyViews }) => {
     Logger.warn('Database views application failed, continuing without views', { error: err.message });
   });
 });
-
-// Telegram bot service
-import { getTelegramService } from './modules/telegram/service';
 
 // Start server
 const PORT = process.env.PORT || 8080;
