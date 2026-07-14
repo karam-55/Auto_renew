@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants.dart';
+import '../../core/launcher_helper.dart';
 import '../../models/dealer.dart';
 import '../../models/warranty.dart';
 import '../../repositories/dealer_repository.dart';
@@ -347,7 +348,24 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
-                  Text('${w.customerPhone} · ${w.vehicleName}', style: const TextStyle(color: AppColors.textSecondary)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${w.customerPhone} · ${w.vehicleName}',
+                          style: const TextStyle(color: AppColors.textSecondary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.call, color: AppColors.success),
+                        onPressed: () => LauncherHelper.call(w.customerPhone),
+                        tooltip: 'اتصال بصاحب الكفالة',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
