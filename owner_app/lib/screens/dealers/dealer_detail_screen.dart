@@ -101,7 +101,7 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
 
   Widget _buildInfoTab() {
     final dealer = widget.dealer;
-    final totalAmount = _warranties.fold<double>(0, (sum, w) => sum + w.amountPaid);
+    final totalsByCurrency = _calculateTotalsByCurrency();
     final totalActive = _warranties.where((w) => w.endDate != null && w.endDate!.isAfter(DateTime.now())).length;
 
     return ListView(
@@ -146,14 +146,16 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
+        _buildTotalsByCurrencyCard(totalsByCurrency),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: _buildStatCard('إجمالي المدفوع', _formatTotalAmount(totalAmount), Icons.account_balance_wallet),
+              child: _buildStatCard('إجمالي الكفالات', '${_warranties.length}', Icons.shield),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildStatCard('إجمالي الكفالات', '${_warranties.length}', Icons.shield),
+              child: _buildStatCard('العملاء', '${_extractCustomers().length}', Icons.people),
             ),
           ],
         ),
@@ -161,11 +163,11 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
         Row(
           children: [
             Expanded(
-              child: _buildStatCard('العملاء', '${_extractCustomers().length}', Icons.people),
+              child: _buildStatCard('الكفالات النشطة', '$totalActive', Icons.check_circle),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildStatCard('الكفالات النشطة', '$totalActive', Icons.check_circle),
+              child: _buildStatCard('الكفالات المنتهية', '${_warranties.length - totalActive}', Icons.cancel),
             ),
           ],
         ),
@@ -173,9 +175,71 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
     );
   }
 
-  String _formatTotalAmount(double amount) {
-    if (amount == 0) return '0 ل.س';
-    return '${amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2)} ل.س';
+  Map<String, double> _calculateTotalsByCurrency() {
+    final totals = <String, double>{};
+    for (final w in _warranties) {
+      final currency = w.currency.toUpperCase();
+      totals[currency] = (totals[currency] ?? 0) + w.amountPaid;
+    }
+    return totals;
+  }
+
+  String _formatAmount(double amount, String currency) {
+    final symbol = currency.toUpperCase() == 'USD' ? '\$' : 'ل.س';
+    if (amount == 0) return '0 $symbol';
+    return '${amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2)} $symbol';
+  }
+
+  Widget _buildTotalsByCurrencyCard(Map<String, double> totals) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_balance_wallet, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'إجمالي المبالغ المدفوعة',
+                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...totals.entries.map((entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      entry.key.toUpperCase() == 'USD' ? 'دولار' : 'ليرة سورية',
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      _formatAmount(entry.value, entry.key),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (totals.isEmpty)
+              Text(
+                _formatAmount(0, 'SYP'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildInfoTile(IconData icon, String label, String value) {
