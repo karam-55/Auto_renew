@@ -213,6 +213,7 @@ class _DealerListScreenState extends State<DealerListScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              onTap: () => _openDetail(dealer),
               leading: CircleAvatar(
                 backgroundColor: AppColors.success.withValues(alpha: 0.1),
                 child: const Icon(Icons.business, color: AppColors.success),
