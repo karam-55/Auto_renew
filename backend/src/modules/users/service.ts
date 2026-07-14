@@ -123,6 +123,9 @@ export class UserService {
     if (data.phone) updateData.phone = data.phone;
     if (data.role) updateData.role = data.role;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.telegramChatId !== undefined) {
+      updateData.telegramChatId = data.telegramChatId?.trim() || null;
+    }
     if (data.password) {
       updateData.passwordHash = await hashPassword(data.password);
     }
@@ -138,6 +141,7 @@ export class UserService {
         phone: true,
         role: true,
         isActive: true,
+        telegramChatId: true,
         createdAt: true,
         updatedAt: true,
       },

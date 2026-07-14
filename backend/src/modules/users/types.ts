@@ -14,6 +14,7 @@ export interface UpdateUserInput {
   phone?: string;
   role?: 'OWNER' | 'MANAGER' | 'RECEPTIONIST' | 'MECHANIC' | 'ACCOUNTANT' | 'CASHIER' | 'SALES';
   isActive?: boolean;
+  telegramChatId?: string;
 }
 
 export interface UserResponse {
@@ -24,6 +25,7 @@ export interface UserResponse {
   phone: string;
   role: string;
   isActive: boolean;
+  telegramChatId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
