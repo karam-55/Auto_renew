@@ -4,6 +4,7 @@ import '../../core/constants.dart';
 import '../../core/launcher_helper.dart';
 import '../../models/customer.dart';
 import '../../repositories/customer_repository.dart';
+import '../../widgets/animated_list_item.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -150,7 +151,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const LoadingIndicator();
+    if (_loading) return const ShimmerList();
     if (_error != null) {
       return ErrorState(
         message: _error!,
@@ -175,71 +176,74 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       itemCount: _filteredCustomers.length,
       itemBuilder: (context, index) {
         final customer = _filteredCustomers[index];
-        return Slidable(
-          key: ValueKey(customer.id),
-          endActionPane: ActionPane(
-            motion: const ScrollMotion(),
-            extentRatio: 0.5,
-            children: [
-              SlidableAction(
-                onPressed: (_) => _openForm(customer: customer),
-                backgroundColor: AppColors.info,
-                foregroundColor: Colors.white,
-                icon: Icons.edit,
-                label: 'تعديل',
-              ),
-              SlidableAction(
-                onPressed: (_) => _deleteCustomer(customer),
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-                icon: Icons.delete,
-                label: 'حذف',
-              ),
-            ],
-          ),
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: CircleAvatar(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                child: const Icon(Icons.person, color: AppColors.primary),
-              ),
-              title: Text(
-                customer.fullName,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(customer.phone, style: const TextStyle(fontSize: 13)),
-                  if (customer.address != null && customer.address!.isNotEmpty)
-                    Text(
-                      customer.address!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        return AnimatedListItem(
+          index: index,
+          child: Slidable(
+            key: ValueKey(customer.id),
+            endActionPane: ActionPane(
+              motion: const ScrollMotion(),
+              extentRatio: 0.5,
+              children: [
+                SlidableAction(
+                  onPressed: (_) => _openForm(customer: customer),
+                  backgroundColor: AppColors.info,
+                  foregroundColor: Colors.white,
+                  icon: Icons.edit,
+                  label: 'تعديل',
+                ),
+                SlidableAction(
+                  onPressed: (_) => _deleteCustomer(customer),
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  icon: Icons.delete,
+                  label: 'حذف',
+                ),
+              ],
+            ),
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  child: const Icon(Icons.person, color: AppColors.primary),
+                ),
+                title: Text(
+                  customer.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(customer.phone, style: const TextStyle(fontSize: 13)),
+                    if (customer.address != null && customer.address!.isNotEmpty)
+                      Text(
+                        customer.address!,
+                        style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+                isThreeLine: customer.address != null && customer.address!.isNotEmpty,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.call, color: AppColors.success),
+                      onPressed: () => LauncherHelper.call(customer.phone),
+                      tooltip: 'اتصال',
                     ),
-                ],
-              ),
-              isThreeLine: customer.address != null && customer.address!.isNotEmpty,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.call, color: AppColors.success),
-                    onPressed: () => LauncherHelper.call(customer.phone),
-                    tooltip: 'اتصال',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.message, color: AppColors.success),
-                    onPressed: () => LauncherHelper.openWhatsApp(
-                      customer.phone,
-                      message: 'مرحباً ${customer.fullName}،',
+                    IconButton(
+                      icon: const Icon(Icons.message, color: AppColors.success),
+                      onPressed: () => LauncherHelper.openWhatsApp(
+                        customer.phone,
+                        message: 'مرحباً ${customer.fullName}،',
+                      ),
+                      tooltip: 'واتساب',
                     ),
-                    tooltip: 'واتساب',
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

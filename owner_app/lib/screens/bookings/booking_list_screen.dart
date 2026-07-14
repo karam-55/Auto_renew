@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../models/booking.dart';
 import '../../repositories/booking_repository.dart';
+import '../../widgets/animated_list_item.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -220,7 +221,7 @@ class _BookingListScreenState extends State<BookingListScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const LoadingIndicator();
+    if (_loading) return const ShimmerList();
     if (_error != null) return ErrorState(message: _error!, onRetry: _loadData);
     if (_filteredBookings.isEmpty) {
       return EmptyState(
@@ -240,7 +241,9 @@ class _BookingListScreenState extends State<BookingListScreen> {
       itemCount: _filteredBookings.length,
       itemBuilder: (context, index) {
         final booking = _filteredBookings[index];
-        return Card(
+        return AnimatedListItem(
+          index: index,
+          child: Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -312,8 +315,9 @@ class _BookingListScreenState extends State<BookingListScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 

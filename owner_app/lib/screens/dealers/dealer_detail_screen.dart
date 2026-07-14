@@ -5,6 +5,7 @@ import '../../core/launcher_helper.dart';
 import '../../models/dealer.dart';
 import '../../models/warranty.dart';
 import '../../repositories/dealer_repository.dart';
+import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -274,7 +275,7 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
   }
 
   Widget _buildWarrantiesTab() {
-    if (_loading) return const LoadingIndicator();
+    if (_loading) return const ShimmerList();
 
     Widget content;
     if (_error != null) {
@@ -308,7 +309,9 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
         itemCount: _warranties.length,
         itemBuilder: (context, index) {
           final w = _warranties[index];
-          return Card(
+          return AnimatedListItem(
+            index: index,
+            child: Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -382,9 +385,10 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
                 ],
               ),
             ),
-          );
-        },
-      );
+          ),
+        );
+      },
+    );
     }
 
     return RefreshIndicator(

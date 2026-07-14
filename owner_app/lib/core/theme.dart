@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'constants.dart';
@@ -101,6 +102,12 @@ class AppTheme {
         backgroundColor: AppColors.textPrimary,
         contentTextStyle: TextStyle(color: Colors.white),
         behavior: SnackBarBehavior.floating,
+      ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../../core/constants.dart';
 import '../../core/launcher_helper.dart';
 import '../../models/dealer.dart';
 import '../../repositories/dealer_repository.dart';
+import '../../widgets/animated_list_item.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -160,7 +161,7 @@ class _DealerListScreenState extends State<DealerListScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const LoadingIndicator();
+    if (_loading) return const ShimmerList();
     if (_error != null) return ErrorState(message: _error!, onRetry: _loadData);
     if (_filteredDealers.isEmpty) {
       return EmptyState(
@@ -180,8 +181,10 @@ class _DealerListScreenState extends State<DealerListScreen> {
       itemCount: _filteredDealers.length,
       itemBuilder: (context, index) {
         final dealer = _filteredDealers[index];
-        return Slidable(
-          key: ValueKey(dealer.id),
+        return AnimatedListItem(
+          index: index,
+          child: Slidable(
+            key: ValueKey(dealer.id),
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
             extentRatio: 0.65,
@@ -245,8 +248,9 @@ class _DealerListScreenState extends State<DealerListScreen> {
               ),
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
