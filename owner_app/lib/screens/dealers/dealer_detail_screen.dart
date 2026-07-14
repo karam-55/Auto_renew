@@ -101,6 +101,9 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
 
   Widget _buildInfoTab() {
     final dealer = widget.dealer;
+    final totalAmount = _warranties.fold<double>(0, (sum, w) => sum + w.amountPaid);
+    final totalActive = _warranties.where((w) => w.endDate != null && w.endDate!.isAfter(DateTime.now())).length;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -146,16 +149,33 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
         Row(
           children: [
             Expanded(
-              child: _buildStatCard('إجمالي الكفالات', '${_warranties.length}', Icons.shield),
+              child: _buildStatCard('إجمالي المدفوع', _formatTotalAmount(totalAmount), Icons.account_balance_wallet),
             ),
             const SizedBox(width: 12),
             Expanded(
+              child: _buildStatCard('إجمالي الكفالات', '${_warranties.length}', Icons.shield),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
               child: _buildStatCard('العملاء', '${_extractCustomers().length}', Icons.people),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard('الكفالات النشطة', '$totalActive', Icons.check_circle),
             ),
           ],
         ),
       ],
     );
+  }
+
+  String _formatTotalAmount(double amount) {
+    if (amount == 0) return '0 ل.س';
+    return '${amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2)} ل.س';
   }
 
   Widget _buildInfoTile(IconData icon, String label, String value) {
