@@ -13,10 +13,13 @@ export class TelegramService {
       isEnabled: !!process.env.TELEGRAM_BOT_TOKEN,
     };
 
+    Logger.info(`Telegram service initialized. Token present: ${this.config.isEnabled}`);
+
     if (this.config.isEnabled) {
       try {
         this.bot = new Telegraf(this.config.botToken);
         this.setupHandlers();
+        Logger.info('Telegram bot handlers registered');
       } catch (error) {
         Logger.error('Failed to initialize Telegram bot', error);
         this.bot = null;
@@ -30,6 +33,7 @@ export class TelegramService {
 
     this.bot.start((ctx) => {
       const chatId = ctx.chat.id;
+      Logger.info(`Telegram /start received from chatId: ${chatId}`);
       ctx.reply(
         `مرحباً بك في بوت Auto Renew\n` +
         `رقم الـ Chat ID الخاص بك هو: \`${chatId}\`\n` +
@@ -65,7 +69,12 @@ export class TelegramService {
   }
 
   async launchWebhook(path?: string): Promise<void> {
-    if (!this.bot || !this.isEnabled()) return;
+    if (!this.bot || !this.isEnabled()) {
+      Logger.info('Telegram bot launch skipped: not enabled');
+      return;
+    }
+
+    Logger.info('Launching Telegram bot...');
 
     if (process.env.NODE_ENV === 'production' && process.env.TELEGRAM_WEBHOOK_URL) {
       await this.bot.launch({
