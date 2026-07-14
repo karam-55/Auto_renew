@@ -67,12 +67,6 @@ jobs:
                 echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' >> \$ENV_FILE
               fi
 
-              if grep -q 'TELEGRAM_WEBHOOK_URL' \$ENV_FILE 2>/dev/null; then
-                sed -i '/TELEGRAM_WEBHOOK_URL=/c\TELEGRAM_WEBHOOK_URL=http://178.105.209.59' \$ENV_FILE
-              else
-                echo 'TELEGRAM_WEBHOOK_URL=http://178.105.209.59' >> \$ENV_FILE
-              fi
-
               echo 'Updated .env with Telegram bot configuration'
             "
 
