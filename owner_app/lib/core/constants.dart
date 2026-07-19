@@ -24,6 +24,11 @@ class ApiConfig {
 
   // Users (for profile)
   static const String users = '/api/users';
+
+  // Telegram
+  static const String telegram = '/api/telegram';
+  static const String telegramSend = '/api/telegram/send';
+  static const String telegramStatus = '/api/telegram/status';
 }
 
 class AppColors {

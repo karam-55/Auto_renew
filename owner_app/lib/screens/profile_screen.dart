@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/auth_service.dart';
 import '../core/constants.dart';
+import '../repositories/telegram_repository.dart';
 import '../repositories/user_repository.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/loading_indicator.dart';
@@ -17,6 +18,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _chatIdCtrl = TextEditingController();
   bool _loading = true;
   bool _saving = false;
+  bool _testingTelegram = false;
+  bool _telegramEnabled = false;
   String? _error;
   String? _success;
 
@@ -28,10 +31,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUser() async {
     final user = await AuthService.getUser();
+    bool telegramEnabled = false;
+    try {
+      telegramEnabled = await TelegramRepository().getStatus();
+    } catch (_) {
+      telegramEnabled = false;
+    }
     if (!mounted) return;
     setState(() {
       _user = user;
       _chatIdCtrl.text = user?['telegramChatId']?.toString() ?? '';
+      _telegramEnabled = telegramEnabled;
       _loading = false;
     });
   }
@@ -61,6 +71,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _testTelegram() async {
+    final chatId = _chatIdCtrl.text.trim();
+    if (chatId.isEmpty) {
+      setState(() => _error = 'يرجى إدخال Telegram Chat ID أولاً');
+      return;
+    }
+
+    setState(() {
+      _testingTelegram = true;
+      _error = null;
+      _success = null;
+    });
+
+    try {
+      await TelegramRepository().sendTestMessage(
+        chatId,
+        '✅ اختبار إشعار من Auto Renew\n\nإذا وصلتك هذه الرسالة، يعني نظام الإشعارات شغال بشكل كامل.',
+      );
+      if (!mounted) return;
+      setState(() => _success = 'تم إرسال رسالة الاختبار بنجاح، تحقق من Telegram');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'فشل إرسال رسالة الاختبار: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _testingTelegram = false);
     }
   }
 
@@ -191,6 +229,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(
+                        _telegramEnabled ? Icons.check_circle : Icons.error,
+                        color: _telegramEnabled ? AppColors.success : AppColors.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _telegramEnabled ? 'البوت متصل بالسيرفر' : 'البوت غير متصل',
+                        style: TextStyle(
+                          color: _telegramEnabled ? AppColors.success : AppColors.error,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   AppTextField(
                     controller: _chatIdCtrl,
                     label: 'Telegram Chat ID',
@@ -240,6 +295,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: _saving
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('حفظ Chat ID'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton.icon(
+                      onPressed: _testingTelegram ? null : _testTelegram,
+                      icon: _testingTelegram
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.telegram),
+                      label: Text(_testingTelegram ? 'إرسال رسالة الاختبار...' : 'إرسال رسالة اختبار إلى Telegram'),
                     ),
                   ),
                   const SizedBox(height: 32),

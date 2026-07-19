@@ -8,6 +8,7 @@ class Booking {
   final String priority;
   final String? paymentMethod;
   final String? notes;
+  final DateTime? estimatedCompletionDate;
   final List<Map<String, dynamic>> services;
   final Map<String, dynamic>? customer;
   final Map<String, dynamic>? vehicle;
@@ -22,6 +23,7 @@ class Booking {
     this.priority = 'NORMAL',
     this.paymentMethod,
     this.notes,
+    this.estimatedCompletionDate,
     this.services = const [],
     this.customer,
     this.vehicle,
@@ -46,6 +48,9 @@ class Booking {
       priority: json['priority']?.toString() ?? 'NORMAL',
       paymentMethod: json['paymentMethod']?.toString() ?? 'CASH',
       notes: json['notes']?.toString(),
+      estimatedCompletionDate: json['estimatedCompletionDate'] != null
+          ? DateTime.tryParse(json['estimatedCompletionDate'].toString())
+          : null,
       services: parseServices(),
       customer: json['customer'] is Map<String, dynamic> ? json['customer'] as Map<String, dynamic> : null,
       vehicle: json['vehicle'] is Map<String, dynamic> ? json['vehicle'] as Map<String, dynamic> : null,
@@ -62,6 +67,8 @@ class Booking {
       'priority': priority,
       'paymentMethod': paymentMethod ?? 'CASH',
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      if (estimatedCompletionDate != null)
+        'estimatedCompletionDate': estimatedCompletionDate!.toIso8601String(),
       'serviceIds': services.map((s) => s['id']?.toString() ?? s['serviceId']?.toString()).where((e) => e != null && e.isNotEmpty).toList(),
     };
   }
@@ -98,6 +105,7 @@ class Booking {
     String? priority,
     String? paymentMethod,
     String? notes,
+    DateTime? estimatedCompletionDate,
     List<Map<String, dynamic>>? services,
     Map<String, dynamic>? customer,
     Map<String, dynamic>? vehicle,
@@ -112,6 +120,7 @@ class Booking {
       priority: priority ?? this.priority,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       notes: notes ?? this.notes,
+      estimatedCompletionDate: estimatedCompletionDate ?? this.estimatedCompletionDate,
       services: services ?? this.services,
       customer: customer ?? this.customer,
       vehicle: vehicle ?? this.vehicle,

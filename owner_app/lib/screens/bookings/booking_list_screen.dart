@@ -113,11 +113,11 @@ class _BookingListScreenState extends State<BookingListScreen> {
     }
   }
 
-  Future<void> _openForm({Booking? booking}) async {
+  Future<void> _openForm({Booking? booking, bool isNewCustomer = false}) async {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => BookingFormScreen(booking: booking),
+        builder: (_) => BookingFormScreen(booking: booking, isNewCustomer: isNewCustomer),
       ),
     );
     if (result == true) _loadData();
@@ -156,10 +156,32 @@ class _BookingListScreenState extends State<BookingListScreen> {
       appBar: AppBar(
         title: const Text('الحجوزات'),
         actions: [
-          IconButton(
+          PopupMenuButton<bool>(
             icon: const Icon(Icons.add),
-            onPressed: () => _openForm(),
             tooltip: 'حجز جديد',
+            onSelected: (isNewCustomer) => _openForm(isNewCustomer: isNewCustomer),
+            itemBuilder: (context) => [
+              const PopupMenuItem<bool>(
+                value: false,
+                child: Row(
+                  children: [
+                    Icon(Icons.person_search, color: AppColors.primary, size: 20),
+                    SizedBox(width: 12),
+                    Text('إنشاء حجز لعميل مسبق'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<bool>(
+                value: true,
+                child: Row(
+                  children: [
+                    Icon(Icons.person_add, color: AppColors.success, size: 20),
+                    SizedBox(width: 12),
+                    Text('إنشاء حجز لعميل جديد'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
