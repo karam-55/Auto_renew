@@ -52,7 +52,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
   // Step 3: Booking details
   DateTime? _scheduledDate;
-  DateTime? _estimatedCompletionDate;
   final _timeCtrl = TextEditingController();
   String _status = 'PENDING';
   String _priority = 'NORMAL';
@@ -96,7 +95,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       _selectedCustomerId = b.customerId;
       _selectedVehicleId = b.vehicleId;
       _scheduledDate = b.scheduledDate;
-      _estimatedCompletionDate = b.estimatedCompletionDate;
       _timeCtrl.text = b.scheduledTime ?? '';
       _status = b.status;
       _priority = b.priority;
@@ -237,10 +235,8 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     _vehicleNotesCtrl.clear();
   }
 
-  Future<void> _pickDate({required bool estimated}) async {
-    final initial = estimated
-        ? (_estimatedCompletionDate ?? DateTime.now())
-        : (_scheduledDate ?? DateTime.now());
+  Future<void> _pickDate() async {
+    final initial = _scheduledDate ?? DateTime.now();
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -248,13 +244,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (date != null) {
-      setState(() {
-        if (estimated) {
-          _estimatedCompletionDate = date;
-        } else {
-          _scheduledDate = date;
-        }
-      });
+      setState(() => _scheduledDate = date);
     }
   }
 
@@ -410,7 +400,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         priority: _priority,
         paymentMethod: _paymentMethod,
         notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
-        estimatedCompletionDate: _estimatedCompletionDate,
         services: _selectedServices.map((s) => {'id': s.id, 'name': s.name}).toList(),
       );
 
@@ -780,7 +769,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               children: [
                 Expanded(
                   child: InkWell(
-                    onTap: () => _pickDate(estimated: false),
+                    onTap: _pickDate,
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'تاريخ الحجز *',
@@ -810,21 +799,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () => _pickDate(estimated: true),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'تاريخ الانتهاء المتوقع',
-                  prefixIcon: Icon(Icons.event_available, color: AppColors.primary),
-                ),
-                child: Text(
-                  _estimatedCompletionDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_estimatedCompletionDate!)
-                      : 'اختر التاريخ',
-                ),
-              ),
             ),
           ],
         ),

@@ -67,8 +67,6 @@ class Booking {
       'priority': priority,
       'paymentMethod': paymentMethod ?? 'CASH',
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
-      if (estimatedCompletionDate != null)
-        'estimatedCompletionDate': estimatedCompletionDate!.toIso8601String(),
       'serviceIds': services.map((s) => s['id']?.toString() ?? s['serviceId']?.toString()).where((e) => e != null && e.isNotEmpty).toList(),
     };
   }

@@ -19,16 +19,26 @@ class BookingRepository {
 
   Future<Booking> create(Booking booking) async {
     final response = await ApiService.post(ApiConfig.bookings, body: booking.toJson());
-    if (response is Map && response['booking'] is Map<String, dynamic>) {
-      return Booking.fromJson(response['booking']);
+    if (response is Map) {
+      if (response['data'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['data'] as Map<String, dynamic>);
+      }
+      if (response['booking'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['booking'] as Map<String, dynamic>);
+      }
     }
     throw ApiException('استجابة غير صالحة من الخادم');
   }
 
   Future<Booking> update(String id, Booking booking) async {
     final response = await ApiService.put('${ApiConfig.bookings}/$id', body: booking.toJson());
-    if (response is Map && response['booking'] is Map<String, dynamic>) {
-      return Booking.fromJson(response['booking']);
+    if (response is Map) {
+      if (response['data'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['data'] as Map<String, dynamic>);
+      }
+      if (response['booking'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['booking'] as Map<String, dynamic>);
+      }
     }
     throw ApiException('استجابة غير صالحة من الخادم');
   }
