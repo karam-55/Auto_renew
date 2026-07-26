@@ -9,8 +9,10 @@ export class ServiceService {
         ...(includeInactive ? {} : { isActive: true }),
       },
       orderBy: { name: 'asc' },
-      skip: skip || undefined,
-      take: limit || undefined,
+      // limit === 0 means "all rows" → pass undefined to Prisma (no take).
+      // limit > 0 → apply take (and skip for pagination).
+      skip: limit === 0 ? undefined : (skip || undefined),
+      take: limit === 0 ? undefined : (limit || undefined),
     });
 
     return services.map((service) => this.mapToServiceResponse(service));

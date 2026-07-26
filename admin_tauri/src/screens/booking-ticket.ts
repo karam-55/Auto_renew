@@ -291,7 +291,8 @@ export class BookingTicketScreen {
 
   private async loadServices() {
     try {
-      const res = await this.api.get<any>('/api/services')
+      // limit=0 → "all rows": this is a lookup for the booking ticket, we need every service.
+      const res = await this.api.get<any>('/api/services?limit=0')
       if (res.success && res.data) {
         this.allServices = Array.isArray(res.data) ? res.data : res.data.data || []
       }

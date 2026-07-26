@@ -178,7 +178,8 @@ export class PosScreen {
 
   private async loadProducts(el: HTMLElement) {
     try {
-      const res = await this.api.get<any>('/api/parts?limit=50')
+      // limit=0 → "all rows": POS lookup needs every available product.
+      const res = await this.api.get<any>('/api/parts?limit=0')
       const grid = el.querySelector('#pos-products')!
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.data || []

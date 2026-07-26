@@ -35,7 +35,8 @@ export class ApiResponseBuilder {
   }
 
   static paginated<T>(data: T[], total: number, page: number, limit: number): ApiResponse<T[]> {
-    const totalPages = Math.ceil(total / limit);
+    // limit === 0 means "all rows" — avoid division by zero, report a single page.
+    const totalPages = limit === 0 ? 1 : Math.ceil(total / limit);
     return {
       success: true,
       data,

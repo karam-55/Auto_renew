@@ -49,8 +49,10 @@ export class PartService {
     filters: PartFilters = {},
     pagination: PaginationParams = {}
   ): Promise<PaginatedResponse<Part>> {
+    // limit === 0 means "all rows" (lookup mode). Default to 10 for list views.
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const { categoryId, supplierId, status, minQuantity, maxQuantity, search } = filters;
+    const isLookupAll = limit === 0;
 
     const where: any = { tenantId };
 
@@ -93,8 +95,9 @@ export class PartService {
     const [parts, total] = await Promise.all([
       prisma.part.findMany({
         where,
-        skip: (page - 1) * limit,
-        take: limit,
+        // limit === 0 → "all rows": omit skip/take so Prisma returns everything.
+        skip: isLookupAll ? undefined : (page - 1) * limit,
+        take: isLookupAll ? undefined : limit,
         orderBy: { [sortBy]: sortOrder },
       }),
       prisma.part.count({ where }),
@@ -105,7 +108,8 @@ export class PartService {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      // limit === 0 → "all rows": avoid division by zero, report a single page.
+      totalPages: isLookupAll ? 1 : Math.ceil(total / limit),
     };
   }
 

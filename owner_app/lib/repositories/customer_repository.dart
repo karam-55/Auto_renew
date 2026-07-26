@@ -3,7 +3,9 @@ import '../core/constants.dart';
 import '../models/customer.dart';
 
 class CustomerRepository {
-  Future<List<Customer>> getAll({int page = 1, int limit = 100}) async {
+  /// Fetch customers. limit=0 → "all rows" (lookup for booking form).
+  /// Pass page/limit for paginated list views.
+  Future<List<Customer>> getAll({int page = 1, int limit = 0}) async {
     final response = await ApiService.get(
       ApiConfig.customers,
       params: {'page': page.toString(), 'limit': limit.toString()},

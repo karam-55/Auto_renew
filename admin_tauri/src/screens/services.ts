@@ -742,7 +742,8 @@ export class ServicesScreen {
 
   private async loadPartsForService(_el: HTMLElement) {
     try {
-      const res: any = await this.api.get('/api/parts')
+      // limit=0 → "all rows": lookup for service-parts assignment, we need every part.
+      const res: any = await this.api.get('/api/parts?limit=0')
       this.partsData = res.data?.data || res.data || []
     } catch { /* ignore */ }
   }

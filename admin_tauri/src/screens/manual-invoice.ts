@@ -262,8 +262,8 @@ export class ManualInvoiceScreen {
 
   private async loadCustomers(el: HTMLElement) {
     try {
-      // Load only first 20 customers for better performance
-      const res = await this.api.get<any>('/api/customers?limit=20&page=1')
+      // limit=0 → "all rows": lookup for invoice form, we need every customer.
+      const res = await this.api.get<any>('/api/customers?limit=0')
       const select = el.querySelector('#customer-select') as HTMLSelectElement
       if (res.success && res.data) {
         const customers = Array.isArray(res.data) ? res.data : res.data.data || []
@@ -280,7 +280,8 @@ export class ManualInvoiceScreen {
 
   private async loadServices() {
     try {
-      const res = await this.api.get<any>('/api/services')
+      // limit=0 → "all rows": this is a lookup for the invoice form, we need every service.
+      const res = await this.api.get<any>('/api/services?limit=0')
       if (res.success && res.data) {
         this.servicesList = Array.isArray(res.data) ? res.data : res.data.data || []
       }

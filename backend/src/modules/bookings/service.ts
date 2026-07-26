@@ -71,8 +71,10 @@ export class BookingService {
     }
 
     const page = filters?.page || 1;
-    const limit = filters?.limit || 50;
-    const skip = (page - 1) * limit;
+    // limit === 0 means "all rows" (lookup mode). Default to 50 for list views.
+    const limit = filters?.limit ?? 50;
+    const isLookupAll = limit === 0;
+    const skip = isLookupAll ? 0 : (page - 1) * limit;
 
     const bookings = await prisma.booking.findMany({
       where,
@@ -123,7 +125,8 @@ export class BookingService {
         { scheduledTime: 'asc' },
       ],
       skip,
-      take: limit,
+      // limit === 0 → "all rows": omit take so Prisma returns everything.
+      take: isLookupAll ? undefined : limit,
     });
 
     // Transform services to match response format

@@ -505,8 +505,8 @@ export class BookingWizardScreen {
     const dateInput = el.querySelector('#booking-date') as HTMLInputElement
     if (dateInput) dateInput.value = todayStr
 
-    // Fetch real services for multi-select
-    this.api.get<any>('/api/services').then(res => {
+    // Fetch real services for multi-select (limit=0 → "all rows": lookup for booking form)
+    this.api.get<any>('/api/services?limit=0').then(res => {
       const list = el.querySelector('#service-list') as HTMLDivElement
       if (!list) return
       if (res.success && res.data) {
@@ -529,9 +529,9 @@ export class BookingWizardScreen {
       if (list) list.innerHTML = `<p class="text-text-secondary text-sm">لا يمكن الاتصال بالخادم</p>`
     })
 
-    // Fetch customers for registered booking
+    // Fetch customers for registered booking (limit=0 → "all rows": lookup for booking form)
     if (this.type === 'registered') {
-      this.api.get<any>('/api/customers').then(res => {
+      this.api.get<any>('/api/customers?limit=0').then(res => {
         const select = el.querySelector('#customer-select') as HTMLSelectElement
         if (!select) return
         if (res.success && res.data) {

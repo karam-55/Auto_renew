@@ -291,8 +291,10 @@ export class InvoiceService {
     }
 
     const page = filters.page || 1;
-    const limit = filters.limit || 50;
-    const skip = (page - 1) * limit;
+    // limit === 0 means "all rows" (lookup mode). Default to 50 for list views.
+    const limit = filters.limit ?? 50;
+    const isLookupAll = limit === 0;
+    const skip = isLookupAll ? 0 : (page - 1) * limit;
 
     const invoices = await prisma.invoice.findMany({
       where,
@@ -317,7 +319,8 @@ export class InvoiceService {
       },
       orderBy: [{ invoiceDate: 'desc' }, { invoiceNumber: 'desc' }],
       skip,
-      take: limit,
+      // limit === 0 → "all rows": omit take so Prisma returns everything.
+      take: isLookupAll ? undefined : limit,
     });
 
     return invoices.map((invoice) => this.mapToInvoiceResponse(invoice, invoice.items));

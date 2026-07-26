@@ -15,7 +15,13 @@ export class ServiceController {
   getAllServices = async (req: AuthRequest, res: Response) => {
     try {
       const includeInactive = req.query.includeInactive === 'true';
-      const { page, limit, skip } = getPaginationParams(req);
+      // Services is a lookup/reference endpoint: callers (booking form, invoice form,
+      // owner app, admin app) need the FULL list of services to populate selectors.
+      // Default to "all rows" (limit=0) unless the caller explicitly requests pagination
+      // via ?limit=N. This keeps existing frontend calls working without modification
+      // while preventing services from silently disappearing when the catalog grows
+      // past the previous hard-coded default of 20.
+      const { page, limit, skip } = getPaginationParams(req, 0);
       const [services, total] = await Promise.all([
         this.serviceService.getAllServices(req.user!.tenantId, includeInactive, skip, limit),
         this.serviceService.getServicesCount(req.user!.tenantId, includeInactive),

@@ -3,8 +3,12 @@ import '../core/constants.dart';
 import '../models/vehicle.dart';
 
 class VehicleRepository {
+  /// Fetch all vehicles. limit=0 → "all rows" (lookup for booking form).
   Future<List<Vehicle>> getAll() async {
-    final response = await ApiService.get(ApiConfig.vehicles);
+    final response = await ApiService.get(
+      ApiConfig.vehicles,
+      params: {'limit': '0'},
+    );
     if (response is Map && response['data'] is List) {
       return (response['data'] as List)
           .map((e) => Vehicle.fromJson(e as Map<String, dynamic>))
