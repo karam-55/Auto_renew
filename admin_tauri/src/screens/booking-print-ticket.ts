@@ -149,13 +149,21 @@ export class BookingPrintTicketScreen {
                   <thead class="bg-surface-subtle border-b border-outline/20">
                     <tr>
                       <th class="py-3 px-4 font-label-sm text-text-secondary">#</th>
-                      <th class="py-3 px-4 font-label-sm text-text-secondary w-3/4">الخدمة</th>
+                      <th class="py-3 px-4 font-label-sm text-text-secondary">الخدمة</th>
+                      <th class="py-3 px-4 font-label-sm text-text-secondary text-center">السعر (ل.س)</th>
                       <th class="py-3 px-4 font-label-sm text-text-secondary text-center">الحالة</th>
                     </tr>
                   </thead>
                   <tbody class="font-body-md" id="pt-services-tbody">
-                    <tr><td colspan="3" class="py-8 px-4 text-center text-text-secondary">جاري التحميل...</td></tr>
+                    <tr><td colspan="4" class="py-8 px-4 text-center text-text-secondary">جاري التحميل...</td></tr>
                   </tbody>
+                  <tfoot class="bg-surface-subtle border-t-2 border-outline/30">
+                    <tr>
+                      <td colspan="2" class="py-3 px-4 font-label-sm text-text-secondary text-left">الإجمالي</td>
+                      <td class="py-3 px-4 font-financial-data text-body-lg text-primary font-semibold text-center" id="pt-total-syp">---</td>
+                      <td class="py-3 px-4 text-text-tertiary text-center">ل.س</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -225,22 +233,37 @@ export class BookingPrintTicketScreen {
       setText('pt-booking-priority', b.priority === 'URGENT' ? 'عاجل' : b.priority === 'HIGH' ? 'عالي' : b.priority === 'LOW' ? 'منخفض' : 'عادي')
       setText('pt-booking-notes', b.notes || 'لا توجد ملاحظات')
 
-      // Services table
+      // Services table — show per-service price + grand total
       const tbody = el.querySelector('#pt-services-tbody') as HTMLElement
+      const totalEl = el.querySelector('#pt-total-syp') as HTMLElement
       if (tbody) {
-        const svcs = b.services || b.bookingServices?.map((bs: any) => bs.service) || []
+        // Support both the new response shape (services with priceSYP) and the legacy
+        // shape (bookingServices with service + priceSYP).
+        const svcs: any[] = Array.isArray(b.services) && b.services.length > 0
+          ? b.services
+          : (b.bookingServices || []).map((bs: any) => ({
+              name: bs.service?.name || 'خدمة',
+              priceSYP: bs.priceSYP ?? bs.service?.basePrice ?? 0,
+            }))
         if (svcs.length > 0) {
-          tbody.innerHTML = svcs.map((s: any, i: number) => `
+          let total = 0
+          tbody.innerHTML = svcs.map((s: any, i: number) => {
+            const price = Number(s.priceSYP ?? s.basePrice ?? 0)
+            total += price
+            return `
             <tr class="border-b border-outline/10">
               <td class="py-4 px-4 text-text-tertiary">${i + 1}</td>
               <td class="py-4 px-4 font-semibold">${s.name || 'خدمة'}</td>
+              <td class="py-4 px-4 text-center font-financial-data">${price.toLocaleString('en-US')}</td>
               <td class="py-4 px-4 text-center">
                 <span class="bg-surface-container text-on-surface-variant px-3 py-1 rounded-full font-label-sm">مجدول</span>
               </td>
             </tr>
-          `).join('')
+          `}).join('')
+          if (totalEl) totalEl.textContent = total.toLocaleString('en-US')
         } else {
-          tbody.innerHTML = '<tr><td colspan="3" class="py-8 px-4 text-center text-text-secondary">لا توجد خدمات محددة</td></tr>'
+          tbody.innerHTML = '<tr><td colspan="4" class="py-8 px-4 text-center text-text-secondary">لا توجد خدمات محددة</td></tr>'
+          if (totalEl) totalEl.textContent = '0'
         }
       }
 

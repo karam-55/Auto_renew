@@ -10,6 +10,7 @@ import '../../repositories/booking_repository.dart';
 import '../../repositories/customer_repository.dart';
 import '../../repositories/service_repository.dart';
 import '../../repositories/vehicle_repository.dart';
+import 'booking_ticket_screen.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final Booking? booking;
@@ -58,6 +59,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   String _paymentMethod = 'CASH';
   final _notesCtrl = TextEditingController();
   final List<Service> _selectedServices = [];
+  /// Custom price per selected service (SYP). Keyed by service.id.
+  /// Falls back to the service's default price when not present.
+  final Map<String, TextEditingController> _servicePriceCtrls = {};
 
   final List<Map<String, String>> _statuses = [
     {'value': 'PENDING', 'label': 'قيد الانتظار'},
@@ -400,20 +404,35 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         priority: _priority,
         paymentMethod: _paymentMethod,
         notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
-        services: _selectedServices.map((s) => {'id': s.id, 'name': s.name}).toList(),
+        services: _selectedServices.map((s) => {
+          'id': s.id,
+          'name': s.name,
+          // Include the user-entered price so toJson() sends `services` with prices.
+          'priceSYP': double.tryParse(_servicePriceCtrls[s.id]?.text ?? '') ?? s.basePrice ?? 0,
+        }).toList(),
       );
 
       if (_isEdit) {
         await BookingRepository().update(widget.booking!.id, booking);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم تحديث الحجز')),
+        );
+        Navigator.pop(context, true);
       } else {
-        await BookingRepository().create(booking);
+        final created = await BookingRepository().create(booking);
+        // Navigate to the printable ticket screen (same UX as admin desktop app).
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم إنشاء الحجز')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BookingTicketScreen(bookingId: created.id),
+          ),
+        );
       }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEdit ? 'تم تحديث الحجز' : 'تم إضافة الحجز')),
-      );
-      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -726,6 +745,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Widget _buildServiceStep() {
+    final totalSYP = _selectedServices.fold<double>(0, (sum, s) {
+      final ctrl = _servicePriceCtrls[s.id];
+      return sum + (double.tryParse(ctrl?.text ?? '') ?? 0);
+    });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -736,28 +759,92 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             if (_services.isEmpty)
               const Text('لا توجد خدمات متوفرة')
             else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Column(
                 children: _services.map((service) {
                   final selected = _selectedServices.contains(service);
-                  return FilterChip(
-                    label: Text(service.name),
-                    selected: selected,
-                    onSelected: (_) {
-                      setState(() {
-                        if (selected) {
-                          _selectedServices.remove(service);
-                        } else {
-                          _selectedServices.add(service);
-                        }
-                      });
-                    },
-                    selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                    checkmarkColor: AppColors.primary,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primary.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: selected ? AppColors.primary.withValues(alpha: 0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        CheckboxListTile(
+                          value: selected,
+                          onChanged: (checked) {
+                            setState(() {
+                              if (checked == true) {
+                                _selectedServices.add(service);
+                                _servicePriceCtrls[service.id] = TextEditingController(
+                                  text: '${service.basePrice?.toInt() ?? 0}',
+                                );
+                              } else {
+                                _selectedServices.remove(service);
+                                _servicePriceCtrls.remove(service.id)?.dispose();
+                              }
+                            });
+                          },
+                          title: Text(service.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: service.basePrice != null
+                              ? Text('السعر الافتراضي: ${service.basePrice!.toInt()} ل.س',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textTertiary))
+                              : null,
+                          activeColor: AppColors.primary,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        if (selected)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                            child: TextField(
+                              controller: _servicePriceCtrls[service.id],
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: 'سعر الخدمة لهذا الحجز (ل.س)',
+                                prefixIcon: const Icon(Icons.attach_money, color: AppColors.primary, size: 20),
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                ),
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                      ],
+                    ),
                   );
                 }).toList(),
               ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                  Text(
+                    '${totalSYP.toInt()} ل.س',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),

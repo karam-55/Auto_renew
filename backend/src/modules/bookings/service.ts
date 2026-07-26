@@ -1,6 +1,6 @@
 import prisma from '../../config/database';
 import { Prisma, Service, BookingStatus } from '@prisma/client';
-import { CreateBookingInput, UpdateBookingInput, BookingResponse } from './types';
+import { CreateBookingInput, UpdateBookingInput, BookingResponse, BookingServiceInput } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
 import { FCMService } from '../fcm/service';
@@ -38,6 +38,52 @@ export class BookingService {
 
   private generatePublicToken(): string {
     return PublicToken.generate().getValue();
+  }
+
+  /**
+   * Map a Prisma booking row (with bookingServices + relations included) to the
+   * BookingResponse shape, including per-line prices and booking totals.
+   */
+  private mapBookingResponse(booking: any): BookingResponse {
+    const services = booking.bookingServices
+      ? booking.bookingServices.map((bs: any) => ({
+          id: bs.service.id,
+          name: bs.service.name,
+          category:
+            typeof bs.service.category === 'object' && bs.service.category
+              ? bs.service.category.name
+              : bs.service.category || '',
+          duration: bs.service.duration || 0,
+          basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
+          priceSYP:
+            bs.priceSYP !== null && bs.priceSYP !== undefined
+              ? Number(bs.priceSYP)
+              : (bs.service.basePrice ? Number(bs.service.basePrice) : 0),
+          priceUSD:
+            bs.priceUSD !== null && bs.priceUSD !== undefined
+              ? Number(bs.priceUSD)
+              : null,
+        }))
+      : [];
+
+    const totalSYP = services.reduce((sum: number, s: any) => sum + (s.priceSYP || 0), 0);
+    const totalUSD = services.some((s: any) => s.priceUSD !== null)
+      ? services.reduce((sum: number, s: any) => sum + (s.priceUSD || 0), 0)
+      : null;
+
+    return {
+      ...booking,
+      services,
+      totalSYP,
+      totalUSD,
+      mechanicAssignments: booking.mechanicAssignments?.length
+        ? [{
+            id: booking.mechanicAssignments[0].id,
+            mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
+            mechanic: booking.mechanicAssignments[0].mechanic,
+          }]
+        : [],
+    };
   }
 
   async getAllBookings(tenantId: string, filters?: {
@@ -130,21 +176,7 @@ export class BookingService {
     });
 
     // Transform services to match response format
-    return bookings.map((booking) => ({
-      ...booking,
-      services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
-        id: bs.service.id,
-        name: bs.service.name,
-        category: typeof bs.service.category === 'object' && bs.service.category ? bs.service.category.name : bs.service.category || '',
-        duration: bs.service.duration || 0,
-        basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
-      })) : [],
-      mechanicAssignments: booking.mechanicAssignments?.length ? [{
-        id: booking.mechanicAssignments[0].id,
-        mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-        mechanic: booking.mechanicAssignments[0].mechanic,
-      }] : [],
-    }));
+    return bookings.map((booking) => this.mapBookingResponse(booking));
   }
 
   async getBookingsCount(tenantId: string, filters?: {
@@ -243,21 +275,7 @@ export class BookingService {
       return null;
     }
 
-    return {
-      ...booking,
-      services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
-        id: bs.service.id,
-        name: bs.service.name,
-        category: typeof bs.service.category === 'object' && bs.service.category ? bs.service.category.name : bs.service.category || '',
-        duration: bs.service.duration || 0,
-        basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
-      })) : [],
-      mechanicAssignments: booking.mechanicAssignments?.length ? [{
-        id: booking.mechanicAssignments[0].id,
-        mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-        mechanic: booking.mechanicAssignments[0].mechanic,
-      }] : [],
-    };
+    return this.mapBookingResponse(booking);
   }
 
   async getBookingsByDate(tenantId: string, date: Date): Promise<BookingResponse[]> {
@@ -316,21 +334,7 @@ export class BookingService {
       booking.mechanicAssignments[0].mechanicUserId === mechanicId
     );
 
-    return mechanicBookings.map((booking) => ({
-      ...booking,
-      services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
-        id: bs.service.id,
-        name: bs.service.name,
-        category: typeof bs.service.category === 'object' && bs.service.category ? bs.service.category.name : bs.service.category || '',
-        duration: bs.service.duration || 0,
-        basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
-      })) : [],
-      mechanicAssignments: booking.mechanicAssignments?.length ? [{
-        id: booking.mechanicAssignments[0].id,
-        mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-        mechanic: booking.mechanicAssignments[0].mechanic,
-      }] : [],
-    }));
+    return mechanicBookings.map((booking) => this.mapBookingResponse(booking));
   }
 
   async createBooking(tenantId: string, data: CreateBookingInput, createdById?: string): Promise<BookingResponse> {
@@ -352,25 +356,34 @@ export class BookingService {
       throw new Error('Vehicle not found');
     }
 
+    // Normalize service inputs: accept either `services` (preferred, with custom prices)
+    // or legacy `serviceIds` (uses each service's default price).
+    const serviceInputs: BookingServiceInput[] = Array.isArray(data.services) && data.services.length > 0
+      ? data.services
+      : Array.isArray(data.serviceIds) && data.serviceIds.length > 0
+        ? data.serviceIds.map((id) => ({ serviceId: id }))
+        : [];
+
     // Verify services exist and belong to tenant
     let services: Service[] = [];
-    if (data.serviceIds && data.serviceIds.length > 0) {
+    if (serviceInputs.length > 0) {
+      const serviceIdList = serviceInputs.map((s) => s.serviceId);
       services = await prisma.service.findMany({
         where: {
-          id: { in: data.serviceIds },
+          id: { in: serviceIdList },
           tenantId,
           isActive: true,
         },
       });
 
-      if (services.length !== data.serviceIds.length) {
+      if (services.length !== serviceIdList.length) {
         throw new Error('One or more services not found or inactive');
       }
     }
 
     // Convert scheduledDate to Date object if it's a string
-    const scheduledDate = data.scheduledDate instanceof Date 
-      ? data.scheduledDate 
+    const scheduledDate = data.scheduledDate instanceof Date
+      ? data.scheduledDate
       : new Date(data.scheduledDate);
 
     // Create booking
@@ -386,13 +399,18 @@ export class BookingService {
         paymentMethod: data.paymentMethod || 'CASH',
         notes: data.notes,
         publicToken: this.generatePublicToken(),
-        bookingServices: data.serviceIds && data.serviceIds.length > 0
+        bookingServices: serviceInputs.length > 0
           ? {
-              create: services.map(service => ({
-                serviceId: service.id,
-                priceSYP: service.priceSYP ?? service.basePrice ?? 0,
-                priceUSD: service.priceUSD ?? 0,
-              })),
+              // For each requested service, use the custom price if provided,
+              // otherwise fall back to the service's default price.
+              create: serviceInputs.map((input) => {
+                const svc = services.find((s) => s.id === input.serviceId)!;
+                return {
+                  serviceId: input.serviceId,
+                  priceSYP: input.priceSYP !== undefined ? Number(input.priceSYP) : (svc.priceSYP ?? svc.basePrice ?? 0),
+                  priceUSD: input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD ?? 0),
+                };
+              }),
             }
           : undefined,
       },
@@ -441,21 +459,7 @@ export class BookingService {
     });
 
     // Build the response immediately — all side effects run in background
-    const bookingResult = {
-      ...booking,
-      services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
-        id: bs.service.id,
-        name: bs.service.name,
-        category: typeof bs.service.category === 'object' && bs.service.category ? bs.service.category.name : bs.service.category || '',
-        duration: bs.service.duration || 0,
-        basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
-      })) : [],
-      mechanicAssignments: booking.mechanicAssignments?.length ? [{
-        id: booking.mechanicAssignments[0].id,
-        mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-        mechanic: booking.mechanicAssignments[0].mechanic,
-      }] : [],
-    };
+    const bookingResult = this.mapBookingResponse(booking);
 
     // ── Fire-and-forget side effects (do NOT block the response) ──
     setImmediate(async () => {
@@ -602,18 +606,28 @@ export class BookingService {
       }
     }
 
+    // Normalize service inputs for update: accept either `services` (preferred)
+    // or legacy `serviceIds`. If neither is provided, leave bookingServices untouched.
+    const updateServiceInputs: BookingServiceInput[] = Array.isArray(data.services) && data.services.length > 0
+      ? data.services
+      : Array.isArray(data.serviceIds) && data.serviceIds.length > 0
+        ? data.serviceIds.map((id) => ({ serviceId: id }))
+        : [];
+    const hasServiceUpdate = Array.isArray(data.services) || Array.isArray(data.serviceIds);
+
     // If updating services, verify they exist and belong to tenant
     let services: Service[] = [];
-    if (data.serviceIds) {
+    if (hasServiceUpdate && updateServiceInputs.length > 0) {
+      const serviceIdList = updateServiceInputs.map((s) => s.serviceId);
       services = await prisma.service.findMany({
         where: {
-          id: { in: data.serviceIds },
+          id: { in: serviceIdList },
           tenantId,
           isActive: true,
         },
       });
 
-      if (services.length !== data.serviceIds.length) {
+      if (services.length !== serviceIdList.length) {
         throw new Error('One or more services not found or inactive');
       }
     }
@@ -630,17 +644,20 @@ export class BookingService {
         priority: data.priority,
         paymentMethod: data.paymentMethod,
         notes: data.notes,
-        actualCompletionDate: data.status === 'COMPLETED' && !existingBooking.actualCompletionDate 
-          ? new Date() 
+        actualCompletionDate: data.status === 'COMPLETED' && !existingBooking.actualCompletionDate
+          ? new Date()
           : existingBooking.actualCompletionDate,
-        bookingServices: data.serviceIds
+        bookingServices: hasServiceUpdate
           ? {
               deleteMany: {},
-              create: services.map(service => ({
-                serviceId: service.id,
-                priceSYP: service.priceSYP ?? service.basePrice ?? 0,
-                priceUSD: service.priceUSD ?? 0,
-              })),
+              create: updateServiceInputs.map((input) => {
+                const svc = services.find((s) => s.id === input.serviceId)!;
+                return {
+                  serviceId: input.serviceId,
+                  priceSYP: input.priceSYP !== undefined ? Number(input.priceSYP) : (svc.priceSYP ?? svc.basePrice ?? 0),
+                  priceUSD: input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD ?? 0),
+                };
+              }),
             }
           : undefined,
       },
@@ -788,8 +805,8 @@ export class BookingService {
       }
     }
 
-    // Auto-update invoice when booking services change
-    if (data.serviceIds && booking.bookingServices) {
+    // Auto-update invoice when booking services change (supports both `services` and legacy `serviceIds`)
+    if (hasServiceUpdate && booking.bookingServices) {
       try {
         const existingInvoice = await prisma.invoice.findFirst({
           where: { bookingId, tenantId },
@@ -813,21 +830,7 @@ export class BookingService {
       }
     }
 
-    return {
-      ...booking,
-      services: booking.bookingServices ? booking.bookingServices.map((bs) => ({
-        id: bs.service.id,
-        name: bs.service.name,
-        category: typeof bs.service.category === 'object' && bs.service.category ? bs.service.category.name : bs.service.category || '',
-        duration: bs.service.duration || 0,
-        basePrice: bs.service.basePrice ? Number(bs.service.basePrice) : 0,
-      })) : [],
-      mechanicAssignments: booking.mechanicAssignments?.length ? [{
-        id: booking.mechanicAssignments[0].id,
-        mechanicUserId: booking.mechanicAssignments[0].mechanicUserId,
-        mechanic: booking.mechanicAssignments[0].mechanic,
-      }] : [],
-    };
+    return this.mapBookingResponse(booking);
   }
 
   async addServiceToBooking(tenantId: string, bookingId: string, serviceId: string): Promise<BookingResponse> {

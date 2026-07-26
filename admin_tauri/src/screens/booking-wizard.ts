@@ -181,10 +181,17 @@ export class BookingWizardScreen {
             <div class="p-6 space-y-4">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الخدمات *</label>
-                <div class="w-full max-h-[160px] overflow-y-auto bg-surface-subtle border border-border rounded-lg p-3 space-y-2" id="service-list">
+                <div class="w-full max-h-[200px] overflow-y-auto bg-surface-subtle border border-border rounded-lg p-3 space-y-2" id="service-list">
                   <p class="text-text-secondary text-sm">جاري تحميل الخدمات...</p>
                 </div>
-                <p class="text-text-tertiary text-xs mt-1">اختر خدمة واحدة أو أكثر</p>
+                <div class="flex items-center justify-between mt-2 px-1">
+                  <p class="text-text-tertiary text-xs">اختر خدمة وحدد سعرها (ل.س)</p>
+                  <div class="flex items-center gap-2">
+                    <span class="font-label-sm text-text-tertiary">الإجمالي:</span>
+                    <span class="font-financial-data text-body-lg text-primary font-semibold" id="services-total">0</span>
+                    <span class="text-text-tertiary text-xs">ل.س</span>
+                  </div>
+                </div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -398,9 +405,14 @@ export class BookingWizardScreen {
           ;(window as any).toast?.show?.({ message: 'يرجى إدخال سنة صنع صحيحة للمركبة', type: 'warning' })
           return
         }
-        const checkedServices = el.querySelectorAll('#service-list input[type="checkbox"]:checked')
-        const serviceIds = Array.from(checkedServices).map((cb: any) => cb.value)
-        if (serviceIds.length === 0) {
+        const checkedServices = el.querySelectorAll<HTMLInputElement>('#service-list .svc-check:checked')
+        const servicesPayload = Array.from(checkedServices).map((cb) => {
+          const row = cb.closest('.service-row') as HTMLElement
+          const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
+          const price = parseFloat(priceInput?.value || '0') || 0
+          return { serviceId: cb.value, priceSYP: price }
+        })
+        if (servicesPayload.length === 0) {
           ;(window as any).toast?.show?.({ message: 'يرجى اختيار خدمة واحدة على الأقل', type: 'warning' })
           return
         }
@@ -470,7 +482,7 @@ export class BookingWizardScreen {
             vehicleId: vehicleId,
             scheduledDate: scheduledDate,
             notes: getValue('service-notes'),
-            serviceIds: serviceIds,
+            services: servicesPayload,
             status: statusInput,
             priority: priorityInput,
             paymentMethod: paymentMethod,
@@ -505,19 +517,51 @@ export class BookingWizardScreen {
     const dateInput = el.querySelector('#booking-date') as HTMLInputElement
     if (dateInput) dateInput.value = todayStr
 
-    // Fetch real services for multi-select (limit=0 → "all rows": lookup for booking form)
+    // Fetch real services for multi-select with per-service price input
+    // (limit=0 → "all rows": lookup for booking form)
     this.api.get<any>('/api/services?limit=0').then(res => {
       const list = el.querySelector('#service-list') as HTMLDivElement
       if (!list) return
       if (res.success && res.data) {
         const services = Array.isArray(res.data) ? res.data : res.data.data || []
         if (services.length > 0) {
-          list.innerHTML = services.map((s: any) => `
-            <label class="flex items-center gap-2 cursor-pointer hover:bg-surface-container-low/50 rounded px-2 py-1.5 transition-colors">
-              <input type="checkbox" value="${s.id}" class="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
-              <span class="font-body-md text-on-surface">${s.name}</span>
-            </label>
-          `).join('')
+          list.innerHTML = services.map((s: any) => {
+            const defaultPrice = s.priceSYP ?? s.basePrice ?? 0
+            return `
+            <div class="service-row flex items-center gap-2 hover:bg-surface-container-low/50 rounded px-2 py-1.5 transition-colors" data-service-id="${s.id}" data-default-price="${defaultPrice}">
+              <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                <input type="checkbox" value="${s.id}" class="svc-check w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                <span class="font-body-md text-on-surface truncate">${s.name}</span>
+              </label>
+              <input type="number" min="0" step="1000" value="${defaultPrice}" placeholder="السعر (ل.س)" class="svc-price w-32 h-8 text-sm bg-surface border border-border rounded px-2 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:bg-surface-subtle" disabled />
+              <span class="text-text-tertiary text-xs whitespace-nowrap">ل.س</span>
+            </div>
+          `}).join('')
+
+          // Enable/disable price input based on checkbox state + recompute total
+          const updateTotal = () => {
+            const checked = list.querySelectorAll<HTMLInputElement>('.svc-check:checked')
+            let total = 0
+            checked.forEach((cb) => {
+              const row = cb.closest('.service-row') as HTMLElement
+              const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
+              if (priceInput) total += parseFloat(priceInput.value) || 0
+            })
+            const totalEl = el.querySelector('#services-total') as HTMLElement
+            if (totalEl) totalEl.textContent = total.toLocaleString('en-US')
+          }
+
+          list.querySelectorAll<HTMLInputElement>('.svc-check').forEach((cb) => {
+            cb.addEventListener('change', () => {
+              const row = cb.closest('.service-row') as HTMLElement
+              const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
+              if (priceInput) priceInput.disabled = !cb.checked
+              updateTotal()
+            })
+          })
+          list.querySelectorAll<HTMLInputElement>('.svc-price').forEach((input) => {
+            input.addEventListener('input', updateTotal)
+          })
         } else {
           list.innerHTML = `<p class="text-text-secondary text-sm">لا توجد خدمات متوفرة</p>`
         }

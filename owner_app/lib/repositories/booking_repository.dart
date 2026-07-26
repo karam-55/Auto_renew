@@ -30,6 +30,24 @@ class BookingRepository {
     throw ApiException('استجابة غير صالحة من الخادم');
   }
 
+  /// Fetch a single booking by id (used by the ticket screen).
+  Future<Booking> getById(String id) async {
+    final response = await ApiService.get('${ApiConfig.bookings}/$id');
+    if (response is Map) {
+      if (response['data'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['data'] as Map<String, dynamic>);
+      }
+      if (response['booking'] is Map<String, dynamic>) {
+        return Booking.fromJson(response['booking'] as Map<String, dynamic>);
+      }
+      // Some endpoints return the booking directly at the top level.
+      if (response['id'] is String) {
+        return Booking.fromJson(response.cast<String, dynamic>());
+      }
+    }
+    throw ApiException('استجابة غير صالحة من الخادم');
+  }
+
   Future<Booking> update(String id, Booking booking) async {
     final response = await ApiService.put('${ApiConfig.bookings}/$id', body: booking.toJson());
     if (response is Map) {

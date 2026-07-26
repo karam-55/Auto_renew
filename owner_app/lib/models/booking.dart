@@ -12,6 +12,9 @@ class Booking {
   final List<Map<String, dynamic>> services;
   final Map<String, dynamic>? customer;
   final Map<String, dynamic>? vehicle;
+  final String? publicToken;
+  final num? totalSYP;
+  final num? totalUSD;
 
   Booking({
     required this.id,
@@ -27,6 +30,9 @@ class Booking {
     this.services = const [],
     this.customer,
     this.vehicle,
+    this.publicToken,
+    this.totalSYP,
+    this.totalUSD,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -54,6 +60,9 @@ class Booking {
       services: parseServices(),
       customer: json['customer'] is Map<String, dynamic> ? json['customer'] as Map<String, dynamic> : null,
       vehicle: json['vehicle'] is Map<String, dynamic> ? json['vehicle'] as Map<String, dynamic> : null,
+      publicToken: json['publicToken']?.toString() ?? json['public_token']?.toString(),
+      totalSYP: json['totalSYP'] is num ? json['totalSYP'] as num : null,
+      totalUSD: json['totalUSD'] is num ? json['totalUSD'] as num : null,
     );
   }
 
@@ -67,7 +76,16 @@ class Booking {
       'priority': priority,
       'paymentMethod': paymentMethod ?? 'CASH',
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
-      'serviceIds': services.map((s) => s['id']?.toString() ?? s['serviceId']?.toString()).where((e) => e != null && e.isNotEmpty).toList(),
+      // Send `services` (with per-line prices) when available, otherwise fall back
+      // to legacy `serviceIds`.
+      if (services.any((s) => s['priceSYP'] != null))
+        'services': services.map((s) => {
+          'serviceId': s['id']?.toString() ?? s['serviceId']?.toString() ?? '',
+          if (s['priceSYP'] != null) 'priceSYP': s['priceSYP'],
+          if (s['priceUSD'] != null) 'priceUSD': s['priceUSD'],
+        }).where((s) => s['serviceId'].isNotEmpty).toList()
+      else
+        'serviceIds': services.map((s) => s['id']?.toString() ?? s['serviceId']?.toString()).where((e) => e != null && e.isNotEmpty).toList(),
     };
   }
 
