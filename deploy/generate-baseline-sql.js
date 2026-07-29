@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const migrationsDir = 'C:\\Users\\FIX 11\\projects\\AUTO_Renew\\backend\\prisma\\migrations';
-const outputFile = 'C:\\Users\\FIX 11\\projects\\AUTO_Renew\\deploy\\baseline-prisma-migrations.sql';
+const migrationsDir = path.resolve(__dirname, '..', 'backend', 'prisma', 'migrations');
+const outputFile = path.resolve(__dirname, 'baseline-prisma-migrations.sql');
 
 function sha256(filePath) {
   const data = fs.readFileSync(filePath);
