@@ -101,7 +101,13 @@ jobs:
               docker compose -f docker-compose.prod.yml build --no-cache backend
               docker compose -f docker-compose.prod.yml up -d backend
               docker compose -f docker-compose.prod.yml restart nginx
-              docker compose -f docker-compose.prod.yml exec backend npx prisma db push --accept-data-loss --skip-generate
+
+              # Baseline Prisma migrations table (safe to run repeatedly, only needed once when switching from `db push`)
+              docker compose -f docker-compose.prod.yml cp baseline-prisma-migrations.sql postgres:/tmp/baseline-prisma-migrations.sql
+              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
+
+              # Apply pending migrations (production-safe, never drops data)
+              docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy --skip-generate
               sleep 5
               echo '=== Backend status ==='
               docker compose -f docker-compose.prod.yml ps backend
