@@ -95,7 +95,15 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
             ${{ secrets.SERVER_USER }}@178.105.209.59 "
+              set -e
               cd /opt/auto-renew/deploy
+
+              # Backup PostgreSQL before any deploy or schema change
+              mkdir -p /opt/auto-renew/backups
+              BACKUP_FILE=/opt/auto-renew/backups/garage_master_$(date +%Y%m%d_%H%M%S).sql.gz
+              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "$BACKUP_FILE"
+              echo "PostgreSQL backup saved to: $BACKUP_FILE"
+
               docker rm -f evolution_api evolution_postgres evolution_redis 2>/dev/null || true
               docker volume rm -f deploy_evolution_instances deploy_evolution_postgres_data deploy_evolution_redis_data 2>/dev/null || true
               docker compose -f docker-compose.prod.yml build --no-cache backend
