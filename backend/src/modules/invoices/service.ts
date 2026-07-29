@@ -12,16 +12,19 @@ import { Logger } from '../../infrastructure/logging/logger';
 import { InvoiceStatus, PaymentMethod } from '@prisma/client';
 import { LoyaltyService } from '../loyalty/service';
 import { WhatsAppService } from '../whatsapp/service';
+import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 
 export class InvoiceService {
   private loyaltyService: LoyaltyService;
   private whatsappService: WhatsAppService;
+  private telegramAdminNotificationService: TelegramAdminNotificationService;
   private io: any;
 
   constructor() {
     this.loyaltyService = new LoyaltyService();
     this.whatsappService = new WhatsAppService();
+    this.telegramAdminNotificationService = new TelegramAdminNotificationService();
   }
 
   setIo(io: any) {
@@ -859,6 +862,19 @@ export class InvoiceService {
         // Don't fail the invoice finalization if WhatsApp fails
       }
     }
+
+    // Send Telegram notification to owners/managers
+    setImmediate(async () => {
+      try {
+        await this.telegramAdminNotificationService.notifyInvoiceCreated(
+          tenantId,
+          updatedInvoice,
+          invoice.customer?.fullName
+        );
+      } catch (telegramError) {
+        Logger.error('Error sending Telegram admin notification for invoice:', telegramError);
+      }
+    });
 
     return this.mapToInvoiceResponse(updatedInvoice, invoice.items);
   }

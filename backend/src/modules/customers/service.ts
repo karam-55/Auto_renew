@@ -1,9 +1,11 @@
 import prisma from '../../config/database';
 import { CreateCustomerInput, UpdateCustomerInput, CustomerResponse } from './types';
 import { WhatsAppService } from '../whatsapp/service';
+import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { Logger } from '../../infrastructure/logging/logger';
 
 export class CustomerService {
+  private telegramAdminNotificationService = new TelegramAdminNotificationService();
   async getAllCustomers(tenantId: string, skip?: number, limit?: number): Promise<CustomerResponse[]> {
     const customers = await prisma.customer.findMany({
       where: { tenantId, deletedAt: null },
@@ -151,6 +153,15 @@ export class CustomerService {
       Logger.error('Error sending WhatsApp welcome message:', error);
       // Don't fail customer creation if WhatsApp fails
     }
+
+    // Send Telegram notification to owners/managers about new customer
+    setImmediate(async () => {
+      try {
+        await this.telegramAdminNotificationService.notifyCustomerRegistered(tenantId, customer);
+      } catch (telegramError) {
+        Logger.error('Error sending Telegram admin notification for customer registration:', telegramError);
+      }
+    });
 
     return customer;
   }

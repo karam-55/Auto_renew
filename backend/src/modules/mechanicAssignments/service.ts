@@ -1,11 +1,15 @@
 import prisma from '../../config/database';
 import { CreateMechanicAssignmentInput, UpdateMechanicAssignmentInput, MechanicAssignmentResponse } from './types';
+import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
+import { Logger } from '../../infrastructure/logging/logger';
 
 export class MechanicAssignmentService {
   private io: any;
+  private telegramAdminNotificationService: TelegramAdminNotificationService;
 
   constructor(io?: any) {
     this.io = io;
+    this.telegramAdminNotificationService = new TelegramAdminNotificationService();
   }
 
   async getAllMechanicAssignments(tenantId?: string, filters?: {
@@ -189,6 +193,15 @@ export class MechanicAssignmentService {
         bookingId: assignment.bookingId,
       });
     }
+
+    // Send Telegram notification to owners/managers
+    setImmediate(async () => {
+      try {
+        await this.telegramAdminNotificationService.notifyMechanicAssigned(tenantId, assignment);
+      } catch (telegramError) {
+        Logger.error('Error sending Telegram admin notification for mechanic assignment:', telegramError);
+      }
+    });
 
     return assignment;
   }

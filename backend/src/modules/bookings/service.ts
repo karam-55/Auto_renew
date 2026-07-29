@@ -4,6 +4,7 @@ import { CreateBookingInput, UpdateBookingInput, BookingResponse, BookingService
 import { Logger } from '../../infrastructure/logging/logger';
 import { WhatsAppService } from '../whatsapp/service';
 import { FCMService } from '../fcm/service';
+import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { VehicleService } from '../vehicles/service';
 import { VehicleService as VehicleManagementService } from '../vehicles/vehicle.service';
@@ -15,6 +16,7 @@ export class BookingService {
   private io: SocketIOServer | null = null;
   private whatsappService: WhatsAppService;
   private fcmService: FCMService;
+  private telegramAdminNotificationService: TelegramAdminNotificationService;
   private scheduleService: ScheduleService;
   private vehicleService: VehicleService;
   private vehicleManagementService: VehicleManagementService;
@@ -24,6 +26,7 @@ export class BookingService {
     this.io = io || null;
     this.whatsappService = new WhatsAppService();
     this.fcmService = new FCMService();
+    this.telegramAdminNotificationService = new TelegramAdminNotificationService();
     this.scheduleService = new ScheduleService();
     this.vehicleService = new VehicleService();
     this.vehicleManagementService = new VehicleManagementService();
@@ -569,6 +572,13 @@ export class BookingService {
           Logger.error('Error creating auto invoice for booking:', error);
         }
       }
+
+      // 6. Telegram notification to owners/managers
+      try {
+        await this.telegramAdminNotificationService.notifyBookingCreated(tenantId, booking);
+      } catch (telegramError) {
+        Logger.error('Error sending Telegram admin notification for booking creation:', telegramError);
+      }
     });
 
     return bookingResult;
@@ -828,6 +838,22 @@ export class BookingService {
         Logger.error('Error auto-updating invoice for booking:', error);
         // Don't fail the booking update if invoice update fails
       }
+    }
+
+    // Send Telegram notification to owners/managers when status changes
+    if (data.status && data.status !== existingBooking.status) {
+      setImmediate(async () => {
+        try {
+          await this.telegramAdminNotificationService.notifyBookingStatusChanged(
+            tenantId,
+            booking,
+            existingBooking.status,
+            data.status || booking.status
+          );
+        } catch (telegramError) {
+          Logger.error('Error sending Telegram admin notification for booking status change:', telegramError);
+        }
+      });
     }
 
     return this.mapBookingResponse(booking);

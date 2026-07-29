@@ -10,10 +10,12 @@ import { Logger } from '../../infrastructure/logging/logger';
 import { PaymentMethod } from '@prisma/client';
 import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 import { WhatsAppService } from '../whatsapp/service';
+import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { PdfWorker } from '../../workers/pdf.worker';
 import fs from 'fs';
 
 export class PaymentService {
+  private telegramAdminNotificationService = new TelegramAdminNotificationService();
   /**
    * Create a new payment
    * Updates invoice paid amount
@@ -179,6 +181,33 @@ export class PaymentService {
         });
       } catch (whatsappError) {
         Logger.error('Error sending WhatsApp payment confirmation:', whatsappError);
+      }
+    });
+
+    // Send Telegram notification to owners/managers about payment received
+    setImmediate(async () => {
+      try {
+        const paymentWithDetails = await prisma.payment.findUnique({
+          where: { id: payment.id },
+          include: {
+            invoice: {
+              include: {
+                customer: { select: { fullName: true } },
+              },
+            },
+          },
+        });
+
+        if (paymentWithDetails?.invoice) {
+          await this.telegramAdminNotificationService.notifyPaymentReceived(
+            tenantId,
+            paymentWithDetails.invoice,
+            Number(paymentWithDetails.amountSYP),
+            paymentWithDetails.invoice.customer?.fullName
+          );
+        }
+      } catch (telegramError) {
+        Logger.error('Error sending Telegram admin notification for payment:', telegramError);
       }
     });
 
