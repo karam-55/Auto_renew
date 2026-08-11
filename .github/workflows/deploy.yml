@@ -100,9 +100,9 @@ jobs:
 
               # Backup PostgreSQL before any deploy or schema change
               mkdir -p /opt/auto-renew/backups
-              BACKUP_FILE=/opt/auto-renew/backups/garage_master_$(date +%Y%m%d_%H%M%S).sql.gz
-              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "$BACKUP_FILE"
-              echo "PostgreSQL backup saved to: $BACKUP_FILE"
+              BACKUP_FILE=/opt/auto-renew/backups/garage_master_\$(date +%Y%m%d_%H%M%S).sql.gz
+              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'pg_dump -U "\$POSTGRES_USER" -d "\$POSTGRES_DB"' | gzip > "\$BACKUP_FILE"
+              echo "PostgreSQL backup saved to: \$BACKUP_FILE"
 
               docker rm -f evolution_api evolution_postgres evolution_redis 2>/dev/null || true
               docker volume rm -f deploy_evolution_instances deploy_evolution_postgres_data deploy_evolution_redis_data 2>/dev/null || true
@@ -112,7 +112,7 @@ jobs:
 
               # Baseline Prisma migrations table (safe to run repeatedly, only needed once when switching from `db push`)
               docker compose -f docker-compose.prod.yml cp baseline-prisma-migrations.sql postgres:/tmp/baseline-prisma-migrations.sql
-              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
+              docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
 
               # Apply pending migrations (production-safe, never drops data)
               docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy --skip-generate
