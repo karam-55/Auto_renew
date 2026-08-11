@@ -49,4 +49,24 @@ class DealerRepository {
     }
     return [];
   }
+
+  Future<DealerWarranty> createWarranty(String dealerId, Map<String, dynamic> data) async {
+    final response = await ApiService.post('${ApiConfig.dealers}/$dealerId/warranties', body: data);
+    if (response is Map && response['warranty'] is Map<String, dynamic>) {
+      return DealerWarranty.fromJson(response['warranty']);
+    }
+    throw ApiException('استجابة غير صالحة من الخادم');
+  }
+
+  Future<DealerWarranty> updateWarranty(String warrantyId, Map<String, dynamic> data) async {
+    final response = await ApiService.put('${ApiConfig.dealers}/warranties/$warrantyId', body: data);
+    if (response is Map && response['warranty'] is Map<String, dynamic>) {
+      return DealerWarranty.fromJson(response['warranty']);
+    }
+    throw ApiException('استجابة غير صالحة من الخادم');
+  }
+
+  Future<void> deleteWarranty(String warrantyId) async {
+    await ApiService.delete('${ApiConfig.dealers}/warranties/$warrantyId');
+  }
 }

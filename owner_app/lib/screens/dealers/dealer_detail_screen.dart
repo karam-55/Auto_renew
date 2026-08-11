@@ -9,6 +9,7 @@ import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
+import 'warranty_form_screen.dart';
 
 class DealerDetailScreen extends StatefulWidget {
   final Dealer dealer;
@@ -90,6 +91,21 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
             Tab(text: 'الكفالات'),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'كفالة جديدة',
+            onPressed: () async {
+              final result = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WarrantyFormScreen(dealerId: widget.dealer.id),
+                ),
+              );
+              if (result == true) _loadWarranties();
+            },
+          ),
+        ],
       ),
       body: TabBarView(
         controller: _tabController,
@@ -97,6 +113,19 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
           _buildInfoTab(),
           _buildWarrantiesTab(),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WarrantyFormScreen(dealerId: widget.dealer.id),
+            ),
+          );
+          if (result == true) _loadWarranties();
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('كفالة جديدة'),
       ),
     );
   }
@@ -367,6 +396,31 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: AppColors.primary, size: 20),
+                        onPressed: () async {
+                          final result = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => WarrantyFormScreen(
+                                dealerId: widget.dealer.id,
+                                warranty: w,
+                              ),
+                            ),
+                          );
+                          if (result == true) _loadWarranties();
+                        },
+                        tooltip: 'تعديل',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                        onPressed: () => _confirmDelete(w),
+                        tooltip: 'حذف',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -404,6 +458,42 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
         const SizedBox(width: 4),
         Text('$label: $value', style: const TextStyle(fontSize: 13, color: AppColors.textTertiary)),
       ],
+    );
+  }
+
+  void _confirmDelete(DealerWarranty w) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد الحذف'),
+        content: Text('هل أنت متأكد من حذف كفالة "${w.customerName}"؟ لا يمكن التراجع عن هذه العملية.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await DealerRepository().deleteWarranty(w.id);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم حذف الكفالة')),
+                );
+                _loadWarranties();
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: AppColors.error),
+                );
+              }
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
     );
   }
 }
