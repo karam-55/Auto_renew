@@ -115,7 +115,7 @@ jobs:
               docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
 
               # Apply pending migrations (production-safe, never drops data)
-              docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy --skip-generate
+              docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
               sleep 5
               echo '=== Backend status ==='
               docker compose -f docker-compose.prod.yml ps backend
