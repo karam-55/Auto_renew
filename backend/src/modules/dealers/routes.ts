@@ -27,12 +27,16 @@ router.put('/me/warranties/:id', dealerAuth, dealerController.updateWarranty);
 router.delete('/me/warranties/:id', dealerAuth, dealerController.deleteWarranty);
 
 // Protected dealer routes (admin auth)
+// IMPORTANT: Static paths (e.g. /warranties/:warrantyId) MUST come before parameterized paths (e.g. /:id)
 router.get('/', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealers);
 router.get('/search', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.searchDealers);
+router.put('/warranties/:warrantyId', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminUpdateWarranty);
+router.delete('/warranties/:warrantyId', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminDeleteWarranty);
 router.get('/:id/warranties', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerWarranties);
 router.get('/:id/stats', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerStatsAdmin);
 router.get('/:id', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerById);
 router.post('/', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.createDealer);
+router.post('/:id/warranties', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminCreateWarranty);
 router.put('/:id', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.updateDealer);
 router.delete('/:id', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.deleteDealer);
 

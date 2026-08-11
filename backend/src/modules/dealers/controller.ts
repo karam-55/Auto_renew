@@ -265,4 +265,39 @@ export class DealerController {
       res.status(400).json({ error: error.message || 'Failed to delete warranty' });
     }
   };
+
+  // ===== Admin Warranty Management =====
+
+  adminCreateWarranty = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params; // dealerId
+      const warranty = await this.dealerService.adminCreateWarranty(id, req.user!.tenantId, req.body);
+      res.status(201).json({ warranty });
+    } catch (error: any) {
+      Logger.error('Admin create warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to create warranty' });
+    }
+  };
+
+  adminUpdateWarranty = async (req: AuthRequest, res: Response) => {
+    try {
+      const { warrantyId } = req.params;
+      const warranty = await this.dealerService.adminUpdateWarranty(warrantyId, req.user!.tenantId, req.body);
+      res.json({ warranty });
+    } catch (error: any) {
+      Logger.error('Admin update warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to update warranty' });
+    }
+  };
+
+  adminDeleteWarranty = async (req: AuthRequest, res: Response) => {
+    try {
+      const { warrantyId } = req.params;
+      await this.dealerService.adminDeleteWarranty(warrantyId, req.user!.tenantId);
+      res.json({ message: 'Warranty deleted successfully' });
+    } catch (error: any) {
+      Logger.error('Admin delete warranty error', error);
+      res.status(400).json({ error: error.message || 'Failed to delete warranty' });
+    }
+  };
 }

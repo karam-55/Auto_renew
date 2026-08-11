@@ -340,4 +340,146 @@ export class DealerService {
       where: { id },
     });
   }
+
+  // ===== Admin Warranty Methods (no dealerAuth, uses admin auth) =====
+
+  async adminCreateWarranty(dealerId: string, tenantId: string, data: {
+    customerName: string;
+    customerPhone: string;
+    manufacturer: string;
+    vehicleModel: string;
+    vehicleYear: number;
+    chassisNumber: string;
+    plateNumber: string;
+    mileage: number;
+    color: string;
+    durationMonths: number;
+    amountPaid: number;
+    currency?: string;
+    pdfUrl?: string;
+  }) {
+    // Validate required fields
+    if (!data?.customerName || !data?.customerPhone || !data?.manufacturer ||
+        !data?.vehicleModel || !data?.chassisNumber || !data?.plateNumber || !data?.color) {
+      throw new Error('Missing required fields');
+    }
+    if (!Number.isFinite(data.vehicleYear) || data.vehicleYear < 1900 || data.vehicleYear > 2100) {
+      throw new Error('Invalid vehicle year');
+    }
+    if (!Number.isFinite(data.durationMonths) || data.durationMonths <= 0) {
+      throw new Error('Duration months must be greater than 0');
+    }
+    if (!Number.isFinite(data.mileage) || data.mileage < 0) {
+      throw new Error('Invalid mileage');
+    }
+    if (!Number.isFinite(data.amountPaid) || data.amountPaid < 0) {
+      throw new Error('Invalid amount paid');
+    }
+
+    const dealer = await prisma.dealer.findFirst({
+      where: { id: dealerId, tenantId, deletedAt: null },
+    });
+    if (!dealer) {
+      throw new Error('Dealer not found');
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + data.durationMonths);
+
+    const warranty = await prisma.dealerWarranty.create({
+      data: {
+        tenantId: dealer.tenantId,
+        dealerId,
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        manufacturer: data.manufacturer,
+        vehicleModel: data.vehicleModel,
+        vehicleYear: data.vehicleYear,
+        chassisNumber: data.chassisNumber,
+        plateNumber: data.plateNumber,
+        mileage: data.mileage,
+        color: data.color,
+        durationMonths: data.durationMonths,
+        amountPaid: data.amountPaid,
+        currency: data.currency || 'SYP',
+        startDate,
+        endDate,
+        pdfUrl: data.pdfUrl,
+      },
+    });
+
+    // Generate PDF
+    try {
+      const pdfResult = await generateWarrantyPdf(warranty, dealer);
+      await prisma.dealerWarranty.update({
+        where: { id: warranty.id },
+        data: { pdfUrl: pdfResult.pdfUrl },
+      });
+    } catch (err) {
+      Logger.error('Error generating PDF for admin-created warranty', err);
+    }
+
+    return prisma.dealerWarranty.findUnique({
+      where: { id: warranty.id },
+    });
+  }
+
+  async adminUpdateWarranty(id: string, tenantId: string, data: any) {
+    const existing = await prisma.dealerWarranty.findFirst({
+      where: { id, tenantId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new Error('Warranty not found');
+    }
+
+    // Validate numeric fields if provided
+    if (data.vehicleYear !== undefined && (!Number.isFinite(data.vehicleYear) || data.vehicleYear < 1900 || data.vehicleYear > 2100)) {
+      throw new Error('Invalid vehicle year');
+    }
+    if (data.durationMonths !== undefined && (!Number.isFinite(data.durationMonths) || data.durationMonths <= 0)) {
+      throw new Error('Duration months must be greater than 0');
+    }
+    if (data.mileage !== undefined && (!Number.isFinite(data.mileage) || data.mileage < 0)) {
+      throw new Error('Invalid mileage');
+    }
+    if (data.amountPaid !== undefined && (!Number.isFinite(data.amountPaid) || data.amountPaid < 0)) {
+      throw new Error('Invalid amount paid');
+    }
+
+    const durationMonths = data.durationMonths || existing.durationMonths;
+    const endDate = new Date(existing.startDate);
+    endDate.setMonth(endDate.getMonth() + durationMonths);
+
+    return prisma.dealerWarranty.update({
+      where: { id },
+      data: {
+        customerName: data.customerName ?? existing.customerName,
+        customerPhone: data.customerPhone ?? existing.customerPhone,
+        manufacturer: data.manufacturer ?? existing.manufacturer,
+        vehicleModel: data.vehicleModel ?? existing.vehicleModel,
+        vehicleYear: data.vehicleYear ?? existing.vehicleYear,
+        chassisNumber: data.chassisNumber ?? existing.chassisNumber,
+        plateNumber: data.plateNumber ?? existing.plateNumber,
+        mileage: data.mileage ?? existing.mileage,
+        color: data.color ?? existing.color,
+        durationMonths: data.durationMonths ?? existing.durationMonths,
+        amountPaid: data.amountPaid !== undefined ? data.amountPaid : existing.amountPaid,
+        currency: data.currency ?? existing.currency,
+        endDate: data.durationMonths ? endDate : existing.endDate,
+      },
+    });
+  }
+
+  async adminDeleteWarranty(id: string, tenantId: string) {
+    const existing = await prisma.dealerWarranty.findFirst({
+      where: { id, tenantId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new Error('Warranty not found');
+    }
+    return prisma.dealerWarranty.delete({
+      where: { id },
+    });
+  }
 }
