@@ -839,11 +839,89 @@
     .row-act:hover { border-color: var(--gold); color: var(--gold); }
     .row-act.del:hover { border-color: var(--red); color: #ff6b8a; }
 
+    /* ── Mobile: hamburger + slide-in sidebar ── */
+    .menu-btn {
+      display: none;
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 150;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(10,10,16,0.85);
+      border: 1px solid var(--border-strong);
+      color: var(--gold);
+      font-size: 20px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 90;
+    }
+    .sidebar-backdrop.show { display: block; }
+
     /* ── Responsive ── */
     @media (max-width: 768px) {
-      .sidebar { width: 200px; }
-      .main { padding: 20px; }
-      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .menu-btn { display: flex; }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(280px, 82vw);
+        height: 100vh;
+        z-index: 100;
+        transform: translateX(110%);
+        transition: transform 0.3s ease;
+        box-shadow: -20px 0 60px rgba(0,0,0,0.6);
+      }
+      .sidebar.open { transform: translateX(0); }
+
+      .nav-item { padding: 15px 24px; font-size: 15px; }
+
+      .main { padding: 66px 16px 24px; width: 100%; }
+      .page-header { margin-bottom: 20px; }
+      .page-header h1 { font-size: 20px; }
+
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .stat-card { padding: 16px; }
+      .stat-card .value { font-size: 24px; }
+      .stat-card .icon { font-size: 18px; top: 14px; left: 14px; }
+
+      .entity-grid { grid-template-columns: 1fr; }
+      .field-grid { grid-template-columns: 1fr; }
+
+      .kill-section { padding: 18px; }
+      .kill-btn, .unlock-btn { width: 100%; }
+      .confirm-input { width: 100%; }
+
+      .section { padding: 16px; }
+
+      .data-table th, .data-table td { padding: 8px 10px; }
+      .data-table td { max-width: 140px; }
+
+      .modal { padding: 20px; width: 94vw; }
+      .modal .edit-grid { grid-template-columns: 1fr; }
+
+      .login-card { width: 92vw; padding: 36px 24px; }
+
+      /* prevent iOS auto-zoom on inputs */
+      input, textarea, select { font-size: 16px !important; }
+
+      .toast { left: 16px; right: 16px; text-align: center; }
+    }
+
+    @media (max-width: 400px) {
+      .stats-grid { grid-template-columns: 1fr; }
     }
 
     /* ── Scrollbar ── */
@@ -889,6 +967,10 @@
 
   <!-- Main App -->
   <div id="app">
+    <!-- Mobile menu button + backdrop -->
+    <button class="menu-btn" id="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -1096,11 +1178,22 @@
     }
 
     // ─── Navigation ───────────────────────────────────────────
+    function toggleSidebar() {
+      document.querySelector('.sidebar').classList.toggle('open');
+      document.getElementById('sidebar-backdrop').classList.toggle('show');
+    }
+
+    function closeSidebar() {
+      document.querySelector('.sidebar').classList.remove('open');
+      document.getElementById('sidebar-backdrop').classList.remove('show');
+    }
+
     function showSection(name) {
       document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
       document.getElementById(`section-${name}`).classList.remove('hidden');
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       event?.currentTarget?.classList.add('active');
+      closeSidebar();
 
       const titles = { overview: 'نظرة عامة', tables: 'مستكشف قاعدة البيانات', sql: 'وحدة التحكم SQL', audit: 'سجل العمليات' };
       document.getElementById('page-title').textContent = titles[name] || name;
