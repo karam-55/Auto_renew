@@ -1,0 +1,21 @@
+{
+  "name": "لوحة السيادة — Auto Renew",
+  "short_name": "السيادة",
+  "description": "لوحة تحكم المالك الأعلى لنظام Auto Renew",
+  "start_url": "/sovereign/",
+  "scope": "/sovereign/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050507",
+  "theme_color": "#050507",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/sovereign/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

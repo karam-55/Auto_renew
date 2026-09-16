@@ -2,8 +2,16 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#050507">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="السيادة">
+  <link rel="manifest" href="/sovereign/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/sovereign/icon.svg">
+  <link rel="apple-touch-icon" href="/sovereign/icon.svg">
   <title>لوحة السيادة | Auto Renew</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -84,8 +92,8 @@
     }
 
     .login-card {
-      width: 420px;
-      padding: 48px 44px;
+      width: min(420px, 92vw);
+      padding: 40px 26px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
@@ -194,84 +202,60 @@
 
     #app.authenticated { display: flex; }
 
-    /* Sidebar */
-    .sidebar {
-      width: 260px;
-      min-height: 100vh;
-      background: rgba(10,10,16,0.95);
-      border-left: 1px solid var(--border);
-      padding: 32px 0;
+    /* ── Bottom Navigation (mobile app style) ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: calc(62px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: rgba(8,8,13,0.92);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 150;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .bnav-item {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
-    }
-
-    .sidebar-header {
-      padding: 0 24px 28px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 8px;
-    }
-
-    .sidebar-header .emblem {
-      width: 52px; height: 52px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px;
-      margin-bottom: 12px;
-    }
-
-    .sidebar-header h2 {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--gold);
-      letter-spacing: 0.3px;
-    }
-
-    .sidebar-header p {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-top: 2px;
-    }
-
-    .nav-item {
-      display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 24px;
+      justify-content: center;
+      gap: 3px;
       cursor: pointer;
       color: var(--text-dim);
-      font-size: 14px;
-      font-weight: 400;
-      transition: all 0.2s;
-      border-left: 3px solid transparent;
+      font-size: 11px;
+      transition: color 0.2s;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .nav-item:hover, .nav-item.active {
-      color: var(--gold);
-      background: rgba(212,175,55,0.06);
-      border-left-color: var(--gold);
+    .bnav-item .icon { font-size: 19px; }
+
+    .bnav-item::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20%; right: 20%;
+      height: 2px;
+      background: var(--gold);
+      border-radius: 0 0 4px 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
 
-    .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
-
-    .sidebar-footer {
-      margin-top: auto;
-      padding: 20px 24px;
-      border-top: 1px solid var(--border);
-    }
+    .bnav-item.active { color: var(--gold); }
+    .bnav-item.active::before { opacity: 1; }
 
     .lock-indicator {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 13px;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
 
     .lock-indicator.locked {
@@ -303,36 +287,80 @@
     /* ── Main content ── */
     .main {
       flex: 1;
-      padding: 32px 36px;
-      overflow-y: auto;
+      width: 100%;
+      padding: 16px 14px calc(92px + env(safe-area-inset-bottom, 0px));
     }
 
     .page-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 32px;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .emblem-mini {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px;
+      flex-shrink: 0;
     }
 
     .page-header h1 {
-      font-size: 26px;
+      font-size: 21px;
       font-weight: 900;
       background: linear-gradient(135deg, var(--gold-light), var(--gold));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .lang-toggle {
-      padding: 8px 18px;
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      width: 38px; height: 38px;
+      border-radius: 10px;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
+      color: var(--text);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-ar);
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .lang-toggle {
+      padding: 9px 13px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       color: var(--text);
       cursor: pointer;
       font-family: var(--font-ar);
-      font-size: 13px;
+      font-size: 12px;
       transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .lang-toggle:hover { border-color: var(--gold); color: var(--gold); }
@@ -340,16 +368,16 @@
     /* ── Stats Grid ── */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
     }
 
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 22px 24px;
+      padding: 16px;
       backdrop-filter: blur(10px);
       transition: transform 0.2s, border-color 0.2s;
       position: relative;
@@ -381,7 +409,7 @@
     }
 
     .stat-card .value {
-      font-size: 32px;
+      font-size: 26px;
       font-weight: 900;
       color: var(--gold-light);
       font-family: var(--font-en);
@@ -391,8 +419,8 @@
 
     .stat-card .icon {
       position: absolute;
-      top: 18px; left: 18px;
-      font-size: 22px;
+      top: 14px; left: 14px;
+      font-size: 18px;
       opacity: 0.5;
     }
 
@@ -415,8 +443,8 @@
     /* ── Entity Detail Cards ── */
     .entity-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+      gap: 14px;
       margin-bottom: 20px;
     }
 
@@ -523,8 +551,8 @@
       background: linear-gradient(135deg, rgba(200,16,46,0.06), rgba(200,16,46,0.02));
       border: 1px solid rgba(200,16,46,0.25);
       border-radius: 16px;
-      padding: 28px;
-      margin-bottom: 32px;
+      padding: 18px;
+      margin-bottom: 28px;
     }
 
     .kill-section h3 {
@@ -542,6 +570,7 @@
     }
 
     .kill-btn {
+      width: 100%;
       padding: 14px 32px;
       background: linear-gradient(135deg, #c8102e, #8b0a1e);
       border: none;
@@ -553,6 +582,7 @@
       cursor: pointer;
       transition: all 0.2s;
       letter-spacing: 0.5px;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .kill-btn:hover {
@@ -571,6 +601,7 @@
     }
 
     .unlock-btn {
+      width: 100%;
       padding: 14px 32px;
       background: linear-gradient(135deg, #1a7a3a, #0f5c28);
       border: none;
@@ -581,6 +612,7 @@
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .unlock-btn:hover { box-shadow: 0 0 24px rgba(46,200,102,0.3); }
@@ -594,8 +626,9 @@
       border-radius: 8px;
       color: var(--text);
       font-family: var(--font-ar);
-      font-size: 14px;
-      width: 280px;
+      font-size: 16px;
+      width: 100%;
+      max-width: 340px;
       text-align: center;
     }
 
@@ -606,8 +639,8 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 28px;
+      padding: 16px;
+      margin-bottom: 24px;
     }
 
     .section h3 {
@@ -653,7 +686,7 @@
     }
 
     .data-table th {
-      padding: 10px 12px;
+      padding: 8px 10px;
       background: rgba(212,175,55,0.08);
       color: var(--gold);
       font-weight: 600;
@@ -663,10 +696,10 @@
     }
 
     .data-table td {
-      padding: 9px 12px;
+      padding: 8px 10px;
       border-bottom: 1px solid rgba(255,255,255,0.04);
       color: var(--text);
-      max-width: 200px;
+      max-width: 140px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -780,14 +813,16 @@
 
     .toast {
       position: fixed;
-      bottom: 24px;
-      left: 24px;
+      bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+      left: 16px;
+      right: 16px;
       padding: 12px 20px;
       border-radius: 10px;
       font-size: 13px;
       font-weight: 600;
+      text-align: center;
       z-index: 999;
-      transform: translateY(80px);
+      transform: translateY(140px);
       transition: transform 0.3s;
     }
 
@@ -808,18 +843,18 @@
     }
     .modal-overlay.show { display: flex; }
     .modal {
-      width: 640px;
-      max-width: 92vw;
+      width: 94vw;
+      max-width: 640px;
       max-height: 84vh;
       overflow-y: auto;
       background: var(--bg-2);
       border: 1px solid var(--border-strong);
       border-radius: 18px;
-      padding: 28px;
+      padding: 20px;
       box-shadow: 0 0 80px rgba(0,0,0,0.8);
     }
     .modal h3 { color: var(--gold); font-size: 16px; margin-bottom: 18px; }
-    .modal .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal .edit-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
     .modal .edit-grid .field { margin-bottom: 0; }
     .modal .edit-grid .field.full { grid-column: 1 / -1; }
     .modal input[readonly] { opacity: 0.45; cursor: not-allowed; }
@@ -839,89 +874,14 @@
     .row-act:hover { border-color: var(--gold); color: var(--gold); }
     .row-act.del:hover { border-color: var(--red); color: #ff6b8a; }
 
-    /* ── Mobile: hamburger + slide-in sidebar ── */
-    .menu-btn {
-      display: none;
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 150;
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: rgba(10,10,16,0.85);
-      border: 1px solid var(--border-strong);
-      color: var(--gold);
-      font-size: 20px;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    }
+    /* prevent iOS auto-zoom on inputs (mobile-only panel) */
+    .field input, .sql-textarea, .confirm-input { font-size: 16px; }
 
-    .sidebar-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      z-index: 90;
-    }
-    .sidebar-backdrop.show { display: block; }
-
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      .menu-btn { display: flex; }
-
-      .sidebar {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: min(280px, 82vw);
-        height: 100vh;
-        z-index: 100;
-        transform: translateX(110%);
-        transition: transform 0.3s ease;
-        box-shadow: -20px 0 60px rgba(0,0,0,0.6);
-      }
-      .sidebar.open { transform: translateX(0); }
-
-      .nav-item { padding: 15px 24px; font-size: 15px; }
-
-      .main { padding: 66px 16px 24px; width: 100%; }
-      .page-header { margin-bottom: 20px; }
-      .page-header h1 { font-size: 20px; }
-
-      .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-      .stat-card { padding: 16px; }
-      .stat-card .value { font-size: 24px; }
-      .stat-card .icon { font-size: 18px; top: 14px; left: 14px; }
-
-      .entity-grid { grid-template-columns: 1fr; }
+    /* ── Small phones ── */
+    @media (max-width: 380px) {
       .field-grid { grid-template-columns: 1fr; }
-
-      .kill-section { padding: 18px; }
-      .kill-btn, .unlock-btn { width: 100%; }
-      .confirm-input { width: 100%; }
-
-      .section { padding: 16px; }
-
-      .data-table th, .data-table td { padding: 8px 10px; }
-      .data-table td { max-width: 140px; }
-
-      .modal { padding: 20px; width: 94vw; }
-      .modal .edit-grid { grid-template-columns: 1fr; }
-
-      .login-card { width: 92vw; padding: 36px 24px; }
-
-      /* prevent iOS auto-zoom on inputs */
-      input, textarea, select { font-size: 16px !important; }
-
-      .toast { left: 16px; right: 16px; text-align: center; }
-    }
-
-    @media (max-width: 400px) {
-      .stats-grid { grid-template-columns: 1fr; }
+      .lock-indicator span { display: none; }
+      .lock-indicator { padding: 8px; }
     }
 
     /* ── Scrollbar ── */
@@ -967,47 +927,21 @@
 
   <!-- Main App -->
   <div id="app">
-    <!-- Mobile menu button + backdrop -->
-    <button class="menu-btn" id="menu-btn" onclick="toggleSidebar()">☰</button>
-    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <div class="emblem">⚡</div>
-        <h2>لوحة السيادة</h2>
-        <p>Auto Renew — المالك الأعلى</p>
-      </div>
-
-      <nav>
-        <div class="nav-item active" onclick="showSection('overview')">
-          <span class="icon">◈</span> نظرة عامة
-        </div>
-        <div class="nav-item" onclick="showSection('tables')">
-          <span class="icon">⬚</span> قاعدة البيانات
-        </div>
-        <div class="nav-item" onclick="showSection('sql')">
-          <span class="icon">⚙</span> SQL Console
-        </div>
-        <div class="nav-item" onclick="showSection('audit')">
-          <span class="icon">◎</span> سجل العمليات
-        </div>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="lock-indicator open" id="lock-indicator">
-          <div class="lock-dot"></div>
-          <span id="lock-status-text">النظام يعمل</span>
-        </div>
-        <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:12px;" onclick="logout()">⎋ تسجيل الخروج</button>
-      </div>
-    </aside>
-
     <!-- Main Content -->
     <main class="main">
       <div class="page-header">
-        <h1 id="page-title">نظرة عامة</h1>
-        <button class="lang-toggle" onclick="toggleLang()">EN</button>
+        <div class="title-group">
+          <div class="emblem-mini">⚡</div>
+          <h1 id="page-title">نظرة عامة</h1>
+        </div>
+        <div class="header-actions">
+          <div class="lock-indicator open" id="lock-indicator">
+            <div class="lock-dot"></div>
+            <span id="lock-status-text">يعمل</span>
+          </div>
+          <button class="lang-toggle" onclick="toggleLang()">EN</button>
+          <button class="icon-btn" onclick="logout()" title="تسجيل الخروج">⎋</button>
+        </div>
       </div>
 
       <!-- DB offline banner -->
@@ -1092,6 +1026,26 @@
         </div>
       </div>
     </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <div class="bnav-item active" onclick="showSection('overview', this)">
+        <span class="icon">◈</span>
+        <span>الرئيسية</span>
+      </div>
+      <div class="bnav-item" onclick="showSection('tables', this)">
+        <span class="icon">⬚</span>
+        <span>البيانات</span>
+      </div>
+      <div class="bnav-item" onclick="showSection('sql', this)">
+        <span class="icon">⚙</span>
+        <span>SQL</span>
+      </div>
+      <div class="bnav-item" onclick="showSection('audit', this)">
+        <span class="icon">◎</span>
+        <span>السجل</span>
+      </div>
+    </nav>
   </div>
 
   <!-- Row Editor Modal -->
@@ -1178,22 +1132,11 @@
     }
 
     // ─── Navigation ───────────────────────────────────────────
-    function toggleSidebar() {
-      document.querySelector('.sidebar').classList.toggle('open');
-      document.getElementById('sidebar-backdrop').classList.toggle('show');
-    }
-
-    function closeSidebar() {
-      document.querySelector('.sidebar').classList.remove('open');
-      document.getElementById('sidebar-backdrop').classList.remove('show');
-    }
-
-    function showSection(name) {
-      document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+    function showSection(name, el) {
+      document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'));
       document.getElementById(`section-${name}`).classList.remove('hidden');
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      event?.currentTarget?.classList.add('active');
-      closeSidebar();
+      document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+      if (el) el.classList.add('active');
 
       const titles = { overview: 'نظرة عامة', tables: 'مستكشف قاعدة البيانات', sql: 'وحدة التحكم SQL', audit: 'سجل العمليات' };
       document.getElementById('page-title').textContent = titles[name] || name;
@@ -1272,13 +1215,13 @@
 
       if (locked) {
         el.className = 'lock-indicator locked';
-        txt.textContent = 'النظام مقفل — كل التطبيقات متوقفة';
+        txt.textContent = 'مقفل';
         btn.textContent = '🔓 تشغيل النظام';
         btn.className = 'kill-btn unlock-btn';
         desc.textContent = 'النظام الآن مقفل بالكامل — جميع التطبيقات متوقفة. فقط هذه اللوحة تعمل.';
       } else {
         el.className = 'lock-indicator open';
-        txt.textContent = 'النظام يعمل بشكل طبيعي';
+        txt.textContent = 'يعمل';
         btn.textContent = '🔒 إيقاف النظام بالكامل';
         btn.className = 'kill-btn';
         desc.textContent = 'عند الضغط على هذا الزر، سيتم إيقاف جميع تطبيقات Auto Renew فوراً (أدمن، مالكين، وكلاء). لن تعمل أي خدمة حتى يتم فتح القفل من هذه اللوحة فقط.';
@@ -1383,6 +1326,8 @@
       document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
       document.getElementById('section-overview').classList.remove('hidden');
       document.getElementById('page-title').textContent = 'نظرة عامة';
+      document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+      document.querySelector('.bnav-item')?.classList.add('active');
     }
 
     async function loadEntityDetails() {
