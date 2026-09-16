@@ -795,6 +795,50 @@
     .toast.success { background: rgba(46,200,102,0.15); border: 1px solid rgba(46,200,102,0.4); color: #6dd99a; }
     .toast.error { background: rgba(200,16,46,0.15); border: 1px solid rgba(200,16,46,0.4); color: #ff6b8a; }
 
+    /* ── Row Editor Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      width: 640px;
+      max-width: 92vw;
+      max-height: 84vh;
+      overflow-y: auto;
+      background: var(--bg-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 0 80px rgba(0,0,0,0.8);
+    }
+    .modal h3 { color: var(--gold); font-size: 16px; margin-bottom: 18px; }
+    .modal .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal .edit-grid .field { margin-bottom: 0; }
+    .modal .edit-grid .field.full { grid-column: 1 / -1; }
+    .modal input[readonly] { opacity: 0.45; cursor: not-allowed; }
+    .modal .btn-row { justify-content: flex-end; margin-top: 20px; }
+
+    .row-actions { display: flex; gap: 6px; }
+    .row-act {
+      padding: 3px 9px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .row-act:hover { border-color: var(--gold); color: var(--gold); }
+    .row-act.del:hover { border-color: var(--red); color: #ff6b8a; }
+
     /* ── Responsive ── */
     @media (max-width: 768px) {
       .sidebar { width: 200px; }
@@ -873,6 +917,7 @@
           <div class="lock-dot"></div>
           <span id="lock-status-text">النظام يعمل</span>
         </div>
+        <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:12px;" onclick="logout()">⎋ تسجيل الخروج</button>
       </div>
     </aside>
 
@@ -904,6 +949,12 @@
           <p id="lock-desc">عند الضغط على هذا الزر، سيتم إيقاف جميع تطبيقات Auto Renew فوراً (أدمن، مالكين، وكلاء). لن تعمل أي خدمة حتى يتم فتح القفل من هذه اللوحة فقط.</p>
           <button class="kill-btn" id="kill-btn" onclick="handleKillSwitch()">🔒 إيقاف النظام بالكامل</button>
           <input type="text" class="confirm-input" id="confirm-input" placeholder='اكتب "أطفئ النظام" للتأكيد'>
+
+          <div style="margin-top:26px;padding-top:20px;border-top:1px solid rgba(200,16,46,0.2);">
+            <h3 style="color:var(--gold);">↻ إعادة تشغيل السيرفر</h3>
+            <p>يعيد تشغيل عملية السيرفر بالكامل — يعود تلقائياً خلال ثوانٍ بفضل سياسة إعادة التشغيل في Docker.</p>
+            <button class="btn btn-danger" id="restart-btn" onclick="handleRestart()" style="padding:12px 28px;font-size:14px;">↻ إعادة تشغيل السيرفر</button>
+          </div>
         </div>
       </div>
 
@@ -961,6 +1012,18 @@
     </main>
   </div>
 
+  <!-- Row Editor Modal -->
+  <div class="modal-overlay" id="row-modal">
+    <div class="modal">
+      <h3 id="row-modal-title">تعديل سطر</h3>
+      <div class="edit-grid" id="row-edit-grid"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="closeRowModal()">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveRow()">💾 حفظ التعديلات</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -968,8 +1031,13 @@
     let token = localStorage.getItem('sovereign_token');
     let currentLang = 'ar';
     let killConfirmStep = 0;
+    let restartConfirmStep = 0;
     let currentPage = 1;
     let currentTable = '';
+    let lastTableRows = [];
+    let lastTableSchema = [];
+    let editingRowIndex = -1;
+    const tableSchemas = {};
 
     // ─── Particles ────────────────────────────────────────────
     const particles = document.getElementById('particles');
@@ -1090,6 +1158,7 @@
         { label: 'العملاء', value: stats.customers, icon: '🚗', type: 'customers' },
         { label: 'الوكلاء', value: stats.dealers, icon: '🤝', type: 'dealers' },
         { label: 'الكفالات', value: stats.warranties, icon: '🛡', type: 'warranties' },
+        { label: 'الحجوزات', value: stats.bookings, icon: '📅', type: 'bookings' },
         { label: 'الفواتير', value: stats.invoices, icon: '📄', type: 'invoices' },
       ];
       document.getElementById('stats-grid').innerHTML = items.map(i => `
@@ -1173,12 +1242,35 @@
       return document.getElementById('lock-indicator').classList.contains('locked');
     }
 
+    // ─── Server Restart ───────────────────────────────────────
+    async function handleRestart() {
+      const btn = document.getElementById('restart-btn');
+      if (restartConfirmStep === 0) {
+        restartConfirmStep = 1;
+        btn.textContent = '⚠ اضغط مجدداً للتأكيد';
+        setTimeout(() => {
+          restartConfirmStep = 0;
+          btn.textContent = '↻ إعادة تشغيل السيرفر';
+        }, 5000);
+        return;
+      }
+      try {
+        await api('/api/sovereign/restart', { method: 'POST', body: JSON.stringify({ confirm: 'RESTART_SERVER' }) });
+        showToast('↻ السيرفر يعيد التشغيل — سيغيب ثوانٍ ثم يعود');
+        restartConfirmStep = 0;
+        btn.textContent = '↻ إعادة تشغيل السيرفر';
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
     // ─── Entity Details (clickable stat cards) ────────────────
     const entityTitles = {
       warranties: '🛡 الكفالات — كل التفاصيل',
       customers: '🚗 العملاء — كل التفاصيل',
       dealers: '🤝 الوكلاء — كل التفاصيل',
       users: '👥 المستخدمين — كل التفاصيل',
+      bookings: '📅 الحجوزات — كل التفاصيل',
       invoices: '📄 الفواتير — كل التفاصيل',
     };
     let currentEntity = '';
@@ -1318,6 +1410,26 @@
             </div>
           </div>`;
         }
+        case 'bookings': {
+          const statusMap = { PENDING: ['warn', 'قيد الانتظار'], CONFIRMED: ['info', 'مؤكد'], IN_PROGRESS: ['info', 'قيد التنفيذ'], COMPLETED: ['active', 'مكتمل'], CANCELLED: ['inactive', 'ملغي'], NO_SHOW: ['inactive', 'لم يحضر'] };
+          const [cls, txt] = statusMap[r.status] || ['info', r.status || '—'];
+          return `<div class="entity-card">
+            <div class="card-title">📅 ${escapeHtml(r.customer?.fullName || 'بدون عميل')}</div>
+            <div class="card-sub">${escapeHtml(r.customer?.phone || '')} — ${fmtDate(r.scheduledDate)} ${escapeHtml(r.scheduledTime || '')}</div>
+            <div class="field-grid">
+              ${field('السيارة', r.vehicle ? `${escapeHtml(r.vehicle.make)} ${escapeHtml(r.vehicle.model)} ${r.vehicle.year} (${escapeHtml(r.vehicle.licensePlate)})` : '—', true)}
+              ${field('الحالة', `<span class="status-badge ${cls}">${txt}</span>`)}
+              ${field('الأولوية', escapeHtml(r.priority || '—'))}
+              ${field('طريقة الدفع', escapeHtml(r.paymentMethod || '—'))}
+              ${field('الانتهاء المتوقع', fmtDate(r.estimatedCompletionDate))}
+              ${field('الخدمات', r._count?.bookingServices ?? 0)}
+              ${field('المهام', r._count?.tasks ?? 0)}
+              ${field('الفواتير', r._count?.invoices ?? 0)}
+              ${field('ملاحظات', escapeHtml(r.notes || '—'), true)}
+              ${field('تاريخ الإنشاء', fmtDate(r.createdAt))}
+            </div>
+          </div>`;
+        }
         case 'invoices': {
           const statusMap = { PAID: ['active', 'مدفوعة'], DRAFT: ['warn', 'مسودة'], PARTIALLY_PAID: ['info', 'مدفوعة جزئياً'], CANCELLED: ['inactive', 'ملغاة'], OVERDUE: ['inactive', 'متأخرة'] };
           const [cls, txt] = statusMap[r.status] || ['info', r.status || '—'];
@@ -1372,19 +1484,27 @@
       container.innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
 
       try {
-        const data = await api(`/api/sovereign/table/${name}?page=${page}&limit=20`);
+        const [data, columns] = await Promise.all([
+          api(`/api/sovereign/table/${name}?page=${page}&limit=20`),
+          getSchema(name),
+        ]);
         if (!data.rows || data.rows.length === 0) {
           container.innerHTML = '<div class="loading">لا توجد بيانات</div>';
           return;
         }
 
+        lastTableRows = data.rows;
+        lastTableSchema = columns;
+        const canEdit = columns.some(c => c.isPk);
         const cols = Object.keys(data.rows[0]);
         container.innerHTML = `
           <div style="overflow-x:auto;">
             <table class="data-table">
-              <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
-              <tbody>${data.rows.map(row =>
-                `<tr>${cols.map(c => `<td title="${escapeHtml(String(row[c] ?? ''))}">${escapeHtml(truncate(String(row[c] ?? '—'), 40))}</td>`).join('')}</tr>`
+              <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}${canEdit ? '<th>إجراءات</th>' : ''}</tr></thead>
+              <tbody>${data.rows.map((row, i) =>
+                `<tr>${cols.map(c => `<td title="${escapeHtml(String(row[c] ?? ''))}">${escapeHtml(truncate(String(row[c] ?? '—'), 40))}</td>`).join('')}${
+                  canEdit ? `<td><div class="row-actions"><button class="row-act" onclick="openRowEditor(${i})">✎ تعديل</button><button class="row-act del" onclick="deleteRow(${i})">🗑</button></div></td>` : ''
+                }</tr>`
               ).join('')}</tbody>
             </table>
           </div>
@@ -1396,6 +1516,76 @@
         `;
       } catch (err) {
         container.innerHTML = `<div class="loading">${err.message}</div>`;
+      }
+    }
+
+    // ─── Row Editor ───────────────────────────────────────────
+    async function getSchema(name) {
+      if (!tableSchemas[name]) {
+        const s = await api(`/api/sovereign/table/${name}/schema`);
+        tableSchemas[name] = s.columns;
+      }
+      return tableSchemas[name];
+    }
+
+    function rowPk(row) {
+      const pk = {};
+      lastTableSchema.filter(c => c.isPk).forEach(c => { pk[c.name] = row[c.name]; });
+      return pk;
+    }
+
+    function openRowEditor(idx) {
+      editingRowIndex = idx;
+      const row = lastTableRows[idx];
+      document.getElementById('row-modal-title').textContent = `تعديل سطر — ${currentTable}`;
+      document.getElementById('row-edit-grid').innerHTML = lastTableSchema.map(c => {
+        const raw = row[c.name];
+        const isObj = raw !== null && typeof raw === 'object';
+        const val = raw === null || raw === undefined ? '' : (isObj ? JSON.stringify(raw) : String(raw));
+        const full = val.length > 40 || isObj;
+        return `<div class="field${full ? ' full' : ''}">
+          <label>${c.name} <span style="opacity:0.5">(${c.type}${c.isPk ? ' • مفتاح' : ''}${c.nullable ? '' : ' • مطلوب'})</span></label>
+          <input data-col="${c.name}" data-pk="${c.isPk}" data-type="${c.type}" value="${escapeHtml(val)}" ${c.isPk ? 'readonly' : ''}>
+        </div>`;
+      }).join('');
+      document.getElementById('row-modal').classList.add('show');
+    }
+
+    function closeRowModal() {
+      document.getElementById('row-modal').classList.remove('show');
+      editingRowIndex = -1;
+    }
+
+    async function saveRow() {
+      if (editingRowIndex < 0) return;
+      const pk = rowPk(lastTableRows[editingRowIndex]);
+      const data = {};
+      document.querySelectorAll('#row-edit-grid input').forEach(inp => {
+        if (inp.dataset.pk === 'true') return;
+        const v = inp.value;
+        const isText = /char|text/i.test(inp.dataset.type);
+        data[inp.dataset.col] = v === '' && !isText ? null : v;
+      });
+      try {
+        await api(`/api/sovereign/table/${currentTable}/row`, { method: 'PUT', body: JSON.stringify({ pk, data }) });
+        showToast('✅ تم حفظ التعديلات');
+        closeRowModal();
+        browseTable(currentTable, currentPage);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteRow(idx) {
+      const pk = rowPk(lastTableRows[idx]);
+      const pkStr = Object.entries(pk).map(([k, v]) => `${k}=${v}`).join(', ');
+      if (!confirm(`حذف هذا السطر نهائياً؟\n${pkStr}`)) return;
+      try {
+        await api(`/api/sovereign/table/${currentTable}/row`, { method: 'DELETE', body: JSON.stringify({ pk }) });
+        showToast('🗑 تم حذف السطر');
+        browseTable(currentTable, currentPage);
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 

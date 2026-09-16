@@ -130,12 +130,13 @@ router.get('/status', requireSovereign, async (_req: Request, res: Response) => 
       dbConnected = false;
     }
 
-    const [userCount, customerCount, dealerCount, warrantyCount, invoiceCount] = await Promise.all([
+    const [userCount, customerCount, dealerCount, warrantyCount, invoiceCount, bookingCount] = await Promise.all([
       prisma.user.count().catch(() => 0),
       prisma.customer.count().catch(() => 0),
       prisma.dealer.count().catch(() => 0),
       prisma.dealerWarranty.count().catch(() => 0),
       prisma.invoice.count().catch(() => 0),
+      prisma.booking.count().catch(() => 0),
     ]);
 
     res.json({
@@ -144,7 +145,7 @@ router.get('/status', requireSovereign, async (_req: Request, res: Response) => 
         lockedAt: sovereignState.lockedAt,
         dbConnected,
       },
-      stats: { users: userCount, customers: customerCount, dealers: dealerCount, warranties: warrantyCount, invoices: invoiceCount },
+      stats: { users: userCount, customers: customerCount, dealers: dealerCount, warranties: warrantyCount, invoices: invoiceCount, bookings: bookingCount },
       uptime: process.uptime(),
       memory: process.memoryUsage(),
     });
@@ -184,6 +185,28 @@ router.post('/unlock', requireSovereign, async (req: Request, res: Response) => 
   } catch (error) {
     Logger.error('Sovereign unlock error:', error);
     res.status(500).json({ error: 'فشل تشغيل النظام' });
+  }
+});
+
+/** POST /api/sovereign/restart — restart the server process (Docker/PM2 brings it back) */
+router.post('/restart', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { confirm } = req.body;
+    if (confirm !== 'RESTART_SERVER') {
+      return res.status(400).json({ error: 'تأكيد إعادة التشغيل مطلوب — أرسل confirm: "RESTART_SERVER"' });
+    }
+
+    await logOwnerAction(req, 'SERVER_RESTART');
+    Logger.warn('SOVEREIGN RESTART requested — process exiting for process-manager restart');
+
+    res.json({ restarting: true, message: 'جاري إعادة تشغيل السيرفر — سيعود خلال ثوانٍ' });
+
+    // Give the HTTP response time to flush, then exit.
+    // The container/process manager (restart: unless-stopped) brings it back.
+    setTimeout(() => process.exit(0), 800);
+  } catch (error) {
+    Logger.error('Sovereign restart error:', error);
+    res.status(500).json({ error: 'فشل إعادة تشغيل السيرفر' });
   }
 });
 
@@ -258,6 +281,141 @@ router.get('/table/:name', requireSovereign, async (req: Request, res: Response)
   } catch (error) {
     Logger.error('Sovereign table browse error:', error);
     res.status(500).json({ error: 'فشل جلب البيانات' });
+  }
+});
+
+/** Helper: fetch column metadata + primary key flags for a public table */
+async function getTableColumns(name: string): Promise<{ name: string; type: string; nullable: boolean; isPk: boolean }[]> {
+  const cols: any[] = await (prisma as any).$queryRawUnsafe(
+    `SELECT c.column_name as name, c.data_type as type,
+            (c.is_nullable = 'YES') as nullable,
+            EXISTS (
+              SELECT 1 FROM information_schema.table_constraints tc
+              JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+               AND tc.table_schema = kcu.table_schema
+               AND tc.table_name = kcu.table_name
+              WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema = 'public'
+                AND tc.table_name = c.table_name
+                AND kcu.column_name = c.column_name
+            ) as "isPk"
+     FROM information_schema.columns c
+     WHERE c.table_schema = 'public' AND c.table_name = $1
+     ORDER BY c.ordinal_position`,
+    name
+  );
+  return cols;
+}
+
+/** Normalize a JSON value for use as a Postgres query parameter */
+function sqlParam(v: any): any {
+  if (v === undefined) return null;
+  if (v !== null && typeof v === 'object') return JSON.stringify(v);
+  return v;
+}
+
+/** GET /api/sovereign/table/:name/schema — column metadata for the row editor */
+router.get('/table/:name/schema', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const columns = await getTableColumns(req.params.name);
+    if (columns.length === 0) {
+      return res.status(404).json({ error: 'جدول غير موجود' });
+    }
+    res.json({ table: req.params.name, columns });
+  } catch (error) {
+    Logger.error('Sovereign schema error:', error);
+    res.status(500).json({ error: 'فشل جلب بنية الجدول' });
+  }
+});
+
+/** PUT /api/sovereign/table/:name/row — update a row by its primary key */
+router.put('/table/:name/row', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { name } = req.params;
+    const { pk, data } = req.body;
+    if (!pk || typeof pk !== 'object' || !data || typeof data !== 'object') {
+      return res.status(400).json({ error: 'مطلوب pk و data' });
+    }
+
+    const columns = await getTableColumns(name);
+    if (columns.length === 0) return res.status(404).json({ error: 'جدول غير موجود' });
+
+    const pkCols = columns.filter(c => c.isPk).map(c => c.name);
+    if (pkCols.length === 0) return res.status(400).json({ error: 'الجدول بلا مفتاح أساسي — استخدم SQL Console' });
+    for (const k of pkCols) {
+      if (pk[k] === undefined || pk[k] === null) {
+        return res.status(400).json({ error: `قيمة المفتاح الأساسي "${k}" مطلوبة` });
+      }
+    }
+
+    const validNames = new Set(columns.map(c => c.name));
+    const setCols = Object.keys(data).filter(k => validNames.has(k) && !pkCols.includes(k));
+    if (setCols.length === 0) return res.status(400).json({ error: 'لا توجد أعمدة صالحة للتحديث' });
+
+    const params: any[] = [];
+    const setClause = setCols.map(c => {
+      params.push(sqlParam(data[c]));
+      return `"${c}" = $${params.length}`;
+    }).join(', ');
+    const whereClause = pkCols.map(c => {
+      params.push(sqlParam(pk[c]));
+      return `"${c}" = $${params.length}`;
+    }).join(' AND ');
+
+    const updated: any[] = await (prisma as any).$queryRawUnsafe(
+      `UPDATE "${name}" SET ${setClause} WHERE ${whereClause} RETURNING *`,
+      ...params
+    );
+
+    if (updated.length === 0) return res.status(404).json({ error: 'السطر غير موجود' });
+
+    await logOwnerAction(req, 'ROW_UPDATE', { table: name, pk, columns: setCols });
+    res.json({ success: true, row: updated[0] });
+  } catch (error: any) {
+    Logger.error('Sovereign row update error:', error);
+    res.status(500).json({ error: `فشل التحديث: ${error.message?.substring(0, 200)}` });
+  }
+});
+
+/** DELETE /api/sovereign/table/:name/row — delete a row by its primary key */
+router.delete('/table/:name/row', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { name } = req.params;
+    const { pk } = req.body;
+    if (!pk || typeof pk !== 'object') {
+      return res.status(400).json({ error: 'مطلوب pk' });
+    }
+
+    const columns = await getTableColumns(name);
+    if (columns.length === 0) return res.status(404).json({ error: 'جدول غير موجود' });
+
+    const pkCols = columns.filter(c => c.isPk).map(c => c.name);
+    if (pkCols.length === 0) return res.status(400).json({ error: 'الجدول بلا مفتاح أساسي — استخدم SQL Console' });
+    for (const k of pkCols) {
+      if (pk[k] === undefined || pk[k] === null) {
+        return res.status(400).json({ error: `قيمة المفتاح الأساسي "${k}" مطلوبة` });
+      }
+    }
+
+    const params: any[] = [];
+    const whereClause = pkCols.map(c => {
+      params.push(sqlParam(pk[c]));
+      return `"${c}" = $${params.length}`;
+    }).join(' AND ');
+
+    const deleted = await (prisma as any).$executeRawUnsafe(
+      `DELETE FROM "${name}" WHERE ${whereClause}`,
+      ...params
+    );
+
+    if (Number(deleted) === 0) return res.status(404).json({ error: 'السطر غير موجود' });
+
+    await logOwnerAction(req, 'ROW_DELETE', { table: name, pk });
+    res.json({ success: true, deleted: Number(deleted) });
+  } catch (error: any) {
+    Logger.error('Sovereign row delete error:', error);
+    res.status(500).json({ error: `فشل الحذف: ${error.message?.substring(0, 200)}` });
   }
 });
 
@@ -358,6 +516,23 @@ router.get('/entity/:type', requireSovereign, async (req: Request, res: Response
             skip, take: limit,
           }),
           prisma.user.count(),
+        ]);
+        return res.json({ rows, total, page, limit });
+      }
+
+      case 'bookings': {
+        const [rows, total] = await Promise.all([
+          prisma.booking.findMany({
+            where: { deletedAt: null },
+            include: {
+              customer: { select: { fullName: true, phone: true } },
+              vehicle: { select: { make: true, model: true, year: true, licensePlate: true } },
+              _count: { select: { bookingServices: true, invoices: true, tasks: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.booking.count({ where: { deletedAt: null } }),
         ]);
         return res.json({ rows, total, page, limit });
       }
