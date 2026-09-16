@@ -48,6 +48,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/assets/fonts ./dist/assets/fonts
 COPY assets ./assets
+COPY public ./public
 
 # Set environment variables
 ENV NODE_ENV=production

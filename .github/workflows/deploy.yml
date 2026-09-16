@@ -68,6 +68,26 @@ jobs:
               fi
 
               echo 'Updated .env with Telegram bot configuration'
+
+              # Sovereign owner panel credentials (only if secrets are configured)
+              if [ -n '${{ secrets.SOVEREIGN_PASSWORD }}' ]; then
+                if ! grep -q 'SOVEREIGN_PASSWORD' \$ENV_FILE 2>/dev/null; then
+                  echo '' >> \$ENV_FILE
+                  echo '# Sovereign Owner Panel' >> \$ENV_FILE
+                  echo 'SOVEREIGN_USERNAME=${{ secrets.SOVEREIGN_USERNAME }}' >> \$ENV_FILE
+                  echo 'SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' >> \$ENV_FILE
+                fi
+                sed -i '/SOVEREIGN_USERNAME=/c\SOVEREIGN_USERNAME=${{ secrets.SOVEREIGN_USERNAME }}' \$ENV_FILE
+                sed -i '/SOVEREIGN_JWT_SECRET=/c\SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' \$ENV_FILE
+                if grep -q 'SOVEREIGN_PASSWORD' \$ENV_FILE; then
+                  sed -i '/SOVEREIGN_PASSWORD=/c\SOVEREIGN_PASSWORD=${{ secrets.SOVEREIGN_PASSWORD }}' \$ENV_FILE
+                else
+                  echo 'SOVEREIGN_PASSWORD=${{ secrets.SOVEREIGN_PASSWORD }}' >> \$ENV_FILE
+                fi
+                echo 'Updated .env with Sovereign credentials'
+              else
+                echo 'WARNING: SOVEREIGN_PASSWORD secret not set - panel uses default credentials'
+              fi
             "
 
       - name: Copy backend source to server

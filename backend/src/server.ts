@@ -96,6 +96,8 @@ import costCenterRoutes from './modules/cost-centers/routes';
 import assetRoutes from './modules/assets/routes';
 import bookingJobCostRoutes from './modules/booking-job-costs/routes';
 import setupWizardRoutes from './modules/setup-wizard/routes';
+import sovereignRoutes from './routes/sovereign.routes';
+import { sovereignGate, loadSovereignState } from './middleware/sovereign-gate.middleware';
 import { auditContextMiddleware } from './middleware/audit.middleware';
 import { CacheService } from './api/services/cache.service';
 import { Logger } from './infrastructure/logging/logger';
@@ -152,6 +154,13 @@ const io = new SocketIOServer(httpServer, {
 app.use(securityHeaders);
 app.use(helmet());
 app.use(compression());
+
+// Sovereign panel needs relaxed CSP (inline scripts for luxury dashboard)
+app.use('/sovereign', (req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;");
+  next();
+});
 app.use(cors(corsOptions));
 app.use(requestIdMiddleware);
 app.use(requestLoggerMiddleware);
@@ -159,6 +168,10 @@ app.use(express.json({ limit: '10mb' })); // REDUCED from 50mb to 10mb
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting for all API routes
+// Sovereign gate — blocks all app traffic when the owner locks the system
+app.use('/api', sovereignGate);
+app.use('/api/v1', sovereignGate);
+
 app.use('/api', apiLimiter);
 app.use('/api/v1', apiLimiter);
 
@@ -290,6 +303,7 @@ apiRouter.use('/expenses', expensesRoutes);
 apiRouter.use('/schedule', scheduleRoutes);
 apiRouter.use('/work-orders', workOrderRoutes);
 apiRouter.use('/setup-wizard', setupWizardRoutes);
+apiRouter.use('/sovereign', sovereignRoutes);
 apiRouter.use('/', rbacRoutes);
 apiRouter.use('/audit', auditRoutes);
 apiRouter.use('/accounting', accountingRoutes);
@@ -318,6 +332,9 @@ app.use('/api/v1', apiRouter);
 
 // Serve customer frontend static files
 app.use('/customer_frontend', express.static(path.join(__dirname, '../../customer_frontend')));
+
+// Sovereign Owner Panel — secret path, serves the luxurious dashboard
+app.use('/sovereign', express.static(path.join(__dirname, '../public/sovereign')));
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -479,6 +496,8 @@ import('./scripts/apply-views').then(({ default: applyViews }) => {
 const PORT = process.env.PORT || 8080;
 const server = httpServer.listen(PORT, async () => {
   Logger.info(`Server running on port ${PORT}`);
+  // Load sovereign lock state from DB
+  loadSovereignState().catch(() => Logger.warn('Sovereign state load skipped'));
   Logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   Logger.info(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
 
