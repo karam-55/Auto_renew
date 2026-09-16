@@ -75,14 +75,17 @@ jobs:
                   echo '' >> \$ENV_FILE
                   echo '# Sovereign Owner Panel' >> \$ENV_FILE
                   echo 'SOVEREIGN_USERNAME=${{ secrets.SOVEREIGN_USERNAME }}' >> \$ENV_FILE
-                  echo 'SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' >> \$ENV_FILE
-                fi
-                sed -i '/SOVEREIGN_USERNAME=/c\SOVEREIGN_USERNAME=${{ secrets.SOVEREIGN_USERNAME }}' \$ENV_FILE
-                sed -i '/SOVEREIGN_JWT_SECRET=/c\SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' \$ENV_FILE
-                if grep -q 'SOVEREIGN_PASSWORD' \$ENV_FILE; then
-                  sed -i '/SOVEREIGN_PASSWORD=/c\SOVEREIGN_PASSWORD=${{ secrets.SOVEREIGN_PASSWORD }}' \$ENV_FILE
-                else
                   echo 'SOVEREIGN_PASSWORD=${{ secrets.SOVEREIGN_PASSWORD }}' >> \$ENV_FILE
+                else
+                  sed -i '/SOVEREIGN_USERNAME=/c\SOVEREIGN_USERNAME=${{ secrets.SOVEREIGN_USERNAME }}' \$ENV_FILE
+                  sed -i '/SOVEREIGN_PASSWORD=/c\SOVEREIGN_PASSWORD=${{ secrets.SOVEREIGN_PASSWORD }}' \$ENV_FILE
+                fi
+                if [ -n '${{ secrets.SOVEREIGN_JWT_SECRET }}' ]; then
+                  if grep -q 'SOVEREIGN_JWT_SECRET' \$ENV_FILE; then
+                    sed -i '/SOVEREIGN_JWT_SECRET=/c\SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' \$ENV_FILE
+                  else
+                    echo 'SOVEREIGN_JWT_SECRET=${{ secrets.SOVEREIGN_JWT_SECRET }}' >> \$ENV_FILE
+                  fi
                 fi
                 echo 'Updated .env with Sovereign credentials'
               else
