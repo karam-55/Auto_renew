@@ -293,6 +293,101 @@ router.post('/query', requireSovereign, async (req: Request, res: Response) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+//  ENTITY DETAILS — rich views for dashboard stat cards
+// ═══════════════════════════════════════════════════════════════
+
+/** GET /api/sovereign/entity/:type — detailed records with relations */
+router.get('/entity/:type', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { type } = req.params;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 12));
+    const skip = (page - 1) * limit;
+
+    switch (type) {
+      case 'warranties': {
+        const [rows, total] = await Promise.all([
+          prisma.dealerWarranty.findMany({
+            include: { dealer: { select: { name: true, companyName: true, phone: true } } },
+            orderBy: { createdAt: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.dealerWarranty.count(),
+        ]);
+        return res.json({ rows, total, page, limit });
+      }
+
+      case 'customers': {
+        const [rows, total] = await Promise.all([
+          prisma.customer.findMany({
+            include: {
+              vehicles: { select: { make: true, model: true, year: true, licensePlate: true, color: true } },
+              _count: { select: { bookings: true, invoices: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.customer.count(),
+        ]);
+        return res.json({ rows, total, page, limit });
+      }
+
+      case 'dealers': {
+        const [rows, total] = await Promise.all([
+          prisma.dealer.findMany({
+            include: { _count: { select: { warranties: true } } },
+            orderBy: { createdAt: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.dealer.count(),
+        ]);
+        // Strip password field before sending
+        const sanitized = rows.map(({ password: _p, ...rest }) => rest);
+        return res.json({ rows: sanitized, total, page, limit });
+      }
+
+      case 'users': {
+        const [rows, total] = await Promise.all([
+          prisma.user.findMany({
+            select: {
+              id: true, fullName: true, username: true, phone: true,
+              role: true, isActive: true, createdAt: true,
+              tenant: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.user.count(),
+        ]);
+        return res.json({ rows, total, page, limit });
+      }
+
+      case 'invoices': {
+        const [rows, total] = await Promise.all([
+          prisma.invoice.findMany({
+            include: {
+              customer: { select: { fullName: true, phone: true } },
+              vehicle: { select: { make: true, model: true, year: true, licensePlate: true } },
+              _count: { select: { items: true, payments: true } },
+            },
+            orderBy: { invoiceDate: 'desc' },
+            skip, take: limit,
+          }),
+          prisma.invoice.count(),
+        ]);
+        return res.json({ rows, total, page, limit });
+      }
+
+      default:
+        return res.status(400).json({ error: 'نوع غير معروف' });
+    }
+  } catch (error) {
+    Logger.error('Sovereign entity details error:', error);
+    res.status(500).json({ error: 'فشل جلب التفاصيل' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
 //  AUDIT & LOGS
 // ═══════════════════════════════════════════════════════════════
 

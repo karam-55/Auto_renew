@@ -396,6 +396,128 @@
       opacity: 0.5;
     }
 
+    .stat-card.clickable { cursor: pointer; }
+    .stat-card.clickable:hover {
+      transform: translateY(-3px);
+      border-color: var(--gold);
+      box-shadow: 0 8px 30px rgba(212,175,55,0.15);
+    }
+    .stat-card .hint {
+      position: absolute;
+      bottom: 12px; left: 18px;
+      font-size: 10px;
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .stat-card.clickable:hover .hint { opacity: 0.8; }
+
+    /* ── Entity Detail Cards ── */
+    .entity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .entity-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .entity-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.4;
+    }
+
+    .entity-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+
+    .entity-card .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold-light);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .entity-card .card-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+    }
+
+    .field-item {
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .field-item.full { grid-column: 1 / -1; }
+
+    .field-item .f-label {
+      color: var(--text-dim);
+      font-size: 10px;
+      letter-spacing: 0.3px;
+    }
+
+    .field-item .f-value {
+      color: var(--text);
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .status-badge.active { background: rgba(46,200,102,0.12); color: #6dd99a; }
+    .status-badge.inactive { background: rgba(200,16,46,0.12); color: #ff6b8a; }
+    .status-badge.warn { background: rgba(212,175,55,0.12); color: var(--gold); }
+    .status-badge.info { background: rgba(100,150,255,0.12); color: #7aa5ff; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-ar);
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: all 0.2s;
+    }
+
+    .back-btn:hover { border-color: var(--gold); color: var(--gold); }
+
     /* ── Kill Switch Section ── */
     .kill-section {
       background: linear-gradient(135deg, rgba(200,16,46,0.06), rgba(200,16,46,0.02));
@@ -785,6 +907,18 @@
         </div>
       </div>
 
+      <!-- Entity Details Section -->
+      <div id="section-details" class="hidden">
+        <button class="back-btn" onclick="backToOverview()">→ رجوع للنظرة العامة</button>
+        <div class="section">
+          <h3 id="details-title">التفاصيل</h3>
+          <div id="details-content">
+            <div class="loading">جاري التحميل...</div>
+          </div>
+          <div class="pagination" id="details-pagination"></div>
+        </div>
+      </div>
+
       <!-- Tables Section -->
       <div id="section-tables" class="hidden">
         <div class="section">
@@ -952,17 +1086,18 @@
 
     function renderStats(stats) {
       const items = [
-        { label: 'المستخدمين', value: stats.users, icon: '👥' },
-        { label: 'العملاء', value: stats.customers, icon: '🚗' },
-        { label: 'الوكلاء', value: stats.dealers, icon: '🤝' },
-        { label: 'الكفالات', value: stats.warranties, icon: '🛡' },
-        { label: 'الفواتير', value: stats.invoices, icon: '📄' },
+        { label: 'المستخدمين', value: stats.users, icon: '👥', type: 'users' },
+        { label: 'العملاء', value: stats.customers, icon: '🚗', type: 'customers' },
+        { label: 'الوكلاء', value: stats.dealers, icon: '🤝', type: 'dealers' },
+        { label: 'الكفالات', value: stats.warranties, icon: '🛡', type: 'warranties' },
+        { label: 'الفواتير', value: stats.invoices, icon: '📄', type: 'invoices' },
       ];
       document.getElementById('stats-grid').innerHTML = items.map(i => `
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="showEntityDetails('${i.type}')">
           <div class="icon">${i.icon}</div>
           <div class="label">${i.label}</div>
           <div class="value">${i.value?.toLocaleString() ?? '—'}</div>
+          <div class="hint">اضغط لعرض التفاصيل ←</div>
         </div>
       `).join('');
     }
@@ -1036,6 +1171,177 @@
 
     function sovereignStateLocked() {
       return document.getElementById('lock-indicator').classList.contains('locked');
+    }
+
+    // ─── Entity Details (clickable stat cards) ────────────────
+    const entityTitles = {
+      warranties: '🛡 الكفالات — كل التفاصيل',
+      customers: '🚗 العملاء — كل التفاصيل',
+      dealers: '🤝 الوكلاء — كل التفاصيل',
+      users: '👥 المستخدمين — كل التفاصيل',
+      invoices: '📄 الفواتير — كل التفاصيل',
+    };
+    let currentEntity = '';
+    let entityPage = 1;
+
+    function showEntityDetails(type, page = 1) {
+      currentEntity = type;
+      entityPage = page;
+      document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById('section-details').classList.remove('hidden');
+      document.getElementById('details-title').innerHTML = entityTitles[type] || 'التفاصيل';
+      document.getElementById('page-title').textContent = entityTitles[type]?.split('—')[0]?.trim() || 'التفاصيل';
+      loadEntityDetails();
+    }
+
+    function backToOverview() {
+      document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById('section-overview').classList.remove('hidden');
+      document.getElementById('page-title').textContent = 'نظرة عامة';
+    }
+
+    async function loadEntityDetails() {
+      const container = document.getElementById('details-content');
+      const pagination = document.getElementById('details-pagination');
+      container.innerHTML = '<div class="loading">جاري تحميل التفاصيل...</div>';
+      pagination.innerHTML = '';
+
+      try {
+        const data = await api(`/api/sovereign/entity/${currentEntity}?page=${entityPage}&limit=12`);
+        if (!data.rows || data.rows.length === 0) {
+          container.innerHTML = '<div class="loading">لا توجد بيانات</div>';
+          return;
+        }
+        container.innerHTML = `<div class="entity-grid">${data.rows.map(r => renderEntityCard(currentEntity, r)).join('')}</div>`;
+
+        const totalPages = Math.ceil(data.total / data.limit);
+        if (totalPages > 1) {
+          pagination.innerHTML = `
+            <button onclick="showEntityDetails('${currentEntity}', ${entityPage - 1})" ${entityPage <= 1 ? 'disabled' : ''}>← السابق</button>
+            <span>صفحة ${entityPage} من ${totalPages} — المجموع ${data.total}</span>
+            <button onclick="showEntityDetails('${currentEntity}', ${entityPage + 1})" ${entityPage >= totalPages ? 'disabled' : ''}>التالي →</button>
+          `;
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="loading" style="color:#ff6b8a">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function fmtMoney(n, currency = 'SYP') {
+      if (n === null || n === undefined) return '—';
+      const num = typeof n === 'object' && n.toString ? parseFloat(n.toString()) : Number(n);
+      if (isNaN(num)) return '—';
+      return num.toLocaleString('en-US') + ' ' + (currency === 'USD' ? '$' : 'ل.س');
+    }
+
+    function field(label, value, full = false) {
+      return `<div class="field-item${full ? ' full' : ''}"><span class="f-label">${label}</span><span class="f-value">${value ?? '—'}</span></div>`;
+    }
+
+    function statusBadge(active, activeText = 'فعّال', inactiveText = 'غير فعّال') {
+      return `<span class="status-badge ${active ? 'active' : 'inactive'}">${active ? activeText : inactiveText}</span>`;
+    }
+
+    function renderEntityCard(type, r) {
+      switch (type) {
+        case 'warranties': {
+          const expired = r.endDate && new Date(r.endDate) < new Date();
+          return `<div class="entity-card">
+            <div class="card-title">🛡 ${escapeHtml(r.customerName || 'بدون اسم')}</div>
+            <div class="card-sub">${escapeHtml(r.customerPhone || '')} — وكيل: ${escapeHtml(r.dealer?.companyName || r.dealer?.name || '—')}</div>
+            <div class="field-grid">
+              ${field('السيارة', `${escapeHtml(r.manufacturer || '')} ${escapeHtml(r.vehicleModel || '')}`.trim() || '—', true)}
+              ${field('سنة الصنع', r.vehicleYear)}
+              ${field('اللون', escapeHtml(r.color || '—'))}
+              ${field('رقم اللوحة', escapeHtml(r.plateNumber || '—'))}
+              ${field('رقم الشاصي', `<span style="font-family:var(--font-mono);font-size:11px">${escapeHtml(r.chassisNumber || '—')}</span>`)}
+              ${field('المسافة (كم)', r.mileage?.toLocaleString() ?? '—')}
+              ${field('مدة الكفالة', r.durationMonths ? r.durationMonths + ' شهر' : '—')}
+              ${field('المبلغ المدفوع', fmtMoney(r.amountPaid, r.currency))}
+              ${field('العملة', r.currency || 'SYP')}
+              ${field('تاريخ البدء', fmtDate(r.startDate))}
+              ${field('تاريخ الانتهاء', fmtDate(r.endDate))}
+              ${field('حالة الكفالة', expired ? '<span class="status-badge inactive">منتهية</span>' : statusBadge(r.isActive, 'سارية', 'ملغاة'))}
+              ${field('تاريخ الإنشاء', fmtDate(r.createdAt))}
+              ${field('هاتف الوكيل', escapeHtml(r.dealer?.phone || '—'))}
+            </div>
+          </div>`;
+        }
+        case 'customers': {
+          const vehicles = (r.vehicles || []).map(v => `${escapeHtml(v.make)} ${escapeHtml(v.model)} ${v.year} (${escapeHtml(v.licensePlate)})`).join(' • ');
+          return `<div class="entity-card">
+            <div class="card-title">🚗 ${escapeHtml(r.fullName || 'بدون اسم')} ${r.isVip ? '<span class="status-badge warn">VIP</span>' : ''}</div>
+            <div class="card-sub">${escapeHtml(r.phone || '')}</div>
+            <div class="field-grid">
+              ${field('المدينة', escapeHtml(r.city || '—'))}
+              ${field('العنوان', escapeHtml(r.address || '—'))}
+              ${field('نقاط الولاء', r.loyaltyPoints?.toLocaleString() ?? 0)}
+              ${field('الحالة', statusBadge(r.isActive))}
+              ${field('عدد الحجوزات', r._count?.bookings ?? 0)}
+              ${field('عدد الفواتير', r._count?.invoices ?? 0)}
+              ${field('السيارات', vehicles || 'لا توجد سيارات', true)}
+              ${field('ملاحظات', escapeHtml(r.notes || '—'), true)}
+              ${field('تاريخ التسجيل', fmtDate(r.createdAt))}
+            </div>
+          </div>`;
+        }
+        case 'dealers': {
+          return `<div class="entity-card">
+            <div class="card-title">🤝 ${escapeHtml(r.companyName || r.name || 'بدون اسم')}</div>
+            <div class="card-sub">${escapeHtml(r.name || '')} — ${escapeHtml(r.phone || '')}</div>
+            <div class="field-grid">
+              ${field('المدينة', escapeHtml(r.city || '—'))}
+              ${field('العنوان', escapeHtml(r.address || '—'))}
+              ${field('الرقم الضريبي', escapeHtml(r.taxId || '—'))}
+              ${field('حالة الوكيل', `<span class="status-badge ${r.status === 'ACTIVE' ? 'active' : 'inactive'}">${r.status || '—'}</span>`)}
+              ${field('عدد الكفالات', r._count?.warranties ?? 0)}
+              ${field('فعّال', statusBadge(r.isActive, 'نعم', 'لا'))}
+              ${field('ملاحظات', escapeHtml(r.notes || '—'), true)}
+              ${field('تاريخ التسجيل', fmtDate(r.createdAt))}
+            </div>
+          </div>`;
+        }
+        case 'users': {
+          return `<div class="entity-card">
+            <div class="card-title">👤 ${escapeHtml(r.fullName || 'بدون اسم')}</div>
+            <div class="card-sub">@${escapeHtml(r.username || '')} — ${escapeHtml(r.phone || '')}</div>
+            <div class="field-grid">
+              ${field('الدور', `<span class="status-badge info">${r.role || '—'}</span>`)}
+              ${field('الحالة', statusBadge(r.isActive))}
+              ${field('المستأجر', escapeHtml(r.tenant?.name || '—'))}
+              ${field('تاريخ الإنشاء', fmtDate(r.createdAt))}
+            </div>
+          </div>`;
+        }
+        case 'invoices': {
+          const statusMap = { PAID: ['active', 'مدفوعة'], DRAFT: ['warn', 'مسودة'], PARTIALLY_PAID: ['info', 'مدفوعة جزئياً'], CANCELLED: ['inactive', 'ملغاة'], OVERDUE: ['inactive', 'متأخرة'] };
+          const [cls, txt] = statusMap[r.status] || ['info', r.status || '—'];
+          return `<div class="entity-card">
+            <div class="card-title">📄 ${escapeHtml(r.invoiceNumber || '—')}</div>
+            <div class="card-sub">${escapeHtml(r.customer?.fullName || 'بدون عميل')} — ${escapeHtml(r.customer?.phone || '')}</div>
+            <div class="field-grid">
+              ${field('السيارة', r.vehicle ? `${escapeHtml(r.vehicle.make)} ${escapeHtml(r.vehicle.model)} ${r.vehicle.year} (${escapeHtml(r.vehicle.licensePlate)})` : '—', true)}
+              ${field('تاريخ الفاتورة', fmtDate(r.invoiceDate))}
+              ${field('تاريخ الاستحقاق', fmtDate(r.dueDate))}
+              ${field('الإجمالي (ل.س)', fmtMoney(r.totalSYP, 'SYP'))}
+              ${field('الإجمالي ($)', fmtMoney(r.totalUSD, 'USD'))}
+              ${field('المدفوع (ل.س)', fmtMoney(r.paidSYP, 'SYP'))}
+              ${field('المدفوع ($)', fmtMoney(r.paidUSD, 'USD'))}
+              ${field('الحالة', `<span class="status-badge ${cls}">${txt}</span>`)}
+              ${field('عدد البنود', r._count?.items ?? 0)}
+              ${field('عدد الدفعات', r._count?.payments ?? 0)}
+              ${field('ملاحظات', escapeHtml(r.notes || '—'), true)}
+            </div>
+          </div>`;
+        }
+        default:
+          return '';
+      }
     }
 
     // ─── Tables ───────────────────────────────────────────────
