@@ -546,6 +546,78 @@
 
     .back-btn:hover { border-color: var(--gold); color: var(--gold); }
 
+    /* ── Entity Actions & Edit Modal ── */
+    .entity-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(212,175,55,0.1);
+    }
+
+    .entity-actions .btn { flex: 1; padding: 8px 12px; font-size: 12px; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      padding: 28px;
+      width: 680px;
+      max-width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(212,175,55,0.08);
+    }
+
+    .modal-card h3 {
+      color: var(--gold);
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .modal-fields .field { margin-bottom: 0; }
+    .modal-fields .field.full { grid-column: 1 / -1; }
+
+    .modal-fields .field input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
     /* ── Kill Switch Section ── */
     .kill-section {
       background: linear-gradient(135deg, rgba(200,16,46,0.06), rgba(200,16,46,0.02));
@@ -1060,6 +1132,18 @@
     </div>
   </div>
 
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-card">
+      <h3 id="edit-modal-title">✏️ تعديل الكفالة</h3>
+      <div class="modal-fields" id="edit-fields"></div>
+      <div class="btn-row" style="margin-top:24px;">
+        <button class="btn btn-primary" onclick="saveEntityEdit()">💾 حفظ التعديلات</button>
+        <button class="btn btn-outline" onclick="closeEditModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -1311,6 +1395,8 @@
     };
     let currentEntity = '';
     let entityPage = 1;
+    let entityRows = {};
+    let editingEntityId = null;
 
     function showEntityDetails(type, page = 1) {
       currentEntity = type;
@@ -1342,6 +1428,8 @@
           container.innerHTML = '<div class="loading">لا توجد بيانات</div>';
           return;
         }
+        entityRows = {};
+        data.rows.forEach(r => entityRows[r.id] = r);
         container.innerHTML = `<div class="entity-grid">${data.rows.map(r => renderEntityCard(currentEntity, r)).join('')}</div>`;
 
         const totalPages = Math.ceil(data.total / data.limit);
@@ -1399,6 +1487,10 @@
               ${field('حالة الكفالة', expired ? '<span class="status-badge inactive">منتهية</span>' : statusBadge(r.isActive, 'سارية', 'ملغاة'))}
               ${field('تاريخ الإنشاء', fmtDate(r.createdAt))}
               ${field('هاتف الوكيل', escapeHtml(r.dealer?.phone || '—'))}
+            </div>
+            <div class="entity-actions">
+              <button class="btn btn-outline" onclick="openWarrantyEdit('${r.id}')">✏️ تعديل</button>
+              <button class="btn btn-danger" onclick="deleteWarranty('${r.id}', '${escapeHtml(r.customerName || '')}')">🗑 حذف</button>
             </div>
           </div>`;
         }
@@ -1491,6 +1583,94 @@
         }
         default:
           return '';
+      }
+    }
+
+    // ─── Entity Edit/Delete ───────────────────────────────────
+    function openWarrantyEdit(id) {
+      const r = entityRows[id];
+      if (!r) return;
+      editingEntityId = id;
+      document.getElementById('edit-modal-title').innerHTML = `✏️ تعديل كفالة — ${escapeHtml(r.customerName || '')}`;
+
+      const fields = [
+        { key: 'customerName', label: 'اسم العميل' },
+        { key: 'customerPhone', label: 'هاتف العميل' },
+        { key: 'manufacturer', label: 'الشركة المصنعة' },
+        { key: 'vehicleModel', label: 'موديل السيارة' },
+        { key: 'vehicleYear', label: 'سنة الصنع', type: 'number' },
+        { key: 'chassisNumber', label: 'رقم الشاصي' },
+        { key: 'plateNumber', label: 'رقم اللوحة' },
+        { key: 'mileage', label: 'المسافة (كم)', type: 'number' },
+        { key: 'color', label: 'اللون' },
+        { key: 'durationMonths', label: 'مدة الكفالة (شهر)', type: 'number' },
+        { key: 'amountPaid', label: 'المبلغ المدفوع', type: 'number' },
+        { key: 'currency', label: 'العملة (SYP/USD)' },
+        { key: 'startDate', label: 'تاريخ البدء', type: 'date' },
+        { key: 'endDate', label: 'تاريخ الانتهاء', type: 'date' },
+        { key: 'isActive', label: 'الكفالة فعّالة', type: 'checkbox' },
+      ];
+
+      document.getElementById('edit-fields').innerHTML = fields.map(f => {
+        if (f.type === 'checkbox') {
+          return `<label class="checkbox-row"><input type="checkbox" id="ef-${f.key}" ${r[f.key] ? 'checked' : ''}> ${f.label}</label>`;
+        }
+        let v = r[f.key] ?? '';
+        if (f.type === 'date' && v) v = new Date(v).toISOString().slice(0, 10);
+        if (typeof v === 'object') v = v.toString();
+        return `<div class="field"><label>${f.label}</label><input id="ef-${f.key}" type="${f.type || 'text'}" value="${escapeHtml(String(v))}"></div>`;
+      }).join('');
+
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-modal').classList.add('hidden');
+      editingEntityId = null;
+    }
+
+    async function saveEntityEdit() {
+      if (!editingEntityId) return;
+      const get = k => document.getElementById(`ef-${k}`)?.value;
+      const body = {
+        customerName: get('customerName'),
+        customerPhone: get('customerPhone'),
+        manufacturer: get('manufacturer'),
+        vehicleModel: get('vehicleModel'),
+        vehicleYear: get('vehicleYear'),
+        chassisNumber: get('chassisNumber'),
+        plateNumber: get('plateNumber'),
+        mileage: get('mileage'),
+        color: get('color'),
+        durationMonths: get('durationMonths'),
+        amountPaid: get('amountPaid'),
+        currency: get('currency'),
+        startDate: get('startDate'),
+        endDate: get('endDate'),
+        isActive: document.getElementById('ef-isActive')?.checked ?? true,
+      };
+
+      try {
+        await api(`/api/sovereign/entity/warranties/${editingEntityId}`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        });
+        showToast('✅ تم حفظ التعديلات');
+        closeEditModal();
+        loadEntityDetails();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteWarranty(id, name) {
+      if (!confirm(`⚠️ هل أنت متأكد من حذف كفالة "${name}"؟\nسيتم إخفاؤها من النظام (حذف آمن — قابلة للاسترجاع من قاعدة البيانات).`)) return;
+      try {
+        await api(`/api/sovereign/entity/warranties/${id}`, { method: 'DELETE' });
+        showToast('🗑 تم حذف الكفالة');
+        loadEntityDetails();
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 

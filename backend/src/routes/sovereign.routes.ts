@@ -466,11 +466,12 @@ router.get('/entity/:type', requireSovereign, async (req: Request, res: Response
       case 'warranties': {
         const [rows, total] = await Promise.all([
           prisma.dealerWarranty.findMany({
+            where: { deletedAt: null },
             include: { dealer: { select: { name: true, companyName: true, phone: true } } },
             orderBy: { createdAt: 'desc' },
             skip, take: limit,
           }),
-          prisma.dealerWarranty.count(),
+          prisma.dealerWarranty.count({ where: { deletedAt: null } }),
         ]);
         return res.json({ rows, total, page, limit });
       }
@@ -559,6 +560,62 @@ router.get('/entity/:type', requireSovereign, async (req: Request, res: Response
   } catch (error) {
     Logger.error('Sovereign entity details error:', error);
     res.status(500).json({ error: 'فشل جلب التفاصيل' });
+  }
+});
+
+/** PUT /api/sovereign/entity/warranties/:id — update a warranty */
+router.put('/entity/warranties/:id', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const allowed = [
+      'customerName', 'customerPhone', 'manufacturer', 'vehicleModel', 'vehicleYear',
+      'chassisNumber', 'plateNumber', 'mileage', 'color', 'durationMonths',
+      'amountPaid', 'currency', 'startDate', 'endDate', 'isActive', 'dealerId',
+    ];
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'لا توجد حقول للتعديل' });
+    }
+
+    // Type coercion
+    if (data.vehicleYear !== undefined) data.vehicleYear = parseInt(String(data.vehicleYear), 10);
+    if (data.mileage !== undefined) data.mileage = parseInt(String(data.mileage), 10);
+    if (data.durationMonths !== undefined) data.durationMonths = parseInt(String(data.durationMonths), 10);
+    if (data.amountPaid !== undefined) data.amountPaid = parseFloat(String(data.amountPaid));
+    if (data.startDate) data.startDate = new Date(String(data.startDate));
+    if (data.endDate) data.endDate = new Date(String(data.endDate));
+    if (data.isActive !== undefined) data.isActive = Boolean(data.isActive);
+
+    const before = await prisma.dealerWarranty.findUnique({ where: { id } });
+    if (!before) return res.status(404).json({ error: 'الكفالة غير موجودة' });
+
+    const updated = await prisma.dealerWarranty.update({ where: { id }, data });
+    await logOwnerAction(req, 'WARRANTY_UPDATED', { id, before, after: updated });
+    Logger.info(`Sovereign warranty updated: ${id}`);
+    res.json({ success: true, row: updated });
+  } catch (error: any) {
+    Logger.error('Sovereign warranty update error:', error);
+    res.status(500).json({ error: `فشل التعديل: ${error.message?.substring(0, 150)}` });
+  }
+});
+
+/** DELETE /api/sovereign/entity/warranties/:id — delete a warranty (soft delete) */
+router.delete('/entity/warranties/:id', requireSovereign, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const before = await prisma.dealerWarranty.findUnique({ where: { id } });
+    if (!before) return res.status(404).json({ error: 'الكفالة غير موجودة' });
+
+    await prisma.dealerWarranty.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } });
+    await logOwnerAction(req, 'WARRANTY_DELETED', { id, deleted: before });
+    Logger.warn(`Sovereign warranty deleted: ${id}`);
+    res.json({ success: true, message: 'تم حذف الكفالة' });
+  } catch (error: any) {
+    Logger.error('Sovereign warranty delete error:', error);
+    res.status(500).json({ error: `فشل الحذف: ${error.message?.substring(0, 150)}` });
   }
 });
 
