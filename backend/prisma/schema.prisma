@@ -545,7 +545,7 @@ model PartCategory {
 model Part {
   id                      String                   @id @default(uuid())
   tenantId                String
-  partNumber              String                   @unique
+  partNumber              String
   name                    String
   nameAr                  String?
   nameEn                  String?

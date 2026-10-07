@@ -11,15 +11,6 @@ import {
 
 export class PartService {
   async createPart(tenantId: string, data: CreatePartDto): Promise<Part> {
-    // Check if part number already exists
-    const existingPart = await prisma.part.findUnique({
-      where: { partNumber: data.partNumber },
-    });
-
-    if (existingPart) {
-      throw new Error('Part with this part number already exists');
-    }
-
     const part = await prisma.part.create({
       data: {
         tenantId,
@@ -135,17 +126,6 @@ export class PartService {
 
     if (!existingPart) {
       throw new Error('Part not found');
-    }
-
-    // If updating part number, check if new part number is available
-    if (data.partNumber && data.partNumber !== existingPart.partNumber) {
-      const partNumberExists = await prisma.part.findUnique({
-        where: { partNumber: data.partNumber },
-      });
-
-      if (partNumberExists) {
-        throw new Error('Part with this part number already exists');
-      }
     }
 
     const part = await prisma.part.update({

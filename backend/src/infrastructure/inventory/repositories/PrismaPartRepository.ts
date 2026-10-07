@@ -17,7 +17,7 @@ export class PrismaPartRepository implements PartRepository {
   }
 
   async findByPartNumber(partNumber: PartNumber): Promise<Part | null> {
-    const part = await prisma.part.findUnique({
+    const part = await prisma.part.findFirst({
       where: { partNumber: partNumber.getValue() },
     });
 
