@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { loadExchangeRate, fmtUsd } from '../utils/currency'
 
 export class PosScreen {
   private auth: AuthService
@@ -184,6 +185,7 @@ export class PosScreen {
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.data || []
         if (items.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">shopping_basket</span><br/>لا توجد منتجات</div>'; return }
+        await loadExchangeRate(this.api)
         const colors = ['primary', 'secondary', 'tertiary', 'info', 'warning']
         const icons = ['oil_barrel', 'filter_alt', 'air', 'car_crash', 'build', 'handyman', 'inventory_2']
         grid.innerHTML = items.map((item: any, i: number) => {
@@ -208,6 +210,7 @@ export class PosScreen {
               </div>
               <div class="text-center">
                 <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${item.name || '-'}</h4>
+                ${item.sellingPriceUSD != null ? `<p class="text-sm text-text-tertiary font-semibold">$${fmtUsd(item.sellingPriceUSD)}</p>` : ''}
                 <p class="text-financial-data text-primary font-bold">${(item.sellingPriceSYP || 0).toLocaleString('ar-SA')} ل.س</p>
               </div>
             </button>

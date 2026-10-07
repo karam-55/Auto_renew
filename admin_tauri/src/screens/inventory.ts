@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { loadExchangeRate, wireUsdSypPair } from '../utils/currency'
 
 export class InventoryScreen {
   private editingPartId: string | null = null
@@ -305,6 +306,21 @@ export class InventoryScreen {
       </div>
     `
     let categories: any[] = []
+
+    loadExchangeRate(this.api).then(() => {
+      wireUsdSypPair(
+        c.querySelector('#part-cost-usd') as HTMLInputElement,
+        c.querySelector('#part-cost') as HTMLInputElement
+      )
+      wireUsdSypPair(
+        c.querySelector('#part-price-usd') as HTMLInputElement,
+        c.querySelector('#part-price') as HTMLInputElement
+      )
+      wireUsdSypPair(
+        c.querySelector('#intake-package-cost-usd') as HTMLInputElement,
+        c.querySelector('#intake-package-cost') as HTMLInputElement
+      )
+    })
 
     const reloadParts = () => this.loadParts(c)
 

@@ -1,6 +1,7 @@
 import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
+import { fmtUsd } from '../utils/currency'
 import { AppLayout } from '../components/layout'
 
 export class ManualInvoiceScreen {
@@ -502,7 +503,7 @@ export class ManualInvoiceScreen {
         <div class="flex items-center gap-3 bg-surface-subtle rounded-lg p-3 border border-border">
           <div class="flex-1">
             <p class="font-body-md text-on-surface">${item.description}</p>
-            <p class="text-sm text-text-secondary">${item.priceSYP} ل.س × ${item.quantity}</p>
+            <p class="text-sm text-text-secondary">${item.priceSYP} ل.س${item.priceUSD ? ` · $${fmtUsd(item.priceUSD)}` : ''} × ${item.quantity}</p>
           </div>
           <div class="flex items-center gap-2">
             <input type="number" min="1" value="${item.quantity}" class="w-16 h-[36px] bg-surface-container-lowest border border-border rounded px-2 text-center font-body-md text-on-surface" data-idx="${idx}" />
@@ -550,12 +551,13 @@ export class ManualInvoiceScreen {
       discount = this.discountValue
     }
     const total = Math.max(0, subtotal - discount)
+    const subtotalUSD = this.invoiceItems.reduce((sum, item) => sum + ((item.priceUSD || 0) * item.quantity), 0)
 
     const subtotalEl = el.querySelector('#summary-subtotal')
     const discountEl = el.querySelector('#summary-discount')
     const totalEl = el.querySelector('#summary-total')
 
-    if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س`
+    if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س${subtotalUSD > 0 ? ` · $${fmtUsd(subtotalUSD)}` : ''}`
     if (discountEl) discountEl.textContent = `${discount.toLocaleString('ar-SA')} ل.س`
     if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س`
   }

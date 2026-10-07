@@ -1,6 +1,7 @@
 import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
+import { fmtUsd } from '../utils/currency'
 import { AppLayout } from '../components/layout'
 
 export class InvoiceDetailScreen {
@@ -148,7 +149,7 @@ export class InvoiceDetailScreen {
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="glass-card rounded-xl p-4 border-t-4 border-primary">
               <p class="font-label-sm text-label-sm text-on-surface-variant">المجموع الفرعي</p>
-              <p class="text-financial-data text-on-surface mt-1 font-bold">${inv.subtotalSYP?.toLocaleString('ar-SA') || 0} ل.س</p>
+              <p class="text-financial-data text-on-surface mt-1 font-bold">${inv.subtotalSYP?.toLocaleString('ar-SA') || 0} ل.س${inv.subtotalUSD ? ` · $${fmtUsd(inv.subtotalUSD)}` : ''}</p>
             </div>
             <div class="glass-card rounded-xl p-4 border-t-4 border-secondary">
               <p class="font-label-sm text-label-sm text-on-surface-variant">الضريبة</p>
@@ -163,11 +164,11 @@ export class InvoiceDetailScreen {
             </div>
             <div class="glass-card rounded-xl p-4 border-t-4 border-primary">
               <p class="font-label-sm text-label-sm text-on-surface-variant">الإجمالي</p>
-              <p class="text-financial-data text-primary mt-1 font-bold">${inv.totalSYP?.toLocaleString('ar-SA') || 0} ل.س</p>
+              <p class="text-financial-data text-primary mt-1 font-bold">${inv.totalSYP?.toLocaleString('ar-SA') || 0} ل.س${inv.totalUSD ? ` · $${fmtUsd(inv.totalUSD)}` : ''}</p>
             </div>
             <div class="glass-card rounded-xl p-4 border-t-4 border-tertiary">
               <p class="font-label-sm text-label-sm text-on-surface-variant">المدفوع</p>
-              <p class="text-financial-data text-tertiary mt-1 font-bold">${inv.paidSYP?.toLocaleString('ar-SA') || 0} ل.س</p>
+              <p class="text-financial-data text-tertiary mt-1 font-bold">${inv.paidSYP?.toLocaleString('ar-SA') || 0} ل.س${inv.paidUSD ? ` · $${fmtUsd(inv.paidUSD)}` : ''}</p>
             </div>
             <div class="glass-card rounded-xl p-4 border-t-4 border-error">
               <p class="font-label-sm text-label-sm text-on-surface-variant">المتبقي</p>
