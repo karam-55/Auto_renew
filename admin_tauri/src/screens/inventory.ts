@@ -236,7 +236,10 @@ export class InventoryScreen {
     reloadParts()
 
     // Event listeners
-    c.querySelector('#new-part-btn')?.addEventListener('click', () => this.openPartModal(c, null, categories))
+    c.querySelector('#new-part-btn')?.addEventListener('click', () => {
+      editingPartId = null
+      this.openPartModal(c, null, categories)
+    })
     c.querySelector('#part-search')?.addEventListener('input', filterAndRender)
     c.querySelector('#stock-filter')?.addEventListener('change', filterAndRender)
     c.querySelector('#category-filter')?.addEventListener('change', filterAndRender)
@@ -250,8 +253,8 @@ export class InventoryScreen {
       filterAndRender()
     })
 
-    c.querySelector('#close-part-modal')?.addEventListener('click', () => this.closeModal(c, '#part-modal'))
-    c.querySelector('#cancel-part-modal')?.addEventListener('click', () => this.closeModal(c, '#part-modal'))
+    c.querySelector('#close-part-modal')?.addEventListener('click', () => { editingPartId = null; this.closeModal(c, '#part-modal') })
+    c.querySelector('#cancel-part-modal')?.addEventListener('click', () => { editingPartId = null; this.closeModal(c, '#part-modal') })
     c.querySelector('#save-part-btn')?.addEventListener('click', async () => {
       await this.savePart(c, editingPartId, () => {
         editingPartId = null
@@ -626,6 +629,7 @@ export class InventoryScreen {
           const res = await this.api.get<any>(`/api/parts/${id}`, false)
           const part = res.data?.part || res.data
           if (part) {
+            editingPartId = id
             this.openPartModal(el, part, this.currentCategories(el))
           } else {
             ;(window as any).toast?.show?.({ message: 'لم يتم العثور على المادة', type: 'error' })
