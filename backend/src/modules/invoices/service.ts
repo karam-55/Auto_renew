@@ -750,8 +750,10 @@ export class InvoiceService {
     });
 
     // Create auto-journal entry for invoice
+    // NOTE: pass the invoice WITH items (the bare update result has no items,
+    // which produced unbalanced entries: debit without credit)
     try {
-      await createInvoiceJournalEntry(updatedInvoice, tenantId);
+      await createInvoiceJournalEntry({ ...updatedInvoice, items: invoice.items }, tenantId);
     } catch (error) {
       Logger.error('Error creating journal entry for invoice:', error);
       throw new Error('Invoice finalized but journal entry creation failed. Please check the chart of accounts setup.');
