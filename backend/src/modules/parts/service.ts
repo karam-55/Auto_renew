@@ -57,9 +57,14 @@ export class PartService {
 
     if (status) {
       if (status === PartStatus.OUT_OF_STOCK) {
-        where.quantity = 0;
+        where.quantity = { ...(where.quantity || {}), lte: 0 };
       } else if (status === PartStatus.DISCONTINUED) {
         where.isActive = false;
+      } else if ((status as string) === 'LOW') {
+        // Low stock: 0 < quantity < minQuantity (column-to-column via field reference)
+        where.quantity = { ...(where.quantity || {}), gt: 0, lt: prisma.part.fields.minQuantity };
+      } else if ((status as string) === 'OK') {
+        where.quantity = { ...(where.quantity || {}), gte: prisma.part.fields.minQuantity };
       } else {
         where.isActive = true;
       }

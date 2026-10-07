@@ -5,6 +5,12 @@ import { AppLayout } from '../components/layout'
 
 export class InventoryScreen {
   private editingPartId: string | null = null
+  private currentPage = 1
+  private pageSize = 20
+  private totalCount = 0
+  private totalPages = 1
+  private searchTimer: number | null = null
+
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'المخزون', 'inventory_2', this.api)
@@ -75,6 +81,28 @@ export class InventoryScreen {
                 <tr><td colspan="9" class="px-6 py-8 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>
               </tbody>
             </table>
+          </div>
+          <!-- Pagination -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-outline-variant/10 bg-surface-subtle/50" id="pagination-bar">
+            <div class="flex items-center gap-2 font-body-sm text-text-secondary">
+              <span id="page-info">صفحة 1 من 1</span>
+              <span class="text-outline-variant">·</span>
+              <span id="total-info">0 مادة</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <select class="h-[40px] bg-surface-subtle border border-border rounded-lg px-3 font-ibmPlexSans font-body-sm text-on-surface focus:border-primary focus:outline-none" id="page-size-select" title="عدد الصفوف بالصفحة">
+                <option value="10">10 صفوف</option>
+                <option value="20" selected>20 صف</option>
+                <option value="50">50 صف</option>
+                <option value="100">100 صف</option>
+              </select>
+              <button class="h-[40px] px-3 rounded-lg border border-border bg-surface-subtle text-on-surface hover:bg-surface-container-low transition-colors flex items-center disabled:opacity-40 disabled:cursor-not-allowed" id="prev-page-btn" aria-label="الصفحة السابقة">
+                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+              </button>
+              <button class="h-[40px] px-3 rounded-lg border border-border bg-surface-subtle text-on-surface hover:bg-surface-container-low transition-colors flex items-center disabled:opacity-40 disabled:cursor-not-allowed" id="next-page-btn" aria-label="الصفحة التالية">
+                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -186,49 +214,11 @@ export class InventoryScreen {
         </div>
       </div>
     `
-    let allParts: any[] = []
     let categories: any[] = []
 
-    const filterAndRender = () => {
-      const searchInput = c.querySelector('#part-search') as HTMLInputElement
-      const stockSelect = c.querySelector('#stock-filter') as HTMLSelectElement
-      const categorySelect = c.querySelector('#category-filter') as HTMLSelectElement
-      const searchTerm = searchInput?.value?.trim().toLowerCase() || ''
-      const stockFilter = stockSelect?.value || ''
-      const categoryFilter = categorySelect?.value || ''
+    const reloadParts = () => this.loadParts(c)
 
-      let filtered = allParts
-      if (searchTerm) {
-        filtered = filtered.filter((p: any) => {
-          const name = (p.name || '').toLowerCase()
-          const code = (p.partNumber || p.code || '').toLowerCase()
-          return name.includes(searchTerm) || code.includes(searchTerm)
-        })
-      }
-      if (categoryFilter) {
-        filtered = filtered.filter((p: any) => p.categoryId === categoryFilter)
-      }
-      if (stockFilter) {
-        filtered = filtered.filter((p: any) => {
-          const qty = p.quantity || 0
-          const min = p.minQuantity || 0
-          if (stockFilter === 'low') return qty > 0 && qty < min
-          if (stockFilter === 'out') return qty <= 0
-          if (stockFilter === 'ok') return qty >= min
-          return true
-        })
-      }
-      this.renderParts(c, filtered)
-    }
-
-    const reloadParts = () => {
-      this.loadParts(c, (parts) => {
-        allParts = parts
-        filterAndRender()
-      })
-    }
-
-    this.loadCategories((cats: any[]) => {
+    this.loadCategories((cats) => {
       categories = cats
       this.renderCategoryOptions(c, categories)
       this.renderCategoryList(c, categories)
@@ -240,9 +230,15 @@ export class InventoryScreen {
       this.editingPartId = null
       this.openPartModal(c, null, categories)
     })
-    c.querySelector('#part-search')?.addEventListener('input', filterAndRender)
-    c.querySelector('#stock-filter')?.addEventListener('change', filterAndRender)
-    c.querySelector('#category-filter')?.addEventListener('change', filterAndRender)
+    c.querySelector('#part-search')?.addEventListener('input', () => {
+      if (this.searchTimer) window.clearTimeout(this.searchTimer)
+      this.searchTimer = window.setTimeout(() => {
+        this.currentPage = 1
+        reloadParts()
+      }, 300)
+    })
+    c.querySelector('#category-filter')?.addEventListener('change', () => { this.currentPage = 1; reloadParts() })
+    c.querySelector('#stock-filter')?.addEventListener('change', () => { this.currentPage = 1; reloadParts() })
     c.querySelector('#clear-filters')?.addEventListener('click', () => {
       const searchInput = c.querySelector('#part-search') as HTMLInputElement
       const stockSelect = c.querySelector('#stock-filter') as HTMLSelectElement
@@ -250,7 +246,21 @@ export class InventoryScreen {
       if (searchInput) searchInput.value = ''
       if (stockSelect) stockSelect.value = ''
       if (categorySelect) categorySelect.value = ''
-      filterAndRender()
+      this.currentPage = 1
+      reloadParts()
+    })
+
+    // Pagination controls
+    c.querySelector('#prev-page-btn')?.addEventListener('click', () => {
+      if (this.currentPage > 1) { this.currentPage--; reloadParts() }
+    })
+    c.querySelector('#next-page-btn')?.addEventListener('click', () => {
+      if (this.currentPage < this.totalPages) { this.currentPage++; reloadParts() }
+    })
+    c.querySelector('#page-size-select')?.addEventListener('change', (e) => {
+      this.pageSize = parseInt((e.target as HTMLSelectElement).value) || 20
+      this.currentPage = 1
+      reloadParts()
     })
 
     c.querySelector('#close-part-modal')?.addEventListener('click', () => { this.editingPartId = null; this.closeModal(c, '#part-modal') })
@@ -285,7 +295,7 @@ export class InventoryScreen {
     categoryForm?.addEventListener('submit', async (e) => {
       e.preventDefault()
       await this.saveCategory(c, () => {
-        this.loadCategories((cats: any[]) => {
+        this.loadCategories((cats) => {
           categories = cats
           this.renderCategoryOptions(c, categories)
           this.renderCategoryList(c, categories)
@@ -294,23 +304,29 @@ export class InventoryScreen {
     })
     c.querySelector('#cancel-category-edit')?.addEventListener('click', () => this.resetCategoryForm(c))
 
-    // Export
-    c.querySelector('#export-inventory-btn')?.addEventListener('click', () => {
-      const data = allParts.map((p: any) => ({
-        الرمز: p.partNumber || p.code || '',
-        الاسم: p.name,
-        الفئة: p.category?.name || '',
-        الكمية: p.quantity || 0,
-        الحد_الأدنى: p.minQuantity || 0,
-        سعر_البيع: p.sellingPriceSYP || 0,
-        التكلفة: p.costSYP || 0,
-      }))
-      const csv = [Object.keys(data[0] || {}).join(','), ...data.map((row: any) => Object.values(row).join(','))].join('\n')
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = 'inventory.csv'
-      link.click()
+    // Export — full dataset (one-off, all rows)
+    c.querySelector('#export-inventory-btn')?.addEventListener('click', async () => {
+      try {
+        const res = await this.api.get<any>('/api/parts?limit=0', false)
+        const all = res.data?.parts || res.data?.data || (Array.isArray(res.data) ? res.data : [])
+        const data = (all as any[]).map((p: any) => ({
+          الرمز: p.partNumber || p.code || '',
+          الاسم: p.name,
+          الفئة: p.category?.name || '',
+          الكمية: p.quantity || 0,
+          الحد_الأدنى: p.minQuantity || 0,
+          سعر_البيع: p.sellingPriceSYP || 0,
+          التكلفة: p.costSYP || 0,
+        }))
+        const csv = [Object.keys(data[0] || {}).join(','), ...data.map((row: any) => Object.values(row).join(','))].join('\n')
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = 'inventory.csv'
+        link.click()
+      } catch {
+        ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء التصدير', type: 'error' })
+      }
     })
 
     return layout.render(c)
@@ -565,24 +581,58 @@ export class InventoryScreen {
     }
   }
 
-  private async loadParts(el: HTMLElement, callback?: (parts: any[]) => void) {
+  private async loadParts(el: HTMLElement) {
+    const tbody = el.querySelector('#inventory-tbody') as HTMLElement
     try {
-      const res = await this.api.get<any>(`/api/parts?limit=0`, false)
-      const tbody = el.querySelector('#inventory-tbody')!
+      const searchInput = el.querySelector('#part-search') as HTMLInputElement
+      const categorySelect = el.querySelector('#category-filter') as HTMLSelectElement
+      const stockSelect = el.querySelector('#stock-filter') as HTMLSelectElement
+
+      const params = new URLSearchParams()
+      params.set('page', String(this.currentPage))
+      params.set('limit', String(this.pageSize))
+      const search = searchInput?.value?.trim()
+      if (search) params.set('search', search)
+      if (categorySelect?.value) params.set('categoryId', categorySelect.value)
+      const stock = stockSelect?.value
+      if (stock === 'low') params.set('status', 'LOW')
+      else if (stock === 'out') params.set('status', 'OUT_OF_STOCK')
+      else if (stock === 'ok') params.set('status', 'OK')
+
+      const res = await this.api.get<any>(`/api/parts?${params.toString()}`, false)
       if (res.success !== false && res.data) {
         const parts = Array.isArray(res.data) ? res.data : res.data.parts || res.data.data || []
-        if (callback) {
-          callback(parts)
+        this.totalCount = res.data.total ?? (Array.isArray(parts) ? parts.length : 0)
+        this.totalPages = Math.max(1, res.data.totalPages ?? 1)
+        if (this.currentPage > this.totalPages) {
+          this.currentPage = this.totalPages
+          const retry = new URLSearchParams(params)
+          retry.set('page', String(this.currentPage))
+          const retryRes = await this.api.get<any>(`/api/parts?${retry.toString()}`, false)
+          const retryParts = Array.isArray(retryRes.data) ? retryRes.data : retryRes.data?.parts || retryRes.data?.data || []
+          this.renderParts(el, retryParts)
+          this.renderPagination(el)
           return
         }
         this.renderParts(el, parts)
+        this.renderPagination(el)
       } else {
         tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد مواد</td></tr>`
       }
     } catch {
-      const tbody = el.querySelector('#inventory-tbody')!
       tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ أثناء التحميل</td></tr>`
     }
+  }
+
+  private renderPagination(el: HTMLElement) {
+    const pageInfo = el.querySelector('#page-info') as HTMLElement
+    const totalInfo = el.querySelector('#total-info') as HTMLElement
+    const prevBtn = el.querySelector('#prev-page-btn') as HTMLButtonElement
+    const nextBtn = el.querySelector('#next-page-btn') as HTMLButtonElement
+    if (pageInfo) pageInfo.textContent = `صفحة ${this.currentPage} من ${this.totalPages}`
+    if (totalInfo) totalInfo.textContent = `${this.totalCount} مادة`
+    if (prevBtn) prevBtn.disabled = this.currentPage <= 1
+    if (nextBtn) nextBtn.disabled = this.currentPage >= this.totalPages
   }
 
   private renderParts(el: HTMLElement, parts: any[]) {
@@ -646,7 +696,8 @@ export class InventoryScreen {
           try {
             const res = await this.api.delete<any>(`/api/parts/${id}`)
             if (res.success !== false) {
-              this.loadParts(el, (parts) => this.renderParts(el, parts))
+              ;(window as any).toast?.show?.({ message: 'تم حذف المادة', type: 'success' })
+              this.loadParts(el)
             } else {
               ;(window as any).toast?.show?.({ message: res.message || 'فشل الحذف', type: 'error' })
             }
