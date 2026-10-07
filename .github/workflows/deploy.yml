@@ -142,6 +142,9 @@ jobs:
               sleep 5
               echo '=== Backend status ==='
               docker compose -f docker-compose.prod.yml ps backend
+
+              # Prune build cache so the disk never fills up (cache is regenerated each deploy)
+              docker builder prune -f || true
             "
 
       - name: Cleanup SSH key
