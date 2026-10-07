@@ -95,6 +95,7 @@ export class PartService {
     const [parts, total] = await Promise.all([
       prisma.part.findMany({
         where,
+        include: { category: { select: { id: true, name: true } } },
         // limit === 0 → "all rows": omit skip/take so Prisma returns everything.
         skip: isLookupAll ? undefined : (page - 1) * limit,
         take: isLookupAll ? undefined : limit,
@@ -116,6 +117,7 @@ export class PartService {
   async getPartById(id: string, tenantId: string): Promise<Part | null> {
     const part = await prisma.part.findFirst({
       where: { id, tenantId },
+      include: { category: { select: { id: true, name: true } } },
     });
 
     if (!part) {
@@ -165,6 +167,7 @@ export class PartService {
         location: data.location,
         isActive: data.isActive,
       },
+      include: { category: { select: { id: true, name: true } } },
     });
 
     return this.mapToPartResponse(part);
@@ -280,6 +283,7 @@ export class PartService {
       nameEn: part.nameEn,
       description: part.description,
       categoryId: part.categoryId,
+      category: part.category ? { id: part.category.id, name: part.category.name } : undefined,
       supplierId: part.supplierId,
       costSYP: Number(part.costSYP),
       costUSD: part.costUSD ? Number(part.costUSD) : undefined,

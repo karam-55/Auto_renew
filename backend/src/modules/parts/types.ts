@@ -13,6 +13,7 @@ export interface Part {
   nameEn?: string;
   description?: string;
   categoryId?: string;
+  category?: { id: string; name: string };
   supplierId?: string;
   costSYP: number;
   costUSD?: number;
