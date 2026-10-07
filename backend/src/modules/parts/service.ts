@@ -3,6 +3,7 @@ import {
   Part,
   CreatePartDto,
   UpdatePartDto,
+  StockIntakeDto,
   PartFilters,
   PaginationParams,
   PaginatedResponse,
@@ -27,6 +28,9 @@ export class PartService {
         sellingPriceUSD: data.sellingPriceUSD,
         quantity: data.quantity ?? 0,
         minQuantity: data.minQuantity ?? 5,
+        baseUnitName: data.baseUnitName,
+        purchaseUnitName: data.purchaseUnitName,
+        unitsPerPackage: data.unitsPerPackage,
         location: data.location,
         isActive: data.isActive ?? true,
       },
@@ -149,6 +153,9 @@ export class PartService {
         sellingPriceUSD: data.sellingPriceUSD,
         quantity: data.quantity,
         minQuantity: data.minQuantity,
+        baseUnitName: data.baseUnitName,
+        purchaseUnitName: data.purchaseUnitName,
+        unitsPerPackage: data.unitsPerPackage,
         location: data.location,
         isActive: data.isActive,
       },
@@ -243,6 +250,108 @@ export class PartService {
     return this.mapToPartResponse(updatedPart);
   }
 
+  /**
+   * Stock intake with package→unit conversion and weighted-average cost.
+   * Accepts either `packages` (requires unitsPerPackage on the part) or direct `units`.
+   * Records a STOCK_IN InventoryTransaction for a complete movement audit trail.
+   */
+  async stockIntake(id: string, tenantId: string, data: StockIntakeDto): Promise<Part> {
+    const part = await prisma.part.findFirst({ where: { id, tenantId } });
+
+    if (!part) {
+      throw new Error('Part not found');
+    }
+
+    const hasPackages = data.packages != null && data.packages > 0;
+    const hasUnits = data.units != null && data.units > 0;
+
+    if (!hasPackages && !hasUnits) {
+      throw new Error('Quantity is required (packages or units)');
+    }
+    if (hasPackages && data.packages! < 0) {
+      throw new Error('Packages cannot be negative');
+    }
+    if (hasUnits && data.units! < 0) {
+      throw new Error('Units cannot be negative');
+    }
+
+    let units: number;
+    let unitCostSYP: number;
+    let unitCostUSD: number | null = null;
+
+    if (hasPackages) {
+      const upp = part.unitsPerPackage;
+      if (!upp || upp <= 0) {
+        throw new Error('This part has no package conversion configured (unitsPerPackage)');
+      }
+      if (data.packageCostSYP == null || data.packageCostSYP < 0) {
+        throw new Error('Package cost (SYP) is required');
+      }
+      units = data.packages! * upp;
+      unitCostSYP = data.packageCostSYP / upp;
+      if (data.packageCostUSD != null) {
+        if (data.packageCostUSD < 0) throw new Error('Package cost cannot be negative');
+        unitCostUSD = data.packageCostUSD / upp;
+      }
+    } else {
+      units = data.units!;
+      if (data.unitCostSYP == null || data.unitCostSYP < 0) {
+        throw new Error('Unit cost (SYP) is required');
+      }
+      unitCostSYP = data.unitCostSYP;
+      if (data.unitCostUSD != null) {
+        if (data.unitCostUSD < 0) throw new Error('Unit cost cannot be negative');
+        unitCostUSD = data.unitCostUSD;
+      }
+    }
+
+    // Weighted average cost (AVCO) — SYP and USD independently
+    const currentQty = part.quantity;
+    const newQty = currentQty + units;
+    const currentCostSYP = Number(part.costSYP) || 0;
+    const avgCostSYP = currentQty > 0
+      ? (currentCostSYP * currentQty + unitCostSYP * units) / newQty
+      : unitCostSYP;
+
+    const currentCostUSD = part.costUSD != null ? Number(part.costUSD) : null;
+    let avgCostUSD: number | null | undefined;
+    if (unitCostUSD != null) {
+      avgCostUSD = currentQty > 0 && currentCostUSD != null
+        ? (currentCostUSD * currentQty + unitCostUSD * units) / newQty
+        : unitCostUSD;
+    } else {
+      avgCostUSD = currentCostUSD; // keep existing USD cost when not provided
+    }
+
+    const intakeNote = hasPackages
+      ? `Stock intake: ${data.packages} ${part.purchaseUnitName || 'package(s)'} × ${part.unitsPerPackage} ${part.baseUnitName || 'unit(s)'}`
+      : `Stock intake: ${units} ${part.baseUnitName || 'unit(s)'}`;
+
+    const [updatedPart] = await prisma.$transaction([
+      prisma.part.update({
+        where: { id },
+        data: {
+          quantity: newQty,
+          costSYP: avgCostSYP,
+          ...(avgCostUSD != null ? { costUSD: avgCostUSD } : {}),
+        },
+      }),
+      prisma.inventoryTransaction.create({
+        data: {
+          tenantId,
+          partId: id,
+          type: 'STOCK_IN',
+          quantity: units,
+          costSYP: unitCostSYP,
+          ...(unitCostUSD != null ? { costUSD: unitCostUSD } : {}),
+          notes: data.notes?.trim() || intakeNote,
+        },
+      }),
+    ]);
+
+    return this.mapToPartResponse(updatedPart);
+  }
+
   async getLowStockParts(tenantId: string): Promise<Part[]> {
     const parts = await prisma.part.findMany({
       where: {
@@ -276,6 +385,9 @@ export class PartService {
       sellingPriceUSD: part.sellingPriceUSD ? Number(part.sellingPriceUSD) : undefined,
       quantity: part.quantity,
       minQuantity: part.minQuantity,
+      baseUnitName: part.baseUnitName,
+      purchaseUnitName: part.purchaseUnitName,
+      unitsPerPackage: part.unitsPerPackage,
       location: part.location,
       isActive: part.isActive,
       createdAt: part.createdAt,

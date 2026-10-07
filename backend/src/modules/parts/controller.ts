@@ -117,6 +117,17 @@ export class PartController {
     }
   };
 
+  stockIntake = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const part = await this.partService.stockIntake(id, req.user!.tenantId, req.body);
+      res.json({ part });
+    } catch (error: any) {
+      Logger.error('Stock intake error:', error);
+      res.status(400).json({ error: error.message || 'Failed to process stock intake' });
+    }
+  };
+
   getLowStockParts = async (req: AuthRequest, res: Response) => {
     try {
       const parts = await this.partService.getLowStockParts(req.user!.tenantId);

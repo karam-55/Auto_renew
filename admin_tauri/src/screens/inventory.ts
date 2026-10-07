@@ -145,6 +145,26 @@ export class InventoryScreen {
                 <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-min-qty" placeholder="0" />
               </div>
             </div>
+            <div class="border border-border rounded-xl p-4 space-y-3 bg-surface-subtle/40">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px] text-secondary">inventory</span>
+                <span class="font-label-sm text-label-sm text-text-tertiary">وحدات الشراء والبيع (اختياري — للمواد يلي بتُشترى بالطرد)</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة البيع</label>
+                  <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-base-unit" placeholder="عبوة" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة الشراء</label>
+                  <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-purchase-unit" placeholder="طرد" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">عدد وحدات البيع بالوحدة الشرائية</label>
+                  <input type="number" min="0" step="1" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-units-per-package" placeholder="40" />
+                </div>
+              </div>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع (ل.س)</label>
@@ -223,6 +243,66 @@ export class InventoryScreen {
           </div>
         </div>
       </div>
+      <!-- Stock Intake Modal -->
+      <div id="intake-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-start justify-center overflow-y-auto py-10 px-4" role="dialog" aria-modal="true">
+        <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md max-h-[85vh] overflow-y-auto">
+          <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
+            <div>
+              <h3 class="font-headline-md text-lg text-on-surface font-semibold">استلام مخزون</h3>
+              <p class="text-body-sm text-text-tertiary mt-1" id="intake-part-name"></p>
+            </div>
+            <button id="close-intake-modal" class="touch-safe w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق نافذة الاستلام">
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+          <div class="p-6 space-y-4">
+            <input type="hidden" id="intake-part-id" value="" />
+            <!-- Package mode (part has unitsPerPackage) -->
+            <div id="intake-package-fields" class="space-y-4">
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">عدد الأطرد المستلمة *</label>
+                <input type="number" min="0" step="1" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-packages" placeholder="مثال: 2" />
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر الطرد (ل.س) *</label>
+                  <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-package-cost" placeholder="0" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر الطرد ($) — اختياري</label>
+                  <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-package-cost-usd" placeholder="0.00" />
+                </div>
+              </div>
+              <div id="intake-preview" class="hidden rounded-xl border border-secondary/30 bg-secondary/5 p-4 text-body-sm text-on-surface"></div>
+            </div>
+            <!-- Unit mode (part without package config) -->
+            <div id="intake-unit-fields" class="space-y-4 hidden">
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية المضافة *</label>
+                <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-units" placeholder="0" />
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">تكلفة الوحدة (ل.س) *</label>
+                  <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-unit-cost" placeholder="0" />
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">تكلفة الوحدة ($) — اختياري</label>
+                  <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-unit-cost-usd" placeholder="0.00" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">ملاحظات</label>
+              <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-notes" placeholder="مثال: فاتورة المورد رقم..." />
+            </div>
+          </div>
+          <div class="p-6 border-t border-outline-variant/10 flex justify-end gap-3">
+            <button class="h-[48px] px-6 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors" id="cancel-intake-modal">إلغاء</button>
+            <button class="h-[48px] px-6 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg transition-all" id="submit-intake-btn">تسجيل الاستلام</button>
+          </div>
+        </div>
+      </div>
     `
     let categories: any[] = []
 
@@ -287,6 +367,20 @@ export class InventoryScreen {
       this.openCategoryModal(c)
     })
 
+    // Stock intake modal
+    c.querySelector('#close-intake-modal')?.addEventListener('click', () => this.closeModal(c, '#intake-modal'))
+    c.querySelector('#cancel-intake-modal')?.addEventListener('click', () => this.closeModal(c, '#intake-modal'))
+    const intakeModalEl = c.querySelector('#intake-modal') as HTMLElement
+    intakeModalEl?.addEventListener('click', (e) => {
+      if (e.target === intakeModalEl) this.closeModal(c, '#intake-modal')
+    })
+    ;['#intake-packages', '#intake-package-cost', '#intake-package-cost-usd'].forEach(sel => {
+      c.querySelector(sel)?.addEventListener('input', () => this.updateIntakePreview(c))
+    })
+    c.querySelector('#submit-intake-btn')?.addEventListener('click', async () => {
+      await this.submitIntake(c, () => reloadParts())
+    })
+
     // Backdrop click
     const partModalEl = c.querySelector('#part-modal') as HTMLElement
     partModalEl?.addEventListener('click', (e) => {
@@ -342,6 +436,118 @@ export class InventoryScreen {
     })
 
     return layout.render(c)
+  }
+
+  // ===== Stock Intake =====
+
+  private async openIntakeModal(el: HTMLElement, part: any) {
+    const modal = el.querySelector('#intake-modal') as HTMLElement
+    if (!modal) return
+    const nameEl = el.querySelector('#intake-part-name') as HTMLElement
+    const idEl = el.querySelector('#intake-part-id') as HTMLInputElement
+    const pkgFields = el.querySelector('#intake-package-fields') as HTMLElement
+    const unitFields = el.querySelector('#intake-unit-fields') as HTMLElement
+    const preview = el.querySelector('#intake-preview') as HTMLElement
+    const packagesIn = el.querySelector('#intake-packages') as HTMLInputElement
+    const pkgCostIn = el.querySelector('#intake-package-cost') as HTMLInputElement
+    const pkgCostUsdIn = el.querySelector('#intake-package-cost-usd') as HTMLInputElement
+    const unitsIn = el.querySelector('#intake-units') as HTMLInputElement
+    const unitCostIn = el.querySelector('#intake-unit-cost') as HTMLInputElement
+    const unitCostUsdIn = el.querySelector('#intake-unit-cost-usd') as HTMLInputElement
+    const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
+
+    if (nameEl) nameEl.textContent = part?.name || ''
+    if (idEl) idEl.value = part?.id || ''
+    if (packagesIn) packagesIn.value = ''
+    if (pkgCostIn) pkgCostIn.value = ''
+    if (pkgCostUsdIn) pkgCostUsdIn.value = ''
+    if (unitsIn) unitsIn.value = ''
+    if (unitCostIn) unitCostIn.value = ''
+    if (unitCostUsdIn) unitCostUsdIn.value = ''
+    if (notesIn) notesIn.value = ''
+    if (preview) preview.classList.add('hidden')
+
+    const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
+    if (pkgFields) pkgFields.classList.toggle('hidden', !hasPackage)
+    if (unitFields) unitFields.classList.toggle('hidden', hasPackage)
+
+    modal.classList.remove('hidden')
+    modal.classList.add('flex')
+    setTimeout(() => (hasPackage ? packagesIn : unitsIn)?.focus(), 100)
+  }
+
+  private updateIntakePreview(el: HTMLElement) {
+    const preview = el.querySelector('#intake-preview') as HTMLElement
+    const packagesIn = el.querySelector('#intake-packages') as HTMLInputElement
+    const pkgCostIn = el.querySelector('#intake-package-cost') as HTMLInputElement
+    const pkgCostUsdIn = el.querySelector('#intake-package-cost-usd') as HTMLInputElement
+    if (!preview || !packagesIn) return
+    const packages = parseFloat(packagesIn.value)
+    const cost = parseFloat(pkgCostIn?.value || '')
+    if (!packages || packages <= 0 || isNaN(cost) || cost < 0) {
+      preview.classList.add('hidden')
+      return
+    }
+    // Read conversion from the part stored on the modal state
+    const part = this.currentIntakePart
+    const upp = part?.unitsPerPackage || 0
+    if (!upp) { preview.classList.add('hidden'); return }
+    const units = packages * upp
+    const unitCost = cost / upp
+    const usdCost = parseFloat(pkgCostUsdIn?.value || '')
+    let html = `سيضاف <b>${units}</b> ${this.esc(part?.baseUnitName || 'وحدة')} · تكلفة الوحدة <b>${this.fmt(unitCost)} ل.س</b>`
+    if (!isNaN(usdCost) && usdCost > 0) {
+      html += ` · <b>$${this.fmtUsd(usdCost / upp)}</b>`
+    }
+    preview.innerHTML = html
+    preview.classList.remove('hidden')
+  }
+
+  private currentIntakePart: any = null
+
+  private async submitIntake(el: HTMLElement, onSuccess: () => void) {
+    const idEl = el.querySelector('#intake-part-id') as HTMLInputElement
+    const id = idEl?.value
+    if (!id) return
+    const part = this.currentIntakePart
+    const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
+
+    let payload: Record<string, unknown> = {}
+    const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
+    if (notesIn?.value?.trim()) payload.notes = notesIn.value.trim()
+
+    if (hasPackage) {
+      const packages = parseFloat((el.querySelector('#intake-packages') as HTMLInputElement)?.value || '')
+      const pkgCost = parseFloat((el.querySelector('#intake-package-cost') as HTMLInputElement)?.value || '')
+      const pkgCostUsdRaw = (el.querySelector('#intake-package-cost-usd') as HTMLInputElement)?.value?.trim()
+      if (!packages || packages <= 0) { ;(window as any).toast?.show?.({ message: 'أدخل عدد الأطرد', type: 'warning' }); return }
+      if (isNaN(pkgCost) || pkgCost < 0) { ;(window as any).toast?.show?.({ message: 'أدخل سعر الطرد', type: 'warning' }); return }
+      payload.packages = packages
+      payload.packageCostSYP = pkgCost
+      if (pkgCostUsdRaw) payload.packageCostUSD = parseFloat(pkgCostUsdRaw)
+    } else {
+      const units = parseFloat((el.querySelector('#intake-units') as HTMLInputElement)?.value || '')
+      const unitCost = parseFloat((el.querySelector('#intake-unit-cost') as HTMLInputElement)?.value || '')
+      const unitCostUsdRaw = (el.querySelector('#intake-unit-cost-usd') as HTMLInputElement)?.value?.trim()
+      if (!units || units <= 0) { ;(window as any).toast?.show?.({ message: 'أدخل الكمية', type: 'warning' }); return }
+      if (isNaN(unitCost) || unitCost < 0) { ;(window as any).toast?.show?.({ message: 'أدخل تكلفة الوحدة', type: 'warning' }); return }
+      payload.units = units
+      payload.unitCostSYP = unitCost
+      if (unitCostUsdRaw) payload.unitCostUSD = parseFloat(unitCostUsdRaw)
+    }
+
+    try {
+      const res = await this.api.post<any>(`/api/parts/${id}/stock-intake`, payload)
+      if (res.success !== false) {
+        this.closeModal(el, '#intake-modal')
+        ;(window as any).toast?.show?.({ message: 'تم تسجيل الاستلام وتحديث المخزون', type: 'success' })
+        onSuccess()
+      } else {
+        ;(window as any).toast?.show?.({ message: res.message || 'فشل تسجيل الاستلام', type: 'error' })
+      }
+    } catch (e: any) {
+      ;(window as any).toast?.show?.({ message: e?.message || 'حدث خطأ أثناء الاستلام', type: 'error' })
+    }
   }
 
   // ===== Categories =====
@@ -514,6 +720,9 @@ export class InventoryScreen {
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
     const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
     const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
+    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLInputElement
+    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLInputElement
+    const uppIn = el.querySelector('#part-units-per-package') as HTMLInputElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
     if (!modal || !nameIn) return
 
@@ -531,6 +740,9 @@ export class InventoryScreen {
     if (costIn) costIn.value = part?.costSYP != null ? String(part.costSYP) : ''
     if (usdPriceIn) usdPriceIn.value = part?.sellingPriceUSD != null ? String(part.sellingPriceUSD) : ''
     if (usdCostIn) usdCostIn.value = part?.costUSD != null ? String(part.costUSD) : ''
+    if (baseUnitIn) baseUnitIn.value = part?.baseUnitName || ''
+    if (purchaseUnitIn) purchaseUnitIn.value = part?.purchaseUnitName || ''
+    if (uppIn) uppIn.value = part?.unitsPerPackage != null ? String(part.unitsPerPackage) : ''
     if (descIn) descIn.value = part?.description || ''
     modal.classList.remove('hidden')
     modal.classList.add('flex')
@@ -555,6 +767,9 @@ export class InventoryScreen {
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
     const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
     const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
+    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLInputElement
+    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLInputElement
+    const uppIn = el.querySelector('#part-units-per-package') as HTMLInputElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
 
     if (!nameIn || !nameIn.value.trim()) {
@@ -587,6 +802,15 @@ export class InventoryScreen {
     if (categoryId) payload.categoryId = categoryId
     if (usdPrice != null) payload.sellingPriceUSD = usdPrice
     if (usdCost != null) payload.costUSD = usdCost
+    const baseUnit = baseUnitIn?.value?.trim()
+    const purchaseUnit = purchaseUnitIn?.value?.trim()
+    const uppRaw = uppIn?.value?.trim()
+    if (baseUnit) payload.baseUnitName = baseUnit
+    if (purchaseUnit) payload.purchaseUnitName = purchaseUnit
+    if (uppRaw) {
+      const upp = parseInt(uppRaw)
+      if (upp > 0) payload.unitsPerPackage = upp
+    }
 
     try {
       const res = this.editingPartId
@@ -668,6 +892,11 @@ export class InventoryScreen {
       const qty = p.quantity || 0
       const min = p.minQuantity || 0
       const status = qty <= 0 ? 'out' : (qty < min ? 'low' : 'ok')
+      const unitLabel = p.baseUnitName ? ` ${this.esc(p.baseUnitName)}` : ''
+      const fullPackages = p.unitsPerPackage && p.unitsPerPackage > 0 ? Math.floor(qty / p.unitsPerPackage) : 0
+      const packagesInfo = fullPackages > 0
+        ? `<div class="text-sm text-text-tertiary">يعادل ${fullPackages} ${this.esc(p.purchaseUnitName || 'طرد')}</div>`
+        : ''
       return `
       <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
         <td class="px-6 py-4 font-body-md text-on-surface">${this.esc(p.partNumber || p.code || p.id?.slice(0,8))}</td>
@@ -676,7 +905,7 @@ export class InventoryScreen {
           <div class="text-sm text-text-tertiary">${this.esc(p.description || '')}</div>
         </td>
         <td class="px-6 py-4 font-body-md text-on-surface">${p.category?.name ? this.esc(p.category.name) : '-'}</td>
-        <td class="px-6 py-4 font-body-md ${status === 'out' ? 'text-error' : (status === 'low' ? 'text-warning' : 'text-on-surface')}">${qty}</td>
+        <td class="px-6 py-4 font-body-md ${status === 'out' ? 'text-error' : (status === 'low' ? 'text-warning' : 'text-on-surface')}">${qty}${unitLabel}${packagesInfo}</td>
         <td class="px-6 py-4 font-body-md text-text-secondary">${min}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">
           <div>${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</div>
@@ -689,6 +918,9 @@ export class InventoryScreen {
         <td class="px-6 py-4">${this.stockBadge(status)}</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
+            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-success transition-colors" title="استلام مخزون" aria-label="استلام مخزون" data-action="intake" data-id="${p.id}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">archive</span>
+            </button>
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" aria-label="تعديل المادة" data-action="edit" data-id="${p.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
             </button>
@@ -700,6 +932,24 @@ export class InventoryScreen {
       </tr>
     `}).join('')
 
+    tbody.querySelectorAll('[data-action="intake"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id')
+        if (!id) return
+        try {
+          const res = await this.api.get<any>(`/api/parts/${id}`, false)
+          const part = res.data?.part || res.data
+          if (part) {
+            this.currentIntakePart = part
+            this.openIntakeModal(el, part)
+          } else {
+            ;(window as any).toast?.show?.({ message: 'لم يتم العثور على المادة', type: 'error' })
+          }
+        } catch {
+          ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء جلب المادة', type: 'error' })
+        }
+      })
+    })
     tbody.querySelectorAll('[data-action="edit"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id')

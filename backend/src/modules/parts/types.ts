@@ -21,6 +21,9 @@ export interface Part {
   sellingPriceUSD?: number;
   quantity: number;
   minQuantity: number;
+  baseUnitName?: string;
+  purchaseUnitName?: string;
+  unitsPerPackage?: number;
   location?: string;
   isActive: boolean;
   createdAt: Date;
@@ -41,6 +44,9 @@ export interface CreatePartDto {
   sellingPriceUSD?: number;
   quantity?: number;
   minQuantity?: number;
+  baseUnitName?: string;
+  purchaseUnitName?: string;
+  unitsPerPackage?: number;
   location?: string;
   isActive?: boolean;
 }
@@ -59,8 +65,21 @@ export interface UpdatePartDto {
   sellingPriceUSD?: number;
   quantity?: number;
   minQuantity?: number;
+  baseUnitName?: string;
+  purchaseUnitName?: string;
+  unitsPerPackage?: number;
   location?: string;
   isActive?: boolean;
+}
+
+export interface StockIntakeDto {
+  packages?: number;
+  units?: number;
+  packageCostSYP?: number;
+  packageCostUSD?: number;
+  unitCostSYP?: number;
+  unitCostUSD?: number;
+  notes?: string;
 }
 
 export interface PartFilters {

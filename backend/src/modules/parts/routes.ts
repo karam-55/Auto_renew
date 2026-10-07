@@ -33,4 +33,7 @@ router.delete('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('Part'), part
 // Update quantity (accessible by OWNER, MANAGER, RECEPTIONIST, SALES)
 router.patch('/:id/quantity', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), tenantGuard('Part'), partController.updateQuantity);
 
+// Stock intake with package→unit conversion + weighted average cost (OWNER, MANAGER)
+router.post('/:id/stock-intake', authorize(['OWNER', 'MANAGER']), tenantGuard('Part'), partController.stockIntake);
+
 export default router;

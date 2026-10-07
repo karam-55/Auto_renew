@@ -558,6 +558,9 @@ model Part {
   sellingPriceUSD         Decimal?                 @db.Decimal(12, 2)
   quantity                Int                      @default(0)
   minQuantity             Int                      @default(5)
+  baseUnitName            String?
+  purchaseUnitName        String?
+  unitsPerPackage         Int?
   location                String?
   isActive                Boolean                  @default(true)
   createdAt               DateTime                 @default(now())
