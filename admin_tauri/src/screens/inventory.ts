@@ -567,7 +567,7 @@ export class InventoryScreen {
 
   private async loadParts(el: HTMLElement, callback?: (parts: any[]) => void) {
     try {
-      const res = await this.api.get<any>(`/api/parts`, false)
+      const res = await this.api.get<any>(`/api/parts?limit=0`, false)
       const tbody = el.querySelector('#inventory-tbody')!
       if (res.success !== false && res.data) {
         const parts = Array.isArray(res.data) ? res.data : res.data.parts || res.data.data || []
