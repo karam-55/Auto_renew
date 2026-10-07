@@ -25,6 +25,9 @@ router.get('/', manageSettings, settingsController.getSettings.bind(settingsCont
 // PUT /api/settings - Update settings
 router.put('/', manageSettings, settingsController.updateSettings.bind(settingsController));
 
+// POST /api/settings/exchange-rate/sync - Fetch market rate from LiraScope
+router.post('/exchange-rate/sync', manageSettings, settingsController.syncExchangeRate.bind(settingsController));
+
 // Legacy endpoints for backward compatibility
 router.get('/notifications', manageSettings, settingsController.getNotificationSettings.bind(settingsController));
 router.put('/notifications', manageSettings, settingsController.updateNotificationSettings.bind(settingsController));

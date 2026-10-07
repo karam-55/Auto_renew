@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import settingsService from '../../services/settings.service';
 import {
   Part,
   CreatePartDto,
@@ -10,8 +11,33 @@ import {
   PartStatus,
 } from './types';
 
+/**
+ * USD is the base currency — auto-fill the missing side from the exchange rate.
+ * Mutates the given fields object in place.
+ */
+async function fillMissingCurrencyFields(
+  tenantId: string,
+  fields: { costSYP?: number; costUSD?: number; sellingPriceSYP?: number; sellingPriceUSD?: number }
+): Promise<void> {
+  const settings = await settingsService.getSettings(tenantId);
+  const rate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
+  if (fields.costUSD != null && fields.costUSD > 0 && !(fields.costSYP != null && fields.costSYP > 0)) {
+    fields.costSYP = Math.round(fields.costUSD * rate);
+  }
+  if (fields.costSYP != null && fields.costSYP > 0 && !(fields.costUSD != null && fields.costUSD > 0)) {
+    fields.costUSD = Math.round((fields.costSYP / rate) * 100) / 100;
+  }
+  if (fields.sellingPriceUSD != null && fields.sellingPriceUSD > 0 && !(fields.sellingPriceSYP != null && fields.sellingPriceSYP > 0)) {
+    fields.sellingPriceSYP = Math.round(fields.sellingPriceUSD * rate);
+  }
+  if (fields.sellingPriceSYP != null && fields.sellingPriceSYP > 0 && !(fields.sellingPriceUSD != null && fields.sellingPriceUSD > 0)) {
+    fields.sellingPriceUSD = Math.round((fields.sellingPriceSYP / rate) * 100) / 100;
+  }
+}
+
 export class PartService {
   async createPart(tenantId: string, data: CreatePartDto): Promise<Part> {
+    await fillMissingCurrencyFields(tenantId, data as any);
     const part = await prisma.part.create({
       data: {
         tenantId,
@@ -136,6 +162,8 @@ export class PartService {
     if (!existingPart) {
       throw new Error('Part not found');
     }
+
+    await fillMissingCurrencyFields(tenantId, data as any);
 
     const part = await prisma.part.update({
       where: { id },

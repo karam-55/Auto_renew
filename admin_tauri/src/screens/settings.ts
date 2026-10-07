@@ -63,8 +63,15 @@ export class SettingsScreen {
               </select>
             </div>
             <div>
-              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر صرف الدولار (ل.س)</label>
-              <input id="setting-exchange-rate" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" placeholder="15000" />
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر صرف الدولار (ل.س) — سعر السوق</label>
+              <div class="flex gap-2">
+                <input id="setting-exchange-rate" class="flex-1 h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" placeholder="139" />
+                <button type="button" class="h-[48px] px-4 bg-secondary/10 text-secondary font-ibmPlexSans font-body-md rounded-lg border border-secondary/30 hover:bg-secondary/20 transition-colors flex items-center gap-2" id="sync-exchange-rate-btn" title="جلب سعر السوق تلقائياً">
+                  <span class="material-symbols-outlined text-[20px]">sync</span>
+                  جلب من السوق
+                </button>
+              </div>
+              <p class="text-body-sm text-text-tertiary mt-2" id="exchange-rate-status"></p>
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">نسبة الضريبة (%)</label>
@@ -89,6 +96,29 @@ export class SettingsScreen {
     })
     content.querySelector('#settings-save')?.addEventListener('click', () => {
       this.saveSettings(content)
+    })
+    content.querySelector('#sync-exchange-rate-btn')?.addEventListener('click', async () => {
+      const btn = content.querySelector('#sync-exchange-rate-btn') as HTMLButtonElement
+      const status = content.querySelector('#exchange-rate-status') as HTMLElement
+      const rateInput = content.querySelector('#setting-exchange-rate') as HTMLInputElement
+      btn.disabled = true
+      if (status) status.textContent = 'جاري جلب سعر السوق...'
+      try {
+        const res = await this.api.post<any>('/api/settings/exchange-rate/sync', {})
+        if (res.success && res.data?.rate) {
+          if (rateInput) rateInput.value = String(res.data.rate)
+          if (status) status.textContent = `تم جلب السعر من السوق: ${res.data.rate} ل.س للدولار (${new Date(res.data.fetchedAt).toLocaleString('ar-SA')})`
+          ;(window as any).toast?.show?.({ message: `تم تحديث سعر الصرف: ${res.data.rate} ل.س`, type: 'success' })
+        } else {
+          if (status) status.textContent = res.message || 'فشل جلب السعر'
+          ;(window as any).toast?.show?.({ message: res.message || 'فشل جلب سعر السوق', type: 'error' })
+        }
+      } catch (e: any) {
+        if (status) status.textContent = e?.message || 'فشل جلب السعر'
+        ;(window as any).toast?.show?.({ message: e?.message || 'فشل جلب سعر السوق', type: 'error' })
+      } finally {
+        btn.disabled = false
+      }
     })
     return layout.render(content)
   }

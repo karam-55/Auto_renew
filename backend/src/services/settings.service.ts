@@ -183,10 +183,62 @@ class SettingsService {
   }
 
   /**
+   * Sync exchange rate from LiraScope (Syrian market rate, free public API).
+   * Uses the MARKET rate (not central bank) — the rate actually used in trade.
+   * Also ensures USD/SYP currency records exist and records rate history.
+   */
+  async syncExchangeRateFromMarket(tenantId: string): Promise<{ rate: number; source: string; fetchedAt: string }> {
+    const res = await fetch('https://lirascope.syria-cloud.sy/api/v1/rates/latest?currencies=USD', {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      throw new Error(`LiraScope request failed with status ${res.status}`);
+    }
+    const data: any = await res.json();
+    const usd = Array.isArray(data?.marketRates)
+      ? data.marketRates.find((r: any) => r?.currency === 'USD')
+      : null;
+    const rate = usd ? Number(usd.mid ?? usd.sell ?? usd.buy) : null;
+    if (!rate || !isFinite(rate) || rate <= 0) {
+      throw new Error('No market rate returned from LiraScope');
+    }
+
+    await this.updateSettings(tenantId, { exchangeRate: rate } as Partial<CompanySettings>);
+
+    // Ensure currency records + record rate history (non-blocking on failure)
+    try {
+      const [usdCur, sypCur] = await Promise.all([
+        prisma.currency.upsert({
+          where: { code: 'USD' },
+          update: { isDefault: true, symbol: '$', isActive: true, deletedAt: null },
+          create: { code: 'USD', name: 'US Dollar', nameAr: 'دولار أمريكي', nameEn: 'US Dollar', symbol: '$', isDefault: true, decimalPlaces: 2 },
+        }),
+        prisma.currency.upsert({
+          where: { code: 'SYP' },
+          update: { symbol: 'ل.س', isDefault: false, isActive: true, deletedAt: null },
+          create: { code: 'SYP', name: 'Syrian Pound', nameAr: 'ليرة سورية', nameEn: 'Syrian Pound', symbol: 'ل.س', isDefault: false, decimalPlaces: 2 },
+        }),
+      ]);
+      await prisma.exchangeRate.create({
+        data: {
+          tenantId,
+          fromCurrencyId: usdCur.id,
+          toCurrencyId: sypCur.id,
+          rate,
+          effectiveDate: new Date(),
+        },
+      }).catch(() => null); // same-second duplicates are fine to skip
+    } catch (e) {
+      // Currency bookkeeping must never block a rate sync
+    }
+
+    return { rate, source: 'MARKET', fetchedAt: new Date().toISOString() };
+  }
+
+  /**
    * Validate settings values
    */
-  private validateSettings(settings: Partial<CompanySettings>): void {
-    // Validate exchangeRate
+  private validateSettings(settings: Partial<CompanySettings>): void {    // Validate exchangeRate
     if (settings.exchangeRate !== undefined) {
       if (typeof settings.exchangeRate !== 'number' || settings.exchangeRate <= 0) {
         throw new Error('exchangeRate must be a positive number');

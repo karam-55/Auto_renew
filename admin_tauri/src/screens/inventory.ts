@@ -908,12 +908,12 @@ export class InventoryScreen {
         <td class="px-6 py-4 font-body-md ${status === 'out' ? 'text-error' : (status === 'low' ? 'text-warning' : 'text-on-surface')}">${qty}${unitLabel}${packagesInfo}</td>
         <td class="px-6 py-4 font-body-md text-text-secondary">${min}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">
-          <div>${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</div>
-          ${p.sellingPriceUSD != null ? `<div class="text-sm text-text-tertiary">$${this.fmtUsd(p.sellingPriceUSD)}</div>` : ''}
+          ${p.sellingPriceUSD != null ? `<div>$${this.fmtUsd(p.sellingPriceUSD)}</div>` : ''}
+          <div class="${p.sellingPriceUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</div>
         </td>
         <td class="px-6 py-4 font-body-md text-text-secondary">
-          <div>${this.fmt(p.costSYP || 0)} ل.س</div>
-          ${p.costUSD != null ? `<div class="text-sm text-text-tertiary">$${this.fmtUsd(p.costUSD)}</div>` : ''}
+          ${p.costUSD != null ? `<div>$${this.fmtUsd(p.costUSD)}</div>` : ''}
+          <div class="${p.costUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.costSYP || 0)} ل.س</div>
         </td>
         <td class="px-6 py-4">${this.stockBadge(status)}</td>
         <td class="px-6 py-4">

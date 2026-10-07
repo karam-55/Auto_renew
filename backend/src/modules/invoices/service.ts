@@ -11,6 +11,7 @@ import {
 import { Logger } from '../../infrastructure/logging/logger';
 import { InvoiceStatus, PaymentMethod } from '@prisma/client';
 import { LoyaltyService } from '../loyalty/service';
+import settingsService from '../../services/settings.service';
 import { WhatsAppService } from '../whatsapp/service';
 import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
@@ -100,16 +101,24 @@ export class InvoiceService {
       throw new Error('Invoice must have at least one item');
     }
 
-    // Validate item quantities and prices
+    // Validate item quantities and prices — USD is the base currency;
+    // accept either USD or SYP and auto-fill the missing side from the exchange rate
+    const settings = await settingsService.getSettings(tenantId);
+    const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
     for (const item of data.items) {
       if (item.quantity <= 0) {
         throw new Error('Item quantity must be greater than 0');
       }
-      if (item.priceSYP <= 0) {
-        throw new Error('Item price in SYP must be greater than 0');
+      const hasSYP = item.priceSYP != null && item.priceSYP > 0;
+      const hasUSD = item.priceUSD != null && item.priceUSD > 0;
+      if (!hasSYP && !hasUSD) {
+        throw new Error('Item price is required (USD or SYP)');
       }
-      if (item.priceUSD !== undefined && item.priceUSD <= 0) {
-        throw new Error('Item price in USD must be greater than 0');
+      if (!hasSYP && hasUSD && item.priceUSD != null) {
+        item.priceSYP = Math.round(item.priceUSD * exchangeRate);
+      }
+      if (hasSYP && !hasUSD) {
+        item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
       }
     }
 
@@ -398,6 +407,16 @@ export class InvoiceService {
       await prisma.invoiceItem.deleteMany({
         where: { invoiceId },
       });
+
+      // USD is the base currency — auto-fill the missing side from the exchange rate
+      const settings = await settingsService.getSettings(tenantId);
+      const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
+      for (const item of data.items) {
+        const hasSYP = item.priceSYP != null && item.priceSYP > 0;
+        const hasUSD = item.priceUSD != null && item.priceUSD > 0;
+        if (!hasSYP && hasUSD && item.priceUSD != null) item.priceSYP = Math.round(item.priceUSD * exchangeRate);
+        if (hasSYP && !hasUSD) item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
+      }
 
       // Calculate new totals
       let subtotalSYP = 0;

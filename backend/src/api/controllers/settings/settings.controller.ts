@@ -40,6 +40,23 @@ export class SettingsController {
     }
   }
 
+  // POST /api/settings/exchange-rate/sync — fetch market rate from LiraScope (protected)
+  async syncExchangeRate(req: AuthRequest, res: Response) {
+    try {
+      const tenantId = req.user!.tenantId;
+      const oldSettings = await settingsService.getSettings(tenantId);
+
+      const result = await settingsService.syncExchangeRateFromMarket(tenantId);
+
+      logAuditFromRequest(req, 'EXCHANGE_RATE_SYNCED', 'CompanySettings', tenantId, { exchangeRate: oldSettings.exchangeRate }, result);
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      Logger.error('Exchange rate sync error:', error);
+      res.status(502).json({ success: false, error: error.message || 'Failed to sync exchange rate' });
+    }
+  }
+
   // GET /api/settings/public - Get public settings (no auth)
   async getPublicSettings(req: Request, res: Response) {
     try {
