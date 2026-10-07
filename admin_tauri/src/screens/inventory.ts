@@ -4,6 +4,7 @@ import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 
 export class InventoryScreen {
+  private editingPartId: string | null = null
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'المخزون', 'inventory_2', this.api)
@@ -187,7 +188,6 @@ export class InventoryScreen {
     `
     let allParts: any[] = []
     let categories: any[] = []
-    let editingPartId: string | null = null
 
     const filterAndRender = () => {
       const searchInput = c.querySelector('#part-search') as HTMLInputElement
@@ -237,7 +237,7 @@ export class InventoryScreen {
 
     // Event listeners
     c.querySelector('#new-part-btn')?.addEventListener('click', () => {
-      editingPartId = null
+      this.editingPartId = null
       this.openPartModal(c, null, categories)
     })
     c.querySelector('#part-search')?.addEventListener('input', filterAndRender)
@@ -253,11 +253,11 @@ export class InventoryScreen {
       filterAndRender()
     })
 
-    c.querySelector('#close-part-modal')?.addEventListener('click', () => { editingPartId = null; this.closeModal(c, '#part-modal') })
-    c.querySelector('#cancel-part-modal')?.addEventListener('click', () => { editingPartId = null; this.closeModal(c, '#part-modal') })
+    c.querySelector('#close-part-modal')?.addEventListener('click', () => { this.editingPartId = null; this.closeModal(c, '#part-modal') })
+    c.querySelector('#cancel-part-modal')?.addEventListener('click', () => { this.editingPartId = null; this.closeModal(c, '#part-modal') })
     c.querySelector('#save-part-btn')?.addEventListener('click', async () => {
-      await this.savePart(c, editingPartId, () => {
-        editingPartId = null
+      await this.savePart(c, () => {
+        this.editingPartId = null
         reloadParts()
       })
     })
@@ -513,7 +513,7 @@ export class InventoryScreen {
     }
   }
 
-  private async savePart(el: HTMLElement, editingPartId: string | null, onSuccess: () => void) {
+  private async savePart(el: HTMLElement, onSuccess: () => void) {
     const nameIn = el.querySelector('#part-name') as HTMLInputElement
     const codeIn = el.querySelector('#part-code') as HTMLInputElement
     const catSelect = el.querySelector('#part-category') as HTMLSelectElement
@@ -550,12 +550,12 @@ export class InventoryScreen {
     if (categoryId) payload.categoryId = categoryId
 
     try {
-      const res = editingPartId
-        ? await this.api.put<any>(`/api/parts/${editingPartId}`, payload)
+      const res = this.editingPartId
+        ? await this.api.put<any>(`/api/parts/${this.editingPartId}`, payload)
         : await this.api.post('/api/parts', payload)
       if (res.success !== false) {
         this.closeModal(el, '#part-modal')
-        ;(window as any).toast?.show?.({ message: editingPartId ? 'تم تحديث المادة' : 'تمت إضافة المادة', type: 'success' })
+        ;(window as any).toast?.show?.({ message: this.editingPartId ? 'تم تحديث المادة' : 'تمت إضافة المادة', type: 'success' })
         onSuccess()
       } else {
         ;(window as any).toast?.show?.({ message: res.message || 'فشل الحفظ', type: 'error' })
@@ -629,7 +629,7 @@ export class InventoryScreen {
           const res = await this.api.get<any>(`/api/parts/${id}`, false)
           const part = res.data?.part || res.data
           if (part) {
-            editingPartId = id
+            this.editingPartId = id
             this.openPartModal(el, part, this.currentCategories(el))
           } else {
             ;(window as any).toast?.show?.({ message: 'لم يتم العثور على المادة', type: 'error' })
