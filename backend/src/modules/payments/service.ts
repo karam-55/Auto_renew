@@ -12,6 +12,7 @@ import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../acc
 import { WhatsAppService } from '../whatsapp/service';
 import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { PdfWorker } from '../../workers/pdf.worker';
+import settingsService from '../../services/settings.service';
 import fs from 'fs';
 
 export class PaymentService {
@@ -21,6 +22,22 @@ export class PaymentService {
    * Updates invoice paid amount
    */
   async createPayment(tenantId: string, userId: string, data: CreatePaymentDto): Promise<Payment> {
+    // USD is the base currency — accept either currency and auto-fill the
+    // missing side from the exchange rate before validating/storing
+    const settings = await settingsService.getSettings(tenantId);
+    const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
+    const hasSYP = data.amountSYP != null && data.amountSYP > 0;
+    const hasUSD = data.amountUSD != null && data.amountUSD > 0;
+    if (!hasSYP && !hasUSD) {
+      throw new Error('Payment amount is required (USD or SYP)');
+    }
+    if (!hasSYP && hasUSD && data.amountUSD != null) {
+      data.amountSYP = Math.round(data.amountUSD * exchangeRate);
+    }
+    if (hasSYP && !hasUSD) {
+      data.amountUSD = Math.round((data.amountSYP / exchangeRate) * 100) / 100;
+    }
+
     // Validate amounts
     if (data.amountSYP <= 0) {
       throw new Error('Payment amount must be greater than 0');
@@ -76,9 +93,13 @@ export class PaymentService {
         },
       });
 
-      // Update invoice status if fully paid
+      // Update invoice status if fully paid — check BOTH currencies
+      // (a USD-paid invoice must be able to reach PAID)
       const totalSYP = Number(invoice.totalSYP);
-      if (newPaidSYP >= totalSYP) {
+      const totalUSD = invoice.totalUSD != null ? Number(invoice.totalUSD) : null;
+      const fullyPaidSYP = newPaidSYP >= totalSYP;
+      const fullyPaidUSD = totalUSD != null && totalUSD > 0 && newPaidUSD >= totalUSD;
+      if (fullyPaidSYP || fullyPaidUSD) {
         await tx.invoice.update({
           where: { id: data.invoiceId },
           data: { status: 'PAID' as any },
@@ -343,14 +364,24 @@ export class PaymentService {
           },
         });
 
-        // Update invoice status
+        // Update invoice status — check BOTH currencies
         const totalSYP = Number(payment.invoice.totalSYP);
-        if (newPaidSYP <= 0) {
+        const totalUSD = payment.invoice.totalUSD != null ? Number(payment.invoice.totalUSD) : null;
+        const unpaidSYP = newPaidSYP <= 0;
+        const unpaidUSD = totalUSD == null || totalUSD <= 0 || newPaidUSD <= 0;
+        const fullyPaidSYP = newPaidSYP >= totalSYP;
+        const fullyPaidUSD = totalUSD != null && totalUSD > 0 && newPaidUSD >= totalUSD;
+        if (unpaidSYP && unpaidUSD) {
           await tx.invoice.update({
             where: { id: payment.invoiceId },
             data: { status: 'ISSUED' as any },
           });
-        } else if (newPaidSYP < totalSYP) {
+        } else if (fullyPaidSYP || fullyPaidUSD) {
+          await tx.invoice.update({
+            where: { id: payment.invoiceId },
+            data: { status: 'PAID' as any },
+          });
+        } else {
           await tx.invoice.update({
             where: { id: payment.invoiceId },
             data: { status: 'PARTIALLY_PAID' as any },

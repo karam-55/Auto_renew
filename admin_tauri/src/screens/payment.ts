@@ -2,6 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
+import { loadExchangeRate, wireUsdSypPair, fmtUsd } from '../utils/currency'
 
 export class PaymentScreen {
   private auth: AuthService
@@ -38,6 +39,10 @@ export class PaymentScreen {
         <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-card-padding">
           <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-4">بيانات الدفعة</h3>
           <div class="space-y-4">
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المبلغ بالدولار ($)</label>
+              <input type="number" id="pay-amount-usd" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="0.00" min="0" step="0.01" />
+            </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المبلغ (ل.س) *</label>
               <input type="number" id="pay-amount" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" placeholder="0.00" required min="0.01" step="0.01" />
@@ -81,6 +86,12 @@ export class PaymentScreen {
     content.querySelector('#print-btn')?.addEventListener('click', () => {
       if (this.invoiceId) this.router.navigate(`/invoices/print/${this.invoiceId}`)
     })
+    loadExchangeRate(this.api).then(() => {
+      wireUsdSypPair(
+        content.querySelector('#pay-amount-usd') as HTMLInputElement,
+        content.querySelector('#pay-amount') as HTMLInputElement
+      )
+    })
     // Set default date
     const dateInput = content.querySelector('#pay-date') as HTMLInputElement
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0]
@@ -111,11 +122,11 @@ export class PaymentScreen {
           <div class="grid grid-cols-2 gap-4">
             <div class="bg-surface-subtle rounded-lg p-4">
               <p class="font-label-sm text-label-sm text-text-tertiary">الإجمالي</p>
-              <p class="text-financial-data text-on-surface mt-1">${(inv.totalSYP || 0).toLocaleString('ar-SA')} ل.س</p>
+              <p class="text-financial-data text-on-surface mt-1">${(inv.totalSYP || 0).toLocaleString('ar-SA')} ل.س${inv.totalUSD ? ` · $${fmtUsd(inv.totalUSD)}` : ''}</p>
             </div>
             <div class="bg-surface-subtle rounded-lg p-4">
               <p class="font-label-sm text-label-sm text-text-tertiary">المتبقي</p>
-              <p class="text-financial-data ${remaining > 0 ? 'text-error' : 'text-tertiary'} mt-1">${remaining.toLocaleString('ar-SA')} ل.س</p>
+              <p class="text-financial-data ${remaining > 0 ? 'text-error' : 'text-tertiary'} mt-1">${remaining.toLocaleString('ar-SA')} ل.س${inv.totalUSD ? ` · $${fmtUsd(Math.max(0, (inv.totalUSD || 0) - (inv.paidUSD || 0)))}` : ''}</p>
             </div>
           </div>
         `
@@ -133,6 +144,7 @@ export class PaymentScreen {
   private async savePayment(el: HTMLElement) {
     if (!this.invoiceId) { ;(window as any).toast?.show?.({ message: 'لم يتم تحديد فاتورة', type: 'warning' }); return }
     const amount = parseFloat((el.querySelector('#pay-amount') as HTMLInputElement)?.value || '0')
+    const usdAmount = parseFloat((el.querySelector('#pay-amount-usd') as HTMLInputElement)?.value || '0')
     const dateVal = (el.querySelector('#pay-date') as HTMLInputElement)?.value
     const method = (el.querySelector('#pay-method') as HTMLSelectElement)?.value
     const notes = (el.querySelector('#pay-notes') as HTMLTextAreaElement)?.value
@@ -150,6 +162,7 @@ export class PaymentScreen {
     const payload = {
       invoiceId: this.invoiceId,
       amountSYP: amount,
+      amountUSD: usdAmount && usdAmount > 0 ? usdAmount : undefined,
       paymentDate: new Date(dateVal).toISOString(),
       paymentMethod: method,
       notes: notes || undefined,
