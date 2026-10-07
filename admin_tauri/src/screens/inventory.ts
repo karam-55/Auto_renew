@@ -155,6 +155,16 @@ export class InventoryScreen {
                 <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-cost" placeholder="0" />
               </div>
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع بالدولار ($)</label>
+                <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-price-usd" placeholder="0.00" />
+              </div>
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">التكلفة بالدولار ($)</label>
+                <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-cost-usd" placeholder="0.00" />
+              </div>
+            </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الوصف</label>
               <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="part-description" rows="2" placeholder="وصف المادة..."></textarea>
@@ -316,7 +326,9 @@ export class InventoryScreen {
           الكمية: p.quantity || 0,
           الحد_الأدنى: p.minQuantity || 0,
           سعر_البيع: p.sellingPriceSYP || 0,
+          سعر_البيع_دولار: p.sellingPriceUSD || '',
           التكلفة: p.costSYP || 0,
+          التكلفة_دولار: p.costUSD || '',
         }))
         const csv = [Object.keys(data[0] || {}).join(','), ...data.map((row: any) => Object.values(row).join(','))].join('\n')
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -500,6 +512,8 @@ export class InventoryScreen {
     const minQtyIn = el.querySelector('#part-min-qty') as HTMLInputElement
     const priceIn = el.querySelector('#part-price') as HTMLInputElement
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
+    const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
+    const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
     if (!modal || !nameIn) return
 
@@ -515,6 +529,8 @@ export class InventoryScreen {
     if (minQtyIn) minQtyIn.value = part?.minQuantity != null ? String(part.minQuantity) : ''
     if (priceIn) priceIn.value = part?.sellingPriceSYP != null ? String(part.sellingPriceSYP) : ''
     if (costIn) costIn.value = part?.costSYP != null ? String(part.costSYP) : ''
+    if (usdPriceIn) usdPriceIn.value = part?.sellingPriceUSD != null ? String(part.sellingPriceUSD) : ''
+    if (usdCostIn) usdCostIn.value = part?.costUSD != null ? String(part.costUSD) : ''
     if (descIn) descIn.value = part?.description || ''
     modal.classList.remove('hidden')
     modal.classList.add('flex')
@@ -537,6 +553,8 @@ export class InventoryScreen {
     const minQtyIn = el.querySelector('#part-min-qty') as HTMLInputElement
     const priceIn = el.querySelector('#part-price') as HTMLInputElement
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
+    const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
+    const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
 
     if (!nameIn || !nameIn.value.trim()) {
@@ -548,10 +566,13 @@ export class InventoryScreen {
     const minQty = parseInt(minQtyIn?.value || '0') || 0
     const price = parseInt(priceIn?.value || '0') || 0
     const cost = parseInt(costIn?.value || '0') || 0
+    const usdPrice = usdPriceIn?.value?.trim() ? parseFloat(usdPriceIn.value) : undefined
+    const usdCost = usdCostIn?.value?.trim() ? parseFloat(usdCostIn.value) : undefined
     if (qty < 0) { ;(window as any).toast?.show?.({ message: 'الكمية لا يمكن أن تكون سالبة', type: 'warning' }); return }
     if (minQty < 0) { ;(window as any).toast?.show?.({ message: 'الحد الأدنى لا يمكن أن يكون سالباً', type: 'warning' }); return }
     if (price < 0) { ;(window as any).toast?.show?.({ message: 'سعر البيع لا يمكن أن يكون سالباً', type: 'warning' }); return }
     if (cost < 0) { ;(window as any).toast?.show?.({ message: 'التكلفة لا يمكن أن تكون سالبة', type: 'warning' }); return }
+    if ((usdPrice != null && usdPrice < 0) || (usdCost != null && usdCost < 0)) { ;(window as any).toast?.show?.({ message: 'السعر بالدولار لا يمكن أن يكون سالباً', type: 'warning' }); return }
 
     const categoryId = catSelect?.value || undefined
     const payload: Record<string, unknown> = {
@@ -564,6 +585,8 @@ export class InventoryScreen {
       costSYP: cost,
     }
     if (categoryId) payload.categoryId = categoryId
+    if (usdPrice != null) payload.sellingPriceUSD = usdPrice
+    if (usdCost != null) payload.costUSD = usdCost
 
     try {
       const res = this.editingPartId
@@ -655,8 +678,14 @@ export class InventoryScreen {
         <td class="px-6 py-4 font-body-md text-on-surface">${p.category?.name ? this.esc(p.category.name) : '-'}</td>
         <td class="px-6 py-4 font-body-md ${status === 'out' ? 'text-error' : (status === 'low' ? 'text-warning' : 'text-on-surface')}">${qty}</td>
         <td class="px-6 py-4 font-body-md text-text-secondary">${min}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</td>
-        <td class="px-6 py-4 font-body-md text-text-secondary">${this.fmt(p.costSYP || 0)} ل.س</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">
+          <div>${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</div>
+          ${p.sellingPriceUSD != null ? `<div class="text-sm text-text-tertiary">$${this.fmtUsd(p.sellingPriceUSD)}</div>` : ''}
+        </td>
+        <td class="px-6 py-4 font-body-md text-text-secondary">
+          <div>${this.fmt(p.costSYP || 0)} ل.س</div>
+          ${p.costUSD != null ? `<div class="text-sm text-text-tertiary">$${this.fmtUsd(p.costUSD)}</div>` : ''}
+        </td>
         <td class="px-6 py-4">${this.stockBadge(status)}</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
@@ -741,5 +770,9 @@ export class InventoryScreen {
 
   private fmt(n: number) {
     return new Intl.NumberFormat('ar-SA',{minimumFractionDigits:2}).format(n)
+  }
+
+  private fmtUsd(n: number) {
+    return new Intl.NumberFormat('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}).format(n)
   }
 }
