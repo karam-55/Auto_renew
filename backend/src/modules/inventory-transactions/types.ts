@@ -10,7 +10,9 @@ export interface InventoryTransaction {
   transactionType: TransactionType;
   quantity: number;
   unitCost: number;
+  unitCostUSD: number | null;
   totalCost: number;
+  totalCostUSD: number | null;
   referenceType: string | null;
   referenceId: string | null;
   notes: string | null;
@@ -24,7 +26,9 @@ export interface CreateInventoryTransactionDto {
   supplierId?: string;
   transactionType: TransactionType;
   quantity: number;
-  unitCost: number;
+  unitCost?: number;
+  unitCostUSD?: number;
+  settlementAccount?: 'CASH' | 'BANK' | 'PAYABLE';
   referenceType?: string;
   referenceId?: string;
   notes?: string;
@@ -37,6 +41,7 @@ export interface UpdateInventoryTransactionDto {
   transactionType?: TransactionType;
   quantity?: number;
   unitCost?: number;
+  unitCostUSD?: number;
   referenceType?: string;
   referenceId?: string;
   notes?: string;

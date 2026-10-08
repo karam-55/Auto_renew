@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import settingsService from '../../services/settings.service';
+import { createInventoryAdjustmentJournalEntry, createStockIntakeJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 import {
   Part,
   CreatePartDto,
@@ -19,24 +20,24 @@ async function fillMissingCurrencyFields(
   tenantId: string,
   fields: { costSYP?: number; costUSD?: number; sellingPriceSYP?: number; sellingPriceUSD?: number }
 ): Promise<void> {
-  const settings = await settingsService.getSettings(tenantId);
-  const rate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
-  if (fields.costUSD != null && fields.costUSD > 0 && !(fields.costSYP != null && fields.costSYP > 0)) {
+  const rate = await settingsService.getRequiredExchangeRate(tenantId);
+  if (fields.costUSD != null && fields.costUSD > 0) {
     fields.costSYP = Math.round(fields.costUSD * rate);
-  }
-  if (fields.costSYP != null && fields.costSYP > 0 && !(fields.costUSD != null && fields.costUSD > 0)) {
+  } else if (fields.costSYP != null && fields.costSYP > 0) {
     fields.costUSD = Math.round((fields.costSYP / rate) * 100) / 100;
   }
-  if (fields.sellingPriceUSD != null && fields.sellingPriceUSD > 0 && !(fields.sellingPriceSYP != null && fields.sellingPriceSYP > 0)) {
+  if (fields.sellingPriceUSD != null && fields.sellingPriceUSD > 0) {
     fields.sellingPriceSYP = Math.round(fields.sellingPriceUSD * rate);
-  }
-  if (fields.sellingPriceSYP != null && fields.sellingPriceSYP > 0 && !(fields.sellingPriceUSD != null && fields.sellingPriceUSD > 0)) {
+  } else if (fields.sellingPriceSYP != null && fields.sellingPriceSYP > 0) {
     fields.sellingPriceUSD = Math.round((fields.sellingPriceSYP / rate) * 100) / 100;
   }
 }
 
 export class PartService {
   async createPart(tenantId: string, data: CreatePartDto): Promise<Part> {
+    if (data.quantity != null && data.quantity !== 0) {
+      throw new Error('Create the part first, then record initial stock through stock intake');
+    }
     await fillMissingCurrencyFields(tenantId, data as any);
     const part = await prisma.part.create({
       data: {
@@ -130,8 +131,9 @@ export class PartService {
       prisma.part.count({ where }),
     ]);
 
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
     return {
-      data: parts.map((part) => this.mapToPartResponse(part)),
+      data: await Promise.all(parts.map((part) => this.mapToPartResponse(part, exchangeRate))),
       total,
       page,
       limit,
@@ -161,6 +163,9 @@ export class PartService {
 
     if (!existingPart) {
       throw new Error('Part not found');
+    }
+    if (data.quantity != null && data.quantity !== existingPart.quantity) {
+      throw new Error('Use a recorded inventory adjustment to change part quantity');
     }
 
     await fillMissingCurrencyFields(tenantId, data as any);
@@ -250,32 +255,64 @@ export class PartService {
       orderBy: { name: 'asc' },
     });
 
-    return parts.map((part) => this.mapToPartResponse(part));
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
+    return Promise.all(parts.map((part) => this.mapToPartResponse(part, exchangeRate)));
   }
 
-  async updateQuantity(id: string, tenantId: string, quantityChange: number): Promise<Part> {
-    const part = await prisma.part.findFirst({
-      where: { id, tenantId },
-    });
-
-    if (!part) {
-      throw new Error('Part not found');
+  async updateQuantity(
+    id: string,
+    tenantId: string,
+    quantityChange: number,
+    createdBy?: string,
+    reason?: string
+  ): Promise<Part> {
+    if (!Number.isInteger(quantityChange) || quantityChange === 0) {
+      throw new Error('quantityChange must be a non-zero whole number');
     }
+    if (!reason?.trim()) throw new Error('A reason is required for inventory adjustment');
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
 
-    const newQuantity = part.quantity + quantityChange;
+    const updatedPart = await prisma.$transaction(async (tx) => {
+      const part = await tx.part.findFirst({ where: { id, tenantId } });
+      if (!part) throw new Error('Part not found');
 
-    if (newQuantity < 0) {
-      throw new Error('Insufficient quantity');
-    }
+      const quantity = Math.abs(quantityChange);
+      const costUSD = part.costUSD != null
+        ? Number(part.costUSD)
+        : Math.round((Number(part.costSYP) / exchangeRate) * 100) / 100;
+      const costSYP = part.costUSD != null ? Math.round(costUSD * exchangeRate) : Number(part.costSYP);
+      const result = await tx.part.updateMany({
+        where: { id, tenantId, quantity: quantityChange < 0 ? { gte: quantity } : part.quantity },
+        data: { quantity: { increment: quantityChange } },
+      });
+      if (result.count !== 1) throw new Error('Insufficient quantity or stock changed; retry');
 
-    const updatedPart = await prisma.part.update({
-      where: { id },
-      data: {
-        quantity: newQuantity,
-      },
-    });
+      const transaction = await tx.inventoryTransaction.create({
+        data: {
+          tenantId,
+          partId: id,
+          type: quantityChange > 0 ? 'STOCK_IN' : 'STOCK_OUT',
+          quantity,
+          costSYP,
+          costUSD,
+          createdBy,
+          notes: reason.trim(),
+        },
+        include: { part: { select: { name: true } } },
+      });
+      await ensureDefaultAccounts(tenantId, tx);
+      await createInventoryAdjustmentJournalEntry(
+        transaction,
+        tenantId,
+        quantityChange > 0 ? 'IN' : 'OUT',
+        createdBy || null,
+        tx
+      );
+      return tx.part.findFirst({ where: { id, tenantId }, include: { category: { select: { id: true, name: true } } } });
+    }, { isolationLevel: 'Serializable' });
 
-    return this.mapToPartResponse(updatedPart);
+    if (!updatedPart) throw new Error('Part not found after inventory adjustment');
+    return this.mapToPartResponse(updatedPart, exchangeRate);
   }
 
   /**
@@ -283,101 +320,139 @@ export class PartService {
    * Accepts either `packages` (requires unitsPerPackage on the part) or direct `units`.
    * Records a STOCK_IN InventoryTransaction for a complete movement audit trail.
    */
-  async stockIntake(id: string, tenantId: string, data: StockIntakeDto): Promise<Part> {
-    const part = await prisma.part.findFirst({ where: { id, tenantId } });
-
-    if (!part) {
-      throw new Error('Part not found');
+  async stockIntake(id: string, tenantId: string, data: StockIntakeDto, createdBy?: string): Promise<Part> {
+    const hasPackages = data.packages != null;
+    const hasUnits = data.units != null;
+    if (hasPackages === hasUnits) throw new Error('Provide exactly one of packages or units');
+    if (!['CASH', 'BANK', 'PAYABLE'].includes(data.settlementAccount)) {
+      throw new Error('Choose whether the intake was paid by cash, bank, or remains payable');
     }
+    const idempotencyKey = data.idempotencyKey?.trim();
+    if (!idempotencyKey || idempotencyKey.length > 128) throw new Error('A valid idempotency key is required for stock intake');
 
-    const hasPackages = data.packages != null && data.packages > 0;
-    const hasUnits = data.units != null && data.units > 0;
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    let expectedReference = '';
+    try {
+      return await prisma.$transaction(async (tx) => {
+      const part = await tx.part.findFirst({ where: { id, tenantId } });
+      if (!part) throw new Error('Part not found');
 
-    if (!hasPackages && !hasUnits) {
-      throw new Error('Quantity is required (packages or units)');
-    }
-    if (hasPackages && data.packages! < 0) {
-      throw new Error('Packages cannot be negative');
-    }
-    if (hasUnits && data.units! < 0) {
-      throw new Error('Units cannot be negative');
-    }
-
-    let units: number;
-    let unitCostSYP: number;
-    let unitCostUSD: number | null = null;
-
-    if (hasPackages) {
-      const upp = part.unitsPerPackage;
-      if (!upp || upp <= 0) {
-        throw new Error('This part has no package conversion configured (unitsPerPackage)');
+      let units: number;
+      let unitCostSYP: number;
+      let unitCostUSD: number;
+      if (hasPackages) {
+        const packages = Number(data.packages);
+        const upp = part.unitsPerPackage;
+        if (!Number.isInteger(packages) || packages <= 0) throw new Error('Packages must be a positive whole number');
+        if (!upp || upp <= 0) throw new Error('This part has no package conversion configured (unitsPerPackage)');
+        if (data.packageCostSYP == null && data.packageCostUSD == null) throw new Error('Package cost is required in USD or SYP');
+        if (data.packageCostSYP != null && data.packageCostSYP < 0 || data.packageCostUSD != null && data.packageCostUSD < 0) {
+          throw new Error('Package cost cannot be negative');
+        }
+        const packageCostUSD = data.packageCostUSD != null
+          ? Number(data.packageCostUSD)
+          : Math.round((Number(data.packageCostSYP) / exchangeRate) * 100) / 100;
+        const packageCostSYP = data.packageCostUSD != null
+          ? Math.round(packageCostUSD * exchangeRate)
+          : Number(data.packageCostSYP);
+        units = packages * upp;
+        unitCostSYP = packageCostSYP / upp;
+        unitCostUSD = packageCostUSD / upp;
+      } else {
+        units = Number(data.units);
+        if (!Number.isInteger(units) || units <= 0) throw new Error('Units must be a positive whole number');
+        if (data.unitCostSYP == null && data.unitCostUSD == null) throw new Error('Unit cost is required in USD or SYP');
+        if (data.unitCostSYP != null && data.unitCostSYP < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
+          throw new Error('Unit cost cannot be negative');
+        }
+        unitCostUSD = data.unitCostUSD != null
+          ? Number(data.unitCostUSD)
+          : Math.round((Number(data.unitCostSYP) / exchangeRate) * 100) / 100;
+        unitCostSYP = data.unitCostUSD != null
+          ? Math.round(unitCostUSD * exchangeRate)
+          : Number(data.unitCostSYP);
       }
-      if (data.packageCostSYP == null || data.packageCostSYP < 0) {
-        throw new Error('Package cost (SYP) is required');
-      }
-      units = data.packages! * upp;
-      unitCostSYP = data.packageCostSYP / upp;
-      if (data.packageCostUSD != null) {
-        if (data.packageCostUSD < 0) throw new Error('Package cost cannot be negative');
-        unitCostUSD = data.packageCostUSD / upp;
-      }
-    } else {
-      units = data.units!;
-      if (data.unitCostSYP == null || data.unitCostSYP < 0) {
-        throw new Error('Unit cost (SYP) is required');
-      }
-      unitCostSYP = data.unitCostSYP;
-      if (data.unitCostUSD != null) {
-        if (data.unitCostUSD < 0) throw new Error('Unit cost cannot be negative');
-        unitCostUSD = data.unitCostUSD;
-      }
-    }
 
-    // Weighted average cost (AVCO) — SYP and USD independently
-    const currentQty = part.quantity;
-    const newQty = currentQty + units;
-    const currentCostSYP = Number(part.costSYP) || 0;
-    const avgCostSYP = currentQty > 0
-      ? (currentCostSYP * currentQty + unitCostSYP * units) / newQty
-      : unitCostSYP;
+      expectedReference = `INTAKE:${idempotencyKey}:${data.settlementAccount}:${units}:${unitCostSYP}:${unitCostUSD}`;
+      const existingIntake = await tx.inventoryTransaction.findFirst({
+        where: { tenantId, idempotencyKey },
+      });
+      if (existingIntake) {
+        if (existingIntake.partId !== id || existingIntake.reference !== expectedReference) {
+          throw new Error('Idempotency key was already used for a different stock intake');
+        }
+        const currentPart = await tx.part.findFirst({
+          where: { id, tenantId },
+          include: { category: { select: { id: true, name: true } } },
+        });
+        if (!currentPart) throw new Error('Part not found after intake');
+        return this.mapToPartResponse(currentPart, exchangeRate);
+      }
 
-    const currentCostUSD = part.costUSD != null ? Number(part.costUSD) : null;
-    let avgCostUSD: number | null | undefined;
-    if (unitCostUSD != null) {
-      avgCostUSD = currentQty > 0 && currentCostUSD != null
+      const currentQty = part.quantity;
+      const newQty = currentQty + units;
+      const currentCostSYP = part.costUSD != null
+        ? Math.round(Number(part.costUSD) * exchangeRate)
+        : Number(part.costSYP) || 0;
+      const avgCostSYP = currentQty > 0
+        ? (currentCostSYP * currentQty + unitCostSYP * units) / newQty
+        : unitCostSYP;
+      const currentCostUSD = part.costUSD != null
+        ? Number(part.costUSD)
+        : currentQty > 0 ? Math.round((currentCostSYP / exchangeRate) * 100) / 100 : 0;
+      const avgCostUSD = currentQty > 0
         ? (currentCostUSD * currentQty + unitCostUSD * units) / newQty
         : unitCostUSD;
-    } else {
-      avgCostUSD = currentCostUSD; // keep existing USD cost when not provided
-    }
+      const intakeNote = hasPackages
+        ? `Stock intake: ${data.packages} ${part.purchaseUnitName || 'package(s)'} × ${part.unitsPerPackage} ${part.baseUnitName || 'unit(s)'}`
+        : `Stock intake: ${units} ${part.baseUnitName || 'unit(s)'}`;
 
-    const intakeNote = hasPackages
-      ? `Stock intake: ${data.packages} ${part.purchaseUnitName || 'package(s)'} × ${part.unitsPerPackage} ${part.baseUnitName || 'unit(s)'}`
-      : `Stock intake: ${units} ${part.baseUnitName || 'unit(s)'}`;
+      const updated = await tx.part.updateMany({
+        where: { id, tenantId, quantity: currentQty },
+        data: { quantity: { increment: units }, costSYP: avgCostSYP, costUSD: avgCostUSD },
+      });
+      if (updated.count !== 1) throw new Error('Stock changed concurrently; retry the intake');
 
-    const [updatedPart] = await prisma.$transaction([
-      prisma.part.update({
-        where: { id },
-        data: {
-          quantity: newQty,
-          costSYP: avgCostSYP,
-          ...(avgCostUSD != null ? { costUSD: avgCostUSD } : {}),
-        },
-      }),
-      prisma.inventoryTransaction.create({
+      await ensureDefaultAccounts(tenantId, tx);
+      const transaction = await tx.inventoryTransaction.create({
         data: {
           tenantId,
           partId: id,
           type: 'STOCK_IN',
           quantity: units,
           costSYP: unitCostSYP,
-          ...(unitCostUSD != null ? { costUSD: unitCostUSD } : {}),
+          costUSD: unitCostUSD,
+          idempotencyKey,
+          reference: expectedReference,
+          createdBy,
           notes: data.notes?.trim() || intakeNote,
         },
-      }),
-    ]);
+        include: { part: { select: { name: true } } },
+      });
+      await createStockIntakeJournalEntry(transaction, tenantId, data.settlementAccount, createdBy || null, tx);
 
-    return this.mapToPartResponse(updatedPart);
+      const updatedPart = await tx.part.findFirst({
+        where: { id, tenantId },
+        include: { category: { select: { id: true, name: true } } },
+      });
+      if (!updatedPart) throw new Error('Part not found after intake');
+      return this.mapToPartResponse(updatedPart, exchangeRate);
+      }, { isolationLevel: 'Serializable' });
+    } catch (error) {
+      if ((error as any)?.code === 'P2002' && expectedReference) {
+        const existingIntake = await prisma.inventoryTransaction.findFirst({
+          where: { tenantId, idempotencyKey },
+        });
+        if (existingIntake) {
+          if (existingIntake.partId !== id || existingIntake.reference !== expectedReference) {
+            throw new Error('Idempotency key was already used for a different stock intake');
+          }
+          const existingPart = await this.getPartById(id, tenantId);
+          if (existingPart) return existingPart;
+        }
+      }
+      throw error;
+    }
   }
 
   async getLowStockParts(tenantId: string): Promise<Part[]> {
@@ -390,12 +465,16 @@ export class PartService {
     });
 
     // Filter parts where quantity <= minQuantity
-    const lowStockParts = parts.filter((part) => part.quantity <= part.minQuantity);
+    const lowStockParts = parts.filter((part) => part.isActive && part.quantity <= part.minQuantity);
 
-    return lowStockParts.map((part) => this.mapToPartResponse(part));
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
+    return Promise.all(lowStockParts.map((part) => this.mapToPartResponse(part, exchangeRate)));
   }
 
-  private mapToPartResponse(part: any): Part {
+  private async mapToPartResponse(part: any, exchangeRate?: number): Promise<Part> {
+    const rate = exchangeRate ?? Number((await settingsService.getSettings(part.tenantId)).exchangeRate);
+    const costUSD = part.costUSD == null ? undefined : Number(part.costUSD);
+    const sellingPriceUSD = part.sellingPriceUSD == null ? undefined : Number(part.sellingPriceUSD);
     return {
       id: part.id,
       tenantId: part.tenantId,
@@ -407,10 +486,10 @@ export class PartService {
       categoryId: part.categoryId,
       category: part.category ? { id: part.category.id, name: part.category.name } : undefined,
       supplierId: part.supplierId,
-      costSYP: Number(part.costSYP),
-      costUSD: part.costUSD ? Number(part.costUSD) : undefined,
-      sellingPriceSYP: Number(part.sellingPriceSYP),
-      sellingPriceUSD: part.sellingPriceUSD ? Number(part.sellingPriceUSD) : undefined,
+      costSYP: costUSD != null && rate > 0 ? Math.round(costUSD * rate) : Number(part.costSYP),
+      costUSD,
+      sellingPriceSYP: sellingPriceUSD != null && rate > 0 ? Math.round(sellingPriceUSD * rate) : Number(part.sellingPriceSYP),
+      sellingPriceUSD,
       quantity: part.quantity,
       minQuantity: part.minQuantity,
       baseUnitName: part.baseUnitName,

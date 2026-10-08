@@ -89,10 +89,11 @@ export class PaymentController {
   updatePayment = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const tenantId = req.user!.tenantId;
+      const userId = req.user!.id;
       const { id } = req.params;
       const data: UpdatePaymentDto = req.body;
 
-      const payment = await this.paymentService.updatePayment(tenantId, id, data);
+      const payment = await this.paymentService.updatePayment(tenantId, id, data, userId);
 
       res.status(200).json({
         success: true,
@@ -110,9 +111,10 @@ export class PaymentController {
   deletePayment = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const tenantId = req.user!.tenantId;
+      const userId = req.user!.id;
       const { id } = req.params;
 
-      await this.paymentService.deletePayment(tenantId, id);
+      await this.paymentService.deletePayment(tenantId, id, userId);
 
       res.status(200).json({
         success: true,

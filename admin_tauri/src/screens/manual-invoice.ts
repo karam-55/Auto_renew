@@ -1,7 +1,7 @@
 import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
-import { fmtUsd } from '../utils/currency'
+import { fmtUsd, loadExchangeRate } from '../utils/currency'
 import { AppLayout } from '../components/layout'
 
 export class ManualInvoiceScreen {
@@ -13,6 +13,8 @@ export class ManualInvoiceScreen {
   private invoiceItems: any[] = []
   private discountType: 'FIXED' | 'PERCENTAGE' = 'FIXED'
   private discountValue: number = 0
+  private taxRate = 0
+  private exchangeRate = 0
 
   constructor(
     private auth: AuthService,
@@ -151,6 +153,10 @@ export class ManualInvoiceScreen {
                   <span class="font-body-md text-on-surface" id="summary-subtotal">0 ل.س</span>
                 </div>
                 <div class="flex justify-between">
+                  <span class="font-body-md text-text-secondary">الضريبة</span>
+                  <span class="font-body-md text-on-surface" id="summary-tax">0 ل.س</span>
+                </div>
+                <div class="flex justify-between">
                   <span class="font-body-md text-text-secondary">الخصم</span>
                   <span class="font-body-md text-error" id="summary-discount">0 ل.س</span>
                 </div>
@@ -176,8 +182,12 @@ export class ManualInvoiceScreen {
       </div>
     `
 
+    this.loadPosCart()
     this.loadCustomers(content)
-    this.loadServices()
+    void this.loadFinancialSettings().then(() => {
+      this.updateSummary(content)
+      this.loadServices()
+    })
 
     content.querySelector('#cancel-btn')?.addEventListener('click', () => {
       this.router.navigate('/invoices')
@@ -229,6 +239,38 @@ export class ManualInvoiceScreen {
     })
 
     return layout.render(content)
+  }
+
+  private loadPosCart() {
+    if (this.type !== 'manual') return
+    const raw = sessionStorage.getItem('pos-cart')
+    if (!raw) return
+    try {
+      const cart = JSON.parse(raw)
+      if (Array.isArray(cart)) {
+        this.invoiceItems = cart.filter((item: any) => item && item.id && Number(item.qty) > 0).map((item: any) => ({
+          partId: item.id,
+          description: item.name || 'قطعة غيار',
+          quantity: Number(item.qty),
+          priceSYP: Number(item.price || 0),
+          priceUSD: item.priceUSD == null ? null : Number(item.priceUSD),
+        }))
+      }
+      sessionStorage.removeItem('pos-cart')
+    } catch {
+      sessionStorage.removeItem('pos-cart')
+    }
+  }
+
+  private async loadFinancialSettings() {
+    try {
+      const res = await this.api.get<any>('/api/settings/exchange-rate', false)
+      if (res.success && res.data) this.taxRate = Number(res.data.taxRate || 0)
+      this.exchangeRate = await loadExchangeRate(this.api)
+    } catch {
+      this.taxRate = 0
+      this.exchangeRate = 0
+    }
   }
 
   private goToStep(el: HTMLElement, step: number) {
@@ -412,12 +454,15 @@ export class ManualInvoiceScreen {
             if (booking && booking.services) {
               this.invoiceItems = booking.services.map((s: any) => {
                 const fullService = this.servicesList.find((svc: any) => svc.id === s.id)
+                const priceUSD = fullService?.priceUSD != null ? Number(fullService.priceUSD) : null
                 return {
                   serviceId: s.id,
                   description: s.name,
                   quantity: 1,
-                  priceSYP: fullService?.priceSYP || s.basePrice || 0,
-                  priceUSD: fullService?.priceUSD || null,
+                  priceSYP: priceUSD != null && this.exchangeRate > 0
+                    ? Math.round(priceUSD * this.exchangeRate)
+                    : fullService?.priceSYP || s.basePrice || 0,
+                  priceUSD,
                 }
               })
             }
@@ -438,7 +483,13 @@ export class ManualInvoiceScreen {
         <div class="flex gap-2">
           <select class="flex-1 h-[48px] bg-surface-subtle border border-border rounded-lg pr-4 pl-10 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow appearance-none" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23475569%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;" id="service-select">
             <option value="">اختر خدمة...</option>
-            ${this.servicesList.map((s: any) => `<option value="${s.id}" data-price="${s.basePrice || s.priceSYP || 0}" data-price-usd="${s.priceUSD || ''}">${s.name} - ${s.basePrice || s.priceSYP || 0} ل.س</option>`).join('')}
+            ${this.servicesList.map((s: any) => {
+              const priceUSD = s.priceUSD == null ? null : Number(s.priceUSD)
+              const priceSYP = priceUSD != null && this.exchangeRate > 0
+                ? Math.round(priceUSD * this.exchangeRate)
+                : Number(s.basePrice || s.priceSYP || 0)
+              return `<option value="${s.id}" data-price="${priceSYP}" data-price-usd="${priceUSD ?? ''}">${s.name} - ${priceSYP} ل.س${priceUSD != null ? ` · $${fmtUsd(priceUSD)}` : ''}</option>`
+            }).join('')}
           </select>
           <button class="h-[48px] px-4 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-service-btn">
             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
@@ -550,16 +601,24 @@ export class ManualInvoiceScreen {
     } else {
       discount = this.discountValue
     }
-    const total = Math.max(0, subtotal - discount)
+    const tax = Math.round(subtotal * (this.taxRate / 100))
+    const total = Math.max(0, subtotal + tax - discount)
     const subtotalUSD = this.invoiceItems.reduce((sum, item) => sum + ((item.priceUSD || 0) * item.quantity), 0)
+    const taxUSD = Math.round(subtotalUSD * (this.taxRate / 100) * 100) / 100
+    const discountUSD = this.discountType === 'PERCENTAGE'
+      ? Math.round(subtotalUSD * (this.discountValue / 100) * 100) / 100
+      : this.exchangeRate > 0 ? Math.round((discount / this.exchangeRate) * 100) / 100 : 0
+    const totalUSD = Math.max(0, subtotalUSD + taxUSD - discountUSD)
 
     const subtotalEl = el.querySelector('#summary-subtotal')
+    const taxEl = el.querySelector('#summary-tax')
     const discountEl = el.querySelector('#summary-discount')
     const totalEl = el.querySelector('#summary-total')
 
     if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س${subtotalUSD > 0 ? ` · $${fmtUsd(subtotalUSD)}` : ''}`
-    if (discountEl) discountEl.textContent = `${discount.toLocaleString('ar-SA')} ل.س`
-    if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س`
+    if (taxEl) taxEl.textContent = `${tax.toLocaleString('ar-SA')} ل.س${subtotalUSD > 0 ? ` · $${fmtUsd(taxUSD)}` : ''}`
+    if (discountEl) discountEl.textContent = `${discount.toLocaleString('ar-SA')} ل.س${discountUSD > 0 ? ` · $${fmtUsd(discountUSD)}` : ''}`
+    if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س${subtotalUSD > 0 ? ` · $${fmtUsd(totalUSD)}` : ''}`
   }
 
   private async createInvoice(el: HTMLElement) {
@@ -590,6 +649,7 @@ export class ManualInvoiceScreen {
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       notes,
       items: this.invoiceItems.map(item => ({
+        partId: item.partId,
         serviceId: item.serviceId,
         description: item.description,
         quantity: item.quantity,

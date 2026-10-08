@@ -42,6 +42,8 @@ interface CompanySettings {
 
 interface PublicSettings {
   companyName: string;
+  currency: string;
+  exchangeRate: number;
   logoUrl?: string;
   address?: string;
   phone?: string;
@@ -72,7 +74,7 @@ class SettingsService {
       membershipAutoRenew: false,
       timezone: 'UTC',
       currency: 'USD',
-      exchangeRate: 15000,
+      exchangeRate: 0,
       taxRate: 0,
       dateFormat: 'DD/MM/YYYY',
       timeFormat: '24h',
@@ -111,12 +113,20 @@ class SettingsService {
     const settingsWithNumbers = {
       ...settings,
       overheadPercentage: Number((settings as any).overheadPercentage || 0),
-      exchangeRate: Number((settings as any).exchangeRate || 15000),
+      exchangeRate: Number((settings as any).exchangeRate ?? 0),
       taxRate: Number((settings as any).taxRate || 0),
     };
     settingsCache.set(tenantId, { data: settingsWithNumbers as CompanySettings, timestamp: Date.now() });
 
     return settingsWithNumbers as CompanySettings;
+  }
+
+  async getRequiredExchangeRate(tenantId: string): Promise<number> {
+    const rate = Number((await this.getSettings(tenantId)).exchangeRate);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error('Exchange rate is not configured. Set it manually or sync the market rate first.');
+    }
+    return rate;
   }
 
   /**
@@ -134,7 +144,7 @@ class SettingsService {
         tenantId,
         companyName: partialSettings.companyName || '',
         currency: partialSettings.currency || 'USD',
-        exchangeRate: partialSettings.exchangeRate ?? 15000,
+        exchangeRate: partialSettings.exchangeRate ?? 0,
         timezone: partialSettings.timezone || 'UTC',
         taxRate: partialSettings.taxRate ?? 0,
         dateFormat: partialSettings.dateFormat || 'DD/MM/YYYY',
@@ -160,7 +170,7 @@ class SettingsService {
     settingsCache.delete(tenantId);
 
     // Convert Decimal to number
-    return { ...updatedSettings, overheadPercentage: Number((updatedSettings as any).overheadPercentage || 0), exchangeRate: Number((updatedSettings as any).exchangeRate || 15000), taxRate: Number((updatedSettings as any).taxRate || 0) } as CompanySettings;
+    return { ...updatedSettings, overheadPercentage: Number((updatedSettings as any).overheadPercentage || 0), exchangeRate: Number((updatedSettings as any).exchangeRate ?? 0), taxRate: Number((updatedSettings as any).taxRate || 0) } as CompanySettings;
   }
 
   /**
@@ -171,6 +181,8 @@ class SettingsService {
 
     return {
       companyName: settings.companyName,
+      currency: settings.currency,
+      exchangeRate: settings.exchangeRate,
       logoUrl: settings.logoUrl,
       address: settings.address,
       phone: settings.phone,
@@ -238,10 +250,11 @@ class SettingsService {
   /**
    * Validate settings values
    */
-  private validateSettings(settings: Partial<CompanySettings>): void {    // Validate exchangeRate
+  private validateSettings(settings: Partial<CompanySettings>): void {
+    // Validate exchangeRate
     if (settings.exchangeRate !== undefined) {
-      if (typeof settings.exchangeRate !== 'number' || settings.exchangeRate <= 0) {
-        throw new Error('exchangeRate must be a positive number');
+      if (typeof settings.exchangeRate !== 'number' || !Number.isFinite(settings.exchangeRate) || settings.exchangeRate < 0) {
+        throw new Error('exchangeRate must be a non-negative number');
       }
     }
 

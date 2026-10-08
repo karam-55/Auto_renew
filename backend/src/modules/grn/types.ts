@@ -41,7 +41,9 @@ export interface GRNLine {
   receivedQuantity: number;
   damagedQuantity: number;
   unitCost: number;
+  unitCostUSD: number | null;
   totalCost: number;
+  totalCostUSD: number | null;
   createdAt: Date;
   part?: {
     id: string;
@@ -72,7 +74,8 @@ export interface CreateGRNLineDto {
   orderedQuantity: number;
   receivedQuantity: number;
   damagedQuantity?: number;
-  unitCost: number;
+  unitCost?: number;
+  unitCostUSD?: number;
 }
 
 export interface UpdateGRNLineDto {
@@ -80,6 +83,7 @@ export interface UpdateGRNLineDto {
   receivedQuantity?: number;
   damagedQuantity?: number;
   unitCost?: number;
+  unitCostUSD?: number;
 }
 
 export interface GRNFilters {

@@ -7,13 +7,50 @@ import {
   PaymentSummary,
 } from './types';
 import { Logger } from '../../infrastructure/logging/logger';
-import { PaymentMethod } from '@prisma/client';
-import { createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { InvoiceStatus, PaymentMethod } from '@prisma/client';
+import { createPaymentReceivedJournalEntry, ensureDefaultAccounts, reverseJournalEntry } from '../accounting/automatic-journal-entries';
 import { WhatsAppService } from '../whatsapp/service';
 import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { PdfWorker } from '../../workers/pdf.worker';
 import settingsService from '../../services/settings.service';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
+
+async function normalizePaymentAmounts(
+  tenantId: string,
+  amountSYP?: number | null,
+  amountUSD?: number | null,
+  fallback?: { amountSYP: number; amountUSD: number | null }
+): Promise<{ amountSYP: number; amountUSD: number }> {
+  let syp = amountSYP == null ? undefined : Number(amountSYP);
+  let usd = amountUSD == null ? undefined : Number(amountUSD);
+  if (syp == null && usd == null && fallback) {
+    syp = fallback.amountSYP;
+    usd = fallback.amountUSD == null ? undefined : Number(fallback.amountUSD);
+  }
+  if ((syp == null || syp <= 0) && (usd == null || usd <= 0)) {
+    throw new Error('Payment amount is required (USD or SYP)');
+  }
+
+  const rate = await settingsService.getRequiredExchangeRate(tenantId);
+  if (usd != null && usd > 0) syp = Math.round(usd * rate);
+  else if (syp != null && syp > 0) usd = Math.round((syp / rate) * 100) / 100;
+  if (!Number.isFinite(syp) || !Number.isFinite(usd) || (syp as number) <= 0 || (usd as number) <= 0) {
+    throw new Error('Payment amount must be greater than zero in both currencies');
+  }
+  return { amountSYP: syp as number, amountUSD: usd as number };
+}
+
+function getInvoicePaymentStatus(invoice: any, paidSYP: number, paidUSD: number): InvoiceStatus {
+  if (invoice.totalUSD != null && Number(invoice.totalUSD) > 0) {
+    return paidUSD >= Number(invoice.totalUSD) - 0.005
+      ? InvoiceStatus.PAID
+      : paidUSD > 0 ? InvoiceStatus.PARTIALLY_PAID : InvoiceStatus.ISSUED;
+  }
+  return paidSYP >= Number(invoice.totalSYP) - 0.01
+    ? InvoiceStatus.PAID
+    : paidSYP > 0 ? InvoiceStatus.PARTIALLY_PAID : InvoiceStatus.ISSUED;
+}
 
 export class PaymentService {
   private telegramAdminNotificationService = new TelegramAdminNotificationService();
@@ -22,111 +59,67 @@ export class PaymentService {
    * Updates invoice paid amount
    */
   async createPayment(tenantId: string, userId: string, data: CreatePaymentDto): Promise<Payment> {
-    // USD is the base currency — accept either currency and auto-fill the
-    // missing side from the exchange rate before validating/storing
-    const settings = await settingsService.getSettings(tenantId);
-    const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
-    const hasSYP = data.amountSYP != null && data.amountSYP > 0;
-    const hasUSD = data.amountUSD != null && data.amountUSD > 0;
-    if (!hasSYP && !hasUSD) {
-      throw new Error('Payment amount is required (USD or SYP)');
-    }
-    if (!hasSYP && hasUSD && data.amountUSD != null) {
-      data.amountSYP = Math.round(data.amountUSD * exchangeRate);
-    }
-    if (hasSYP && !hasUSD) {
-      data.amountUSD = Math.round((data.amountSYP / exchangeRate) * 100) / 100;
-    }
-
-    // Validate amounts
-    if (data.amountSYP <= 0) {
-      throw new Error('Payment amount must be greater than 0');
-    }
-    if (data.amountUSD !== undefined && data.amountUSD <= 0) {
-      throw new Error('Payment amount in USD must be greater than 0');
-    }
-
-    // Validate invoice exists and belongs to tenant
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: data.invoiceId, tenantId },
-    });
-
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    if (invoice.status === 'DRAFT') {
-      throw new Error('Cannot make payment for a draft invoice');
-    }
-
-    // Ensure default accounts exist for journal entries
-    await ensureDefaultAccounts(tenantId);
+    const amounts = await normalizePaymentAmounts(tenantId, data.amountSYP, data.amountUSD);
+    const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+    if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date');
 
     // Create payment + journal entry in one transaction
     const payment = await prisma.$transaction(async (tx) => {
+      // Validate invoice exists and belongs to tenant
+      const invoice = await tx.invoice.findFirst({ where: { id: data.invoiceId, tenantId } });
+      if (!invoice) throw new Error('Invoice not found');
+      if (invoice.status === InvoiceStatus.DRAFT) throw new Error('Cannot make payment for a draft invoice');
+      if (invoice.status === InvoiceStatus.CANCELLED) throw new Error('Cannot pay a cancelled invoice');
+
+      const paidBefore = await tx.payment.aggregate({
+        where: { tenantId, invoiceId: data.invoiceId, deletedAt: null },
+        _sum: { amountSYP: true, amountUSD: true },
+      });
+      const paidBeforeSYP = Number(paidBefore._sum.amountSYP || 0);
+      const paidBeforeUSD = Number(paidBefore._sum.amountUSD || 0);
+      if (invoice.totalUSD != null && Number(invoice.totalUSD) > 0) {
+        if (paidBeforeUSD + amounts.amountUSD > Number(invoice.totalUSD) + 0.005) throw new Error('Payment exceeds the remaining invoice balance');
+      } else if (paidBeforeSYP + amounts.amountSYP > Number(invoice.totalSYP) + 0.01) {
+        throw new Error('Payment exceeds the remaining invoice balance');
+      }
+
+      // Ensure default accounts exist for journal entries
+      await ensureDefaultAccounts(tenantId, tx);
       // Create payment
       const createdPayment = await tx.payment.create({
         data: {
           tenantId,
           invoiceId: data.invoiceId,
-          amountSYP: data.amountSYP,
-          amountUSD: data.amountUSD,
-          paymentDate: data.paymentDate,
+          amountSYP: amounts.amountSYP,
+          amountUSD: amounts.amountUSD,
+          paymentDate,
           paymentMethod: data.paymentMethod,
           reference: data.reference,
           notes: data.notes,
           cashRegisterSessionId: data.cashRegisterSessionId,
         },
       });
-
-      // Update invoice paid amount
-      const currentPaidSYP = Number(invoice.paidSYP);
-      const currentPaidUSD = Number(invoice.paidUSD);
-      const newPaidSYP = currentPaidSYP + data.amountSYP;
-      const newPaidUSD = data.amountUSD ? currentPaidUSD + data.amountUSD : currentPaidUSD;
-
+      const paidAfter = await tx.payment.aggregate({
+        where: { tenantId, invoiceId: data.invoiceId, deletedAt: null },
+        _sum: { amountSYP: true, amountUSD: true },
+      });
+      const paidSYP = Number(paidAfter._sum.amountSYP || 0);
+      const paidUSD = Number(paidAfter._sum.amountUSD || 0);
+      const status = getInvoicePaymentStatus(invoice, paidSYP, paidUSD);
+      // Update invoice paid amount and status
       await tx.invoice.update({
         where: { id: data.invoiceId },
-        data: {
-          paidSYP: newPaidSYP,
-          paidUSD: newPaidUSD,
-        },
+        data: { paidSYP, paidUSD, status },
       });
 
-      // Update invoice status if fully paid — check BOTH currencies
-      // (a USD-paid invoice must be able to reach PAID)
-      const totalSYP = Number(invoice.totalSYP);
-      const totalUSD = invoice.totalUSD != null ? Number(invoice.totalUSD) : null;
-      const fullyPaidSYP = newPaidSYP >= totalSYP;
-      const fullyPaidUSD = totalUSD != null && totalUSD > 0 && newPaidUSD >= totalUSD;
-      if (fullyPaidSYP || fullyPaidUSD) {
-        await tx.invoice.update({
-          where: { id: data.invoiceId },
-          data: { status: 'PAID' as any },
-        });
-      } else {
-        await tx.invoice.update({
-          where: { id: data.invoiceId },
-          data: { status: 'PARTIALLY_PAID' as any },
-        });
-      }
-
-      return createdPayment;
-    });
-
-    // Create auto-journal entry for payment (outside transaction since accounts already ensured)
-    try {
-      const paymentWithInvoice = await prisma.payment.findUnique({
-        where: { id: payment.id },
+      const paymentWithInvoice = await tx.payment.findUnique({
+        where: { id: createdPayment.id },
         include: { invoice: true },
       });
-
-      if (paymentWithInvoice) {
-        await createPaymentReceivedJournalEntry(paymentWithInvoice, tenantId, userId);
-      }
-    } catch (error) {
-      Logger.error('Error creating journal entry for payment:', error);
-    }
+      if (!paymentWithInvoice) throw new Error('Created payment could not be reloaded');
+      await createPaymentReceivedJournalEntry(paymentWithInvoice, tenantId, userId, tx);
+      return createdPayment;
+    }, { isolationLevel: 'Serializable' });
 
     // Send WhatsApp payment confirmation
     setImmediate(async () => {
@@ -304,33 +297,91 @@ export class PaymentService {
    * Update payment
    * Only allowed if invoice is not fully paid
    */
-  async updatePayment(tenantId: string, paymentId: string, data: UpdatePaymentDto): Promise<Payment> {
-    const existingPayment = await prisma.payment.findFirst({
-      where: { id: paymentId, tenantId },
-      include: { invoice: true },
-    });
+  async updatePayment(tenantId: string, paymentId: string, data: UpdatePaymentDto, userId?: string): Promise<Payment> {
+    const payment = await prisma.$transaction(async (tx) => {
+      const existing = await tx.payment.findFirst({
+        where: { id: paymentId, tenantId },
+        include: { invoice: true },
+      });
+      if (!existing) throw new Error('Payment not found');
+      if (!existing.invoice) throw new Error('Payment invoice not found');
 
-    if (!existingPayment) {
-      throw new Error('Payment not found');
-    }
+      const amountChanged = data.amountSYP !== undefined || data.amountUSD !== undefined;
+      const amounts = amountChanged
+        ? await normalizePaymentAmounts(tenantId, data.amountSYP, data.amountUSD)
+        : { amountSYP: Number(existing.amountSYP), amountUSD: Number(existing.amountUSD || 0) };
+      const paymentDate = data.paymentDate ? new Date(data.paymentDate) : existing.paymentDate;
+      if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date');
 
-    // Update payment
-    const payment = await prisma.payment.update({
-      where: { id: paymentId },
-      data: {
-        paymentDate: data.paymentDate,
-        amountSYP: data.amountSYP,
-        amountUSD: data.amountUSD,
-        paymentMethod: data.paymentMethod,
-        reference: data.reference,
-        notes: data.notes,
-      },
-      include: {
-        invoice: true,
-        CashRegisterSession: true,
-      },
-    });
+      const journalChanged = amountChanged || data.paymentMethod !== undefined || data.paymentDate !== undefined || data.reference !== undefined;
+      if (journalChanged) {
+        const journalEntries = await tx.journalEntry.findMany({
+          where: {
+            tenantId,
+            isReversed: false,
+            OR: [
+              { sourceType: 'PAYMENT', sourceId: paymentId },
+              { sourceType: 'PAYMENT_UPDATE', sourceId: { startsWith: `${paymentId}:` } },
+            ],
+          },
+        });
+        for (const entry of journalEntries) {
+          await reverseJournalEntry(entry.id, 'Payment corrected', tenantId, userId || null, tx);
+        }
+        await ensureDefaultAccounts(tenantId, tx);
+      }
 
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          paymentDate,
+          amountSYP: amounts.amountSYP,
+          amountUSD: amounts.amountUSD,
+          paymentMethod: data.paymentMethod,
+          reference: data.reference,
+          notes: data.notes,
+        },
+      });
+      const paidAfter = await tx.payment.aggregate({
+        where: { tenantId, invoiceId: existing.invoiceId, deletedAt: null },
+        _sum: { amountSYP: true, amountUSD: true },
+      });
+      const paidSYP = Number(paidAfter._sum.amountSYP || 0);
+      const paidUSD = Number(paidAfter._sum.amountUSD || 0);
+      if (existing.invoice.totalUSD != null && Number(existing.invoice.totalUSD) > 0) {
+        if (paidUSD > Number(existing.invoice.totalUSD) + 0.005) throw new Error('Payment exceeds the remaining invoice balance');
+      } else if (paidSYP > Number(existing.invoice.totalSYP) + 0.01) {
+        throw new Error('Payment exceeds the remaining invoice balance');
+      }
+      const status = getInvoicePaymentStatus(existing.invoice, paidSYP, paidUSD);
+      await tx.invoice.update({
+        where: { id: existing.invoiceId },
+        data: { paidSYP, paidUSD, status },
+      });
+
+      if (journalChanged) {
+        const paymentWithInvoice = await tx.payment.findUnique({
+          where: { id: paymentId },
+          include: { invoice: true },
+        });
+        if (!paymentWithInvoice) throw new Error('Updated payment could not be reloaded');
+        await createPaymentReceivedJournalEntry(
+          paymentWithInvoice,
+          tenantId,
+          userId || null,
+          tx,
+          'PAYMENT_UPDATE',
+          `${paymentId}:${randomUUID()}`
+        );
+      }
+
+      return tx.payment.findUnique({
+        where: { id: updatedPayment.id },
+        include: { invoice: true, CashRegisterSession: true },
+      });
+    }, { isolationLevel: 'Serializable' });
+
+    if (!payment) throw new Error('Updated payment could not be reloaded');
     return this.mapToPaymentResponse(payment);
   }
 
@@ -338,62 +389,45 @@ export class PaymentService {
    * Delete payment
    * Reverses the payment amount from invoice
    */
-  async deletePayment(tenantId: string, paymentId: string): Promise<void> {
-    const payment = await prisma.payment.findFirst({
-      where: { id: paymentId, tenantId },
-      include: { invoice: true },
-    });
-
-    if (!payment) {
-      throw new Error('Payment not found');
-    }
-
+  async deletePayment(tenantId: string, paymentId: string, userId?: string): Promise<void> {
     await prisma.$transaction(async (tx) => {
-      // Reverse invoice paid amount
-      if (payment.invoice) {
-        const currentPaidSYP = Number(payment.invoice.paidSYP);
-        const currentPaidUSD = Number(payment.invoice.paidUSD);
-        const newPaidSYP = currentPaidSYP - Number(payment.amountSYP);
-        const newPaidUSD = payment.amountUSD ? currentPaidUSD - Number(payment.amountUSD) : currentPaidUSD;
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, tenantId },
+        include: { invoice: true },
+      });
+      if (!payment) throw new Error('Payment not found');
+      if (!payment.invoice) throw new Error('Payment invoice not found');
 
-        await tx.invoice.update({
-          where: { id: payment.invoiceId },
-          data: {
-            paidSYP: Math.max(0, newPaidSYP),
-            paidUSD: Math.max(0, newPaidUSD),
-          },
-        });
-
-        // Update invoice status — check BOTH currencies
-        const totalSYP = Number(payment.invoice.totalSYP);
-        const totalUSD = payment.invoice.totalUSD != null ? Number(payment.invoice.totalUSD) : null;
-        const unpaidSYP = newPaidSYP <= 0;
-        const unpaidUSD = totalUSD == null || totalUSD <= 0 || newPaidUSD <= 0;
-        const fullyPaidSYP = newPaidSYP >= totalSYP;
-        const fullyPaidUSD = totalUSD != null && totalUSD > 0 && newPaidUSD >= totalUSD;
-        if (unpaidSYP && unpaidUSD) {
-          await tx.invoice.update({
-            where: { id: payment.invoiceId },
-            data: { status: 'ISSUED' as any },
-          });
-        } else if (fullyPaidSYP || fullyPaidUSD) {
-          await tx.invoice.update({
-            where: { id: payment.invoiceId },
-            data: { status: 'PAID' as any },
-          });
-        } else {
-          await tx.invoice.update({
-            where: { id: payment.invoiceId },
-            data: { status: 'PARTIALLY_PAID' as any },
-          });
-        }
+      const journalEntries = await tx.journalEntry.findMany({
+        where: {
+          tenantId,
+          isReversed: false,
+          OR: [
+            { sourceType: 'PAYMENT', sourceId: paymentId },
+            { sourceType: 'PAYMENT_UPDATE', sourceId: { startsWith: `${paymentId}:` } },
+          ],
+        },
+      });
+      for (const entry of journalEntries) {
+        await reverseJournalEntry(entry.id, 'Payment deleted', tenantId, userId || null, tx);
       }
 
-      // Delete payment
-      await tx.payment.delete({
-        where: { id: paymentId },
+      await tx.payment.update({ where: { id: paymentId }, data: { deletedAt: new Date() } });
+      const paidAfter = await tx.payment.aggregate({
+        where: { tenantId, invoiceId: payment.invoiceId, deletedAt: null },
+        _sum: { amountSYP: true, amountUSD: true },
       });
-    });
+      const paidSYP = Number(paidAfter._sum.amountSYP || 0);
+      const paidUSD = Number(paidAfter._sum.amountUSD || 0);
+      await tx.invoice.update({
+        where: { id: payment.invoiceId },
+        data: {
+          paidSYP,
+          paidUSD,
+          status: getInvoicePaymentStatus(payment.invoice, paidSYP, paidUSD),
+        },
+      });
+    }, { isolationLevel: 'Serializable' });
   }
 
   /**

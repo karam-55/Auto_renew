@@ -103,13 +103,13 @@ export class PartController {
   updateQuantity = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { quantityChange } = req.body;
+      const { quantityChange, reason } = req.body;
 
       if (typeof quantityChange !== 'number') {
         return res.status(400).json({ error: 'quantityChange must be a number' });
       }
 
-      const part = await this.partService.updateQuantity(id, req.user!.tenantId, quantityChange);
+      const part = await this.partService.updateQuantity(id, req.user!.tenantId, quantityChange, req.user!.id, reason);
       res.json({ part });
     } catch (error: any) {
       Logger.error('Update quantity error:', error);
@@ -120,7 +120,7 @@ export class PartController {
   stockIntake = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const part = await this.partService.stockIntake(id, req.user!.tenantId, req.body);
+      const part = await this.partService.stockIntake(id, req.user!.tenantId, req.body, req.user!.id);
       res.json({ part });
     } catch (error: any) {
       Logger.error('Stock intake error:', error);

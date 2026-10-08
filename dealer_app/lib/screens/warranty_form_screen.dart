@@ -27,6 +27,13 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
   int _durationMonths = 12;
   bool _loading = false;
   String _currency = 'SYP'; // SYP or USD
+  String _engineType = 'GASOLINE';
+
+  final _engineTypes = [
+    {'value': 'GASOLINE', 'label': 'بنزين'},
+    {'value': 'HYBRID', 'label': 'هجين'},
+    {'value': 'ELECTRIC', 'label': 'كهربائي'},
+  ];
 
   bool get _isEditMode => widget.warranty != null;
 
@@ -52,6 +59,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       _colorCtrl.text = w['color'] ?? '';
       _amountCtrl.text = w['amountPaid']?.toString() ?? '';
       _durationMonths = w['durationMonths'] ?? 12;
+      _engineType = w['engineType'] ?? 'GASOLINE';
     } else if (widget.customer != null) {
       final c = widget.customer!;
       _nameCtrl.text = c['customerName'] ?? '';
@@ -98,6 +106,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
         'durationMonths': _durationMonths,
         'amountPaid': double.parse(_amountCtrl.text.trim()),
         'currency': _currency,
+        'engineType': _engineType,
       };
 
       final warranty = _isEditMode
@@ -160,6 +169,35 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
             _buildField(_plateCtrl, 'رقم اللوحة', Icons.pin),
             const SizedBox(height: 12),
             _buildField(_mileageCtrl, 'عداد السيارة (كم)', Icons.speed, type: TextInputType.number),
+            const SizedBox(height: 24),
+            _buildSectionTitle('نوع المحرك'),
+            Row(
+              children: _engineTypes.map((t) {
+                final selected = _engineType == t['value'];
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _engineType = t['value'] as String),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.primary : AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: selected ? AppColors.primary : AppColors.border),
+                      ),
+                      child: Text(
+                        t['label'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: selected ? Colors.white : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
             const SizedBox(height: 24),
             _buildSectionTitle('مدة الكفالة'),
             Row(

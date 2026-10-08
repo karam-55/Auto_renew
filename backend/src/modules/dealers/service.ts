@@ -1,15 +1,42 @@
-import { PrismaClient, DealerStatus } from '@prisma/client';
+import { DealerStatus, DealerWarrantyEngineType, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Logger } from '../../infrastructure/logging/logger';
 import { generateWarrantyPdf } from './pdf-generator';
 import { WhatsAppService } from '../whatsapp/service';
 import { WhatChimpService } from '../whatsapp/whatchimp.service';
-
-const prisma = new PrismaClient();
+import prisma from '../../config/database';
+import settingsService from '../../services/settings.service';
+import {
+  createDealerWarrantyReceiptJournalEntry,
+  ensureDefaultAccounts,
+  reverseJournalEntry,
+} from '../accounting/automatic-journal-entries';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export class DealerService {
+  private async calculateWarrantyShares(
+    tenantId: string,
+    amountPaid: number,
+    currency: string,
+    engineType: DealerWarrantyEngineType,
+    companyShareOverrideUSD?: number
+  ) {
+    if (!['SYP', 'USD'].includes(currency)) throw new Error('Warranty payment currency must be SYP or USD');
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const customerPaidUSD = currency === 'USD'
+      ? Math.round(amountPaid * 100) / 100
+      : Math.round((amountPaid / exchangeRate) * 100) / 100;
+    const companyShareUSD = companyShareOverrideUSD ??
+      (engineType === DealerWarrantyEngineType.GASOLINE ? 600 : 300);
+    if (!Number.isFinite(companyShareUSD) || companyShareUSD <= 0) throw new Error('Invalid company warranty share');
+    if (customerPaidUSD + 0.005 < companyShareUSD) throw new Error('Customer-paid warranty price is below the company share');
+    return {
+      customerPaidUSD,
+      companyShareUSD,
+      dealerShareUSD: Math.round((customerPaidUSD - companyShareUSD) * 100) / 100,
+    };
+  }
   async register(data: { name: string; phone: string; password: string; companyName: string; address?: string; tenantId: string }) {
     const existing = await prisma.dealer.findFirst({
       where: { phone: data.phone, deletedAt: null },
@@ -170,6 +197,7 @@ export class DealerService {
     durationMonths: number;
     amountPaid: number;
     currency?: string;
+    engineType: DealerWarrantyEngineType;
     pdfUrl?: string;
   }) {
     const dealer = await prisma.dealer.findFirst({
@@ -178,6 +206,12 @@ export class DealerService {
     if (!dealer) {
       throw new Error('Dealer not found');
     }
+    if (!Object.values(DealerWarrantyEngineType).includes(data.engineType)) {
+      throw new Error('Engine type is required (GASOLINE, HYBRID, or ELECTRIC)');
+    }
+    if (!Number.isFinite(data.amountPaid) || data.amountPaid < 0) throw new Error('Invalid customer-paid warranty amount');
+    const currency = data.currency || 'SYP';
+    const shares = await this.calculateWarrantyShares(dealer.tenantId, data.amountPaid, currency, data.engineType);
 
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -198,7 +232,11 @@ export class DealerService {
         color: data.color,
         durationMonths: data.durationMonths,
         amountPaid: data.amountPaid,
-        currency: data.currency || 'SYP',
+        currency,
+        engineType: data.engineType,
+        customerPaidUSD: shares.customerPaidUSD,
+        companyShareUSD: shares.companyShareUSD,
+        dealerShareUSD: shares.dealerShareUSD,
         startDate,
         endDate,
         pdfUrl: data.pdfUrl,
@@ -252,19 +290,25 @@ export class DealerService {
     return prisma.dealerWarranty.findMany({
       where: { dealerId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: { dealer: { select: { name: true, companyName: true } } },
+      include: {
+        dealer: { select: { name: true, companyName: true } },
+        receipts: { where: { deletedAt: null }, orderBy: { paymentDate: 'desc' } },
+      },
     });
   }
 
   async getWarrantyById(id: string, dealerId: string) {
     return prisma.dealerWarranty.findFirst({
       where: { id, dealerId, deletedAt: null },
-      include: { dealer: { select: { name: true, companyName: true, phone: true } } },
+      include: {
+        dealer: { select: { name: true, companyName: true, phone: true } },
+        receipts: { where: { deletedAt: null }, orderBy: { paymentDate: 'desc' } },
+      },
     });
   }
 
   async getDealerStats(dealerId: string) {
-    const [totalWarranties, activeWarranties, uniqueCustomers, warranties] = await Promise.all([
+    const [totalWarranties, activeWarranties, uniqueCustomers, warranties, receiptTotals] = await Promise.all([
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null } }),
       prisma.dealerWarranty.count({ where: { dealerId, deletedAt: null, endDate: { gte: new Date() } } }),
       prisma.dealerWarranty.groupBy({
@@ -273,28 +317,32 @@ export class DealerService {
       }),
       prisma.dealerWarranty.findMany({
         where: { dealerId, deletedAt: null },
-        select: { amountPaid: true, currency: true },
-      }) as Promise<Array<{ amountPaid: any; currency: string | null }>>,
+        select: { companyShareUSD: true, dealerShareUSD: true },
+      }),
+      prisma.dealerWarrantyReceipt.aggregate({
+        where: { deletedAt: null, dealerWarranty: { dealerId, deletedAt: null } },
+        _sum: { amountUSD: true, amountSYP: true },
+      }),
     ]);
 
-    // Client-side aggregation to support old DB without currency column
-    let totalRevenueSYP = 0;
-    let totalRevenueUSD = 0;
+    let totalCompanyShareUSD = 0;
+    let totalDealerShareUSD = 0;
     for (const w of warranties) {
-      const amt = Number(w.amountPaid) || 0;
-      if (w.currency === 'USD') {
-        totalRevenueUSD += amt;
-      } else {
-        totalRevenueSYP += amt; // Default SYP for old records
-      }
+      totalCompanyShareUSD += Number(w.companyShareUSD) || 0;
+      totalDealerShareUSD += Number(w.dealerShareUSD) || 0;
     }
+    const collectedUSD = Number(receiptTotals._sum.amountUSD) || 0;
+    const collectedSYP = Number(receiptTotals._sum.amountSYP) || 0;
 
     return {
       totalWarranties,
       activeWarranties,
       totalCustomers: uniqueCustomers.length,
-      totalRevenueSYP,
-      totalRevenueUSD,
+      totalRevenueSYP: collectedSYP,
+      totalRevenueUSD: collectedUSD,
+      totalCompanyShareUSD,
+      totalDealerShareUSD,
+      outstandingCompanyShareUSD: Math.round((totalCompanyShareUSD - collectedUSD) * 100) / 100,
     };
   }
 
@@ -309,24 +357,33 @@ export class DealerService {
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + (data.durationMonths || existing.durationMonths));
 
-    return prisma.dealerWarranty.update({
-      where: { id },
-      data: {
-        customerName: data.customerName ?? existing.customerName,
-        customerPhone: data.customerPhone ?? existing.customerPhone,
-        manufacturer: data.manufacturer ?? existing.manufacturer,
-        vehicleModel: data.vehicleModel ?? existing.vehicleModel,
-        vehicleYear: data.vehicleYear ?? existing.vehicleYear,
-        chassisNumber: data.chassisNumber ?? existing.chassisNumber,
-        plateNumber: data.plateNumber ?? existing.plateNumber,
-        mileage: data.mileage ?? existing.mileage,
-        color: data.color ?? existing.color,
-        durationMonths: data.durationMonths ?? existing.durationMonths,
-        amountPaid: data.amountPaid ?? existing.amountPaid,
-        currency: data.currency ?? existing.currency,
-        endDate: data.durationMonths ? endDate : existing.endDate,
-      },
-    });
+    const engineType = data.engineType ?? existing.engineType;
+    const amountPaid = data.amountPaid ?? Number(existing.amountPaid);
+    const currency = data.currency ?? existing.currency;
+    const updates: any = {
+      customerName: data.customerName ?? existing.customerName,
+      customerPhone: data.customerPhone ?? existing.customerPhone,
+      manufacturer: data.manufacturer ?? existing.manufacturer,
+      vehicleModel: data.vehicleModel ?? existing.vehicleModel,
+      vehicleYear: data.vehicleYear ?? existing.vehicleYear,
+      chassisNumber: data.chassisNumber ?? existing.chassisNumber,
+      plateNumber: data.plateNumber ?? existing.plateNumber,
+      mileage: data.mileage ?? existing.mileage,
+      color: data.color ?? existing.color,
+      durationMonths: data.durationMonths ?? existing.durationMonths,
+      amountPaid,
+      currency,
+      endDate: data.durationMonths ? endDate : existing.endDate,
+    };
+    if (engineType) {
+      const shares = await this.calculateWarrantyShares(existing.tenantId, amountPaid, currency, engineType);
+      updates.engineType = engineType;
+      updates.customerPaidUSD = shares.customerPaidUSD;
+      updates.companyShareUSD = shares.companyShareUSD;
+      updates.dealerShareUSD = shares.dealerShareUSD;
+    }
+
+    return prisma.dealerWarranty.update({ where: { id }, data: updates });
   }
 
   async deleteWarranty(id: string, dealerId: string) {
@@ -356,12 +413,17 @@ export class DealerService {
     durationMonths: number;
     amountPaid: number;
     currency?: string;
+    engineType: DealerWarrantyEngineType;
+    companyShareUSD?: number;
     pdfUrl?: string;
   }) {
     // Validate required fields
     if (!data?.customerName || !data?.customerPhone || !data?.manufacturer ||
         !data?.vehicleModel || !data?.chassisNumber || !data?.plateNumber || !data?.color) {
       throw new Error('Missing required fields');
+    }
+    if (!Object.values(DealerWarrantyEngineType).includes(data.engineType)) {
+      throw new Error('Engine type is required (GASOLINE, HYBRID, or ELECTRIC)');
     }
     if (!Number.isFinite(data.vehicleYear) || data.vehicleYear < 1900 || data.vehicleYear > 2100) {
       throw new Error('Invalid vehicle year');
@@ -383,6 +445,11 @@ export class DealerService {
       throw new Error('Dealer not found');
     }
 
+    const currency = data.currency || 'SYP';
+    const shares = await this.calculateWarrantyShares(
+      dealer.tenantId, data.amountPaid, currency, data.engineType, data.companyShareUSD
+    );
+
     const startDate = new Date();
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + data.durationMonths);
@@ -402,7 +469,11 @@ export class DealerService {
         color: data.color,
         durationMonths: data.durationMonths,
         amountPaid: data.amountPaid,
-        currency: data.currency || 'SYP',
+        currency,
+        engineType: data.engineType,
+        customerPaidUSD: shares.customerPaidUSD,
+        companyShareUSD: shares.companyShareUSD,
+        dealerShareUSD: shares.dealerShareUSD,
         startDate,
         endDate,
         pdfUrl: data.pdfUrl,
@@ -451,24 +522,38 @@ export class DealerService {
     const endDate = new Date(existing.startDate);
     endDate.setMonth(endDate.getMonth() + durationMonths);
 
-    return prisma.dealerWarranty.update({
-      where: { id },
-      data: {
-        customerName: data.customerName ?? existing.customerName,
-        customerPhone: data.customerPhone ?? existing.customerPhone,
-        manufacturer: data.manufacturer ?? existing.manufacturer,
-        vehicleModel: data.vehicleModel ?? existing.vehicleModel,
-        vehicleYear: data.vehicleYear ?? existing.vehicleYear,
-        chassisNumber: data.chassisNumber ?? existing.chassisNumber,
-        plateNumber: data.plateNumber ?? existing.plateNumber,
-        mileage: data.mileage ?? existing.mileage,
-        color: data.color ?? existing.color,
-        durationMonths: data.durationMonths ?? existing.durationMonths,
-        amountPaid: data.amountPaid !== undefined ? data.amountPaid : existing.amountPaid,
-        currency: data.currency ?? existing.currency,
-        endDate: data.durationMonths ? endDate : existing.endDate,
-      },
-    });
+    const engineType = data.engineType ?? existing.engineType;
+    const amountPaid = data.amountPaid !== undefined ? data.amountPaid : Number(existing.amountPaid);
+    const currency = data.currency ?? existing.currency;
+    const updates: any = {
+      customerName: data.customerName ?? existing.customerName,
+      customerPhone: data.customerPhone ?? existing.customerPhone,
+      manufacturer: data.manufacturer ?? existing.manufacturer,
+      vehicleModel: data.vehicleModel ?? existing.vehicleModel,
+      vehicleYear: data.vehicleYear ?? existing.vehicleYear,
+      chassisNumber: data.chassisNumber ?? existing.chassisNumber,
+      plateNumber: data.plateNumber ?? existing.plateNumber,
+      mileage: data.mileage ?? existing.mileage,
+      color: data.color ?? existing.color,
+      durationMonths: data.durationMonths ?? existing.durationMonths,
+      amountPaid,
+      currency,
+      endDate: data.durationMonths ? endDate : existing.endDate,
+    };
+    if (engineType) {
+      if (!Object.values(DealerWarrantyEngineType).includes(engineType)) {
+        throw new Error('Invalid engine type');
+      }
+      const shares = await this.calculateWarrantyShares(
+        tenantId, amountPaid, currency, engineType, data.companyShareUSD
+      );
+      updates.engineType = engineType;
+      updates.customerPaidUSD = shares.customerPaidUSD;
+      updates.companyShareUSD = shares.companyShareUSD;
+      updates.dealerShareUSD = shares.dealerShareUSD;
+    }
+
+    return prisma.dealerWarranty.update({ where: { id }, data: updates });
   }
 
   async adminDeleteWarranty(id: string, tenantId: string) {
@@ -480,6 +565,111 @@ export class DealerService {
     }
     return prisma.dealerWarranty.delete({
       where: { id },
+    });
+  }
+
+  // ===== Dealer Warranty Settlement Receipts =====
+
+  async getWarrantyReceipts(warrantyId: string, tenantId: string) {
+    const warranty = await prisma.dealerWarranty.findFirst({
+      where: { id: warrantyId, tenantId, deletedAt: null },
+    });
+    if (!warranty) throw new Error('Warranty not found');
+    return prisma.dealerWarrantyReceipt.findMany({
+      where: { dealerWarrantyId: warrantyId, deletedAt: null },
+      orderBy: { paymentDate: 'desc' },
+    });
+  }
+
+  async recordWarrantyReceipt(warrantyId: string, tenantId: string, data: {
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    paymentDate?: string;
+    reference?: string;
+    notes?: string;
+    idempotencyKey?: string;
+    createdById?: string;
+  }) {
+    const warranty = await prisma.dealerWarranty.findFirst({
+      where: { id: warrantyId, tenantId, deletedAt: null },
+    });
+    if (!warranty) throw new Error('Warranty not found');
+    if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('Receipt amount must be greater than zero');
+    if (!['SYP', 'USD'].includes(data.currency)) throw new Error('Receipt currency must be SYP or USD');
+    if (!Object.values(PaymentMethod).includes(data.paymentMethod as PaymentMethod)) {
+      throw new Error('Invalid payment method');
+    }
+    const entitlementUSD = Number(warranty.companyShareUSD);
+    if (!Number.isFinite(entitlementUSD) || entitlementUSD <= 0) {
+      throw new Error('Warranty has no company share to collect');
+    }
+
+    if (data.idempotencyKey) {
+      const duplicate = await prisma.dealerWarrantyReceipt.findFirst({
+        where: { tenantId, idempotencyKey: data.idempotencyKey, deletedAt: null },
+      });
+      if (duplicate) return duplicate;
+    }
+
+    const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+    if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date');
+
+    return prisma.$transaction(async (tx) => {
+      const totals = await tx.dealerWarrantyReceipt.aggregate({
+        where: { dealerWarrantyId: warrantyId, deletedAt: null },
+        _sum: { amountUSD: true },
+      });
+      const collectedUSD = Number(totals._sum.amountUSD) || 0;
+      const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+      const amountUSD = data.currency === 'USD'
+        ? Math.round(data.amount * 100) / 100
+        : Math.round((data.amount / exchangeRate) * 100) / 100;
+      const amountSYP = data.currency === 'SYP'
+        ? Math.round(data.amount)
+        : Math.round(data.amount * exchangeRate);
+      if (collectedUSD + amountUSD - entitlementUSD > 0.005) {
+        throw new Error(`Receipt exceeds outstanding company share. Remaining: ${(entitlementUSD - collectedUSD).toFixed(2)} USD`);
+      }
+
+      await ensureDefaultAccounts(tenantId, tx);
+      const receipt = await tx.dealerWarrantyReceipt.create({
+        data: {
+          tenantId,
+          dealerWarrantyId: warrantyId,
+          amountSYP,
+          amountUSD,
+          paymentDate,
+          paymentMethod: data.paymentMethod as PaymentMethod,
+          reference: data.reference,
+          notes: data.notes,
+          idempotencyKey: data.idempotencyKey,
+          createdById: data.createdById,
+        },
+      });
+      await createDealerWarrantyReceiptJournalEntry(receipt, tenantId, data.createdById || null, tx);
+      return receipt;
+    });
+  }
+
+  async voidWarrantyReceipt(receiptId: string, tenantId: string, userId?: string) {
+    const receipt = await prisma.dealerWarrantyReceipt.findFirst({
+      where: { id: receiptId, tenantId, deletedAt: null },
+    });
+    if (!receipt) throw new Error('Receipt not found');
+
+    return prisma.$transaction(async (tx) => {
+      await tx.dealerWarrantyReceipt.update({
+        where: { id: receiptId },
+        data: { deletedAt: new Date() },
+      });
+      const journal = await tx.journalEntry.findFirst({
+        where: { tenantId, sourceType: 'DEALER_WARRANTY_RECEIPT', sourceId: receiptId, isReversed: false, deletedAt: null },
+      });
+      if (journal) {
+        await reverseJournalEntry(journal.id, 'Warranty receipt voided', tenantId, userId || null, tx);
+      }
+      return { success: true };
     });
   }
 }

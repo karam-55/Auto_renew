@@ -17,7 +17,6 @@ build/
 .env.production
 
 # Prisma
-prisma/migrations/
 
 # Logs
 logs/

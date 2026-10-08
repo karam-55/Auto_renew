@@ -5,13 +5,13 @@ import { AppLayout } from '../components/layout'
 
 export class ServicesScreen {
   private allCategories: any[] = []
-  private exchangeRate: number = 15000
+  private exchangeRate: number = 0
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
   private async loadExchangeRate() {
     try {
-      const res = await this.api.get<any>('/api/settings')
+      const res = await this.api.get<any>('/api/settings/exchange-rate', false)
       if (res.success && res.data && res.data.exchangeRate) {
         this.exchangeRate = Number(res.data.exchangeRate)
       }
@@ -421,6 +421,7 @@ export class ServicesScreen {
   }
 
   private async loadServices(el: HTMLElement, callback?: (services: any[]) => void) {
+    await this.loadExchangeRate()
     try {
       const res = await this.api.get<any>('/api/services')
       const tbody = el.querySelector('#services-tbody')!
@@ -453,11 +454,11 @@ export class ServicesScreen {
           <div class="text-sm text-text-tertiary">${s.description || ''}</div>
         </td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.category || '-'}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${s.priceSYP ? Number(s.priceSYP).toLocaleString() + ' ل.س' : '-'}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${s.priceUSD ? '$' + Number(s.priceUSD).toLocaleString() : '-'}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${s.laborCostSYP ? Number(s.laborCostSYP).toLocaleString() + ' ل.س' : '-'}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${s.materialCostSYP ? Number(s.materialCostSYP).toLocaleString() + ' ل.س' : '-'}</td>
-        <td class="px-6 py-4 font-body-md text-on-surface">${s.profitAmountSYP ? Number(s.profitAmountSYP).toLocaleString() + ' ل.س' : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.priceUSD != null && this.exchangeRate > 0 ? Math.round(Number(s.priceUSD) * this.exchangeRate).toLocaleString() + ' ل.س' : s.priceSYP ? Number(s.priceSYP).toLocaleString() + ' ل.س' : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.priceUSD != null ? '$' + Number(s.priceUSD).toFixed(2) : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.laborCostUSD != null && this.exchangeRate > 0 ? Math.round(Number(s.laborCostUSD) * this.exchangeRate).toLocaleString() + ' ل.س' : s.laborCostSYP ? Number(s.laborCostSYP).toLocaleString() + ' ل.س' : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.materialCostUSD != null && this.exchangeRate > 0 ? Math.round(Number(s.materialCostUSD) * this.exchangeRate).toLocaleString() + ' ل.س' : s.materialCostSYP ? Number(s.materialCostSYP).toLocaleString() + ' ل.س' : '-'}</td>
+        <td class="px-6 py-4 font-body-md text-on-surface">${s.profitAmountUSD != null && this.exchangeRate > 0 ? Math.round(Number(s.profitAmountUSD) * this.exchangeRate).toLocaleString() + ' ل.س' : s.profitAmountSYP ? Number(s.profitAmountSYP).toLocaleString() + ' ل.س' : '-'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.loyaltyPoints || 0}</td>
         <td class="px-6 py-4" title="${s.hasWarranty ? ((s.warrantyDescription || '') + (s.warrantyTerms ? ' | ' + s.warrantyTerms : '')) : ''}">${s.hasWarranty ? '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-tertiary/10 text-tertiary">نعم</span>' : '<span class="inline-flex items-center px-2 py-1 rounded-full font-label-sm text-label-sm bg-surface-container-high text-text-secondary">لا</span>'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.hasWarranty ? (s.warrantyDescription || '-') : '-'}</td>
@@ -548,6 +549,24 @@ export class ServicesScreen {
     profitTypePercentage?.addEventListener('change', toggleProfitInputs)
     profitTypeFixed?.addEventListener('change', toggleProfitInputs)
 
+    const wirePair = (syp: HTMLInputElement | null, usd: HTMLInputElement | null, markPrice = false) => {
+      if (!syp || !usd) return
+      syp.addEventListener('input', () => {
+        const value = parseFloat(syp.value)
+        if (!isNaN(value) && value >= 0 && this.exchangeRate > 0) usd.value = String(Math.round((value / this.exchangeRate) * 100) / 100)
+        if (markPrice) { syp.dataset.userEdited = 'true'; usd.dataset.userEdited = 'true' }
+      })
+      usd.addEventListener('input', () => {
+        const value = parseFloat(usd.value)
+        if (!isNaN(value) && value >= 0 && this.exchangeRate > 0) syp.value = String(Math.round(value * this.exchangeRate))
+        if (markPrice) { usd.dataset.userEdited = 'true'; syp.dataset.userEdited = 'true' }
+      })
+    }
+    wirePair(laborCostSYP, laborCostUSD)
+    wirePair(materialCostSYP, materialCostUSD)
+    wirePair(profitSYP, profitUSD)
+    wirePair(priceSYP, priceUSD, true)
+
     // Price calculation:
     // percentage: Price = (labor + material) × (1 + profitMargin/100)
     // fixed: Price = (labor + material) + profitAmount
@@ -589,26 +608,17 @@ export class ServicesScreen {
       }
     }
 
-    const convertSYPtoUSD = () => {
-      const syp = parseFloat(priceSYP?.value) || 0
-      if (syp > 0 && priceUSD && !priceUSD.dataset.userEdited) {
-        const usd = syp / this.exchangeRate
-        priceUSD.value = String(usd.toFixed(2))
-      }
-    }
-
     // Mark price as user-edited when manually changed
     priceSYP?.addEventListener('input', () => { priceSYP.dataset.userEdited = 'true' })
     priceUSD?.addEventListener('input', () => { priceUSD.dataset.userEdited = 'true' })
 
-    laborCostSYP?.addEventListener('input', calcSYP)
-    materialCostSYP?.addEventListener('input', calcSYP)
-    laborCostUSD?.addEventListener('input', calcUSD)
-    materialCostUSD?.addEventListener('input', calcUSD)
+    laborCostSYP?.addEventListener('input', () => { calcSYP(); calcUSD() })
+    materialCostSYP?.addEventListener('input', () => { calcSYP(); calcUSD() })
+    laborCostUSD?.addEventListener('input', () => { calcSYP(); calcUSD() })
+    materialCostUSD?.addEventListener('input', () => { calcSYP(); calcUSD() })
     profitMargin?.addEventListener('input', () => { calcSYP(); calcUSD() })
-    profitSYP?.addEventListener('input', () => { calcSYP(); convertSYPtoUSD() })
-    profitUSD?.addEventListener('input', calcUSD)
-    priceSYP?.addEventListener('blur', convertSYPtoUSD)
+    profitSYP?.addEventListener('input', () => { calcSYP(); calcUSD() })
+    profitUSD?.addEventListener('input', () => { calcSYP(); calcUSD() })
   }
 
   private async loadDepartmentsForService(el: HTMLElement) {
@@ -844,13 +854,21 @@ export class ServicesScreen {
     title.textContent = service ? 'تعديل خدمة' : 'خدمة جديدة'
 
     ;(el.querySelector('#service-name') as HTMLInputElement).value = service?.name || ''
-    ;(el.querySelector('#service-price-syp') as HTMLInputElement).value = service?.priceSYP?.toString() || ''
+    ;(el.querySelector('#service-price-syp') as HTMLInputElement).value = service?.priceUSD != null && this.exchangeRate > 0
+      ? String(Math.round(Number(service.priceUSD) * this.exchangeRate))
+      : service?.priceSYP?.toString() || ''
     ;(el.querySelector('#service-price-usd') as HTMLInputElement).value = service?.priceUSD?.toString() || ''
-    ;(el.querySelector('#svc-labor-cost-syp') as HTMLInputElement).value = service?.laborCostSYP?.toString() || ''
+    ;(el.querySelector('#svc-labor-cost-syp') as HTMLInputElement).value = service?.laborCostUSD != null && this.exchangeRate > 0
+      ? String(Math.round(Number(service.laborCostUSD) * this.exchangeRate))
+      : service?.laborCostSYP?.toString() || ''
     ;(el.querySelector('#svc-labor-cost-usd') as HTMLInputElement).value = service?.laborCostUSD?.toString() || ''
-    ;(el.querySelector('#svc-material-cost-syp') as HTMLInputElement).value = service?.materialCostSYP?.toString() || ''
+    ;(el.querySelector('#svc-material-cost-syp') as HTMLInputElement).value = service?.materialCostUSD != null && this.exchangeRate > 0
+      ? String(Math.round(Number(service.materialCostUSD) * this.exchangeRate))
+      : service?.materialCostSYP?.toString() || ''
     ;(el.querySelector('#svc-material-cost-usd') as HTMLInputElement).value = service?.materialCostUSD?.toString() || ''
-    ;(el.querySelector('#svc-profit-syp') as HTMLInputElement).value = service?.profitAmountSYP?.toString() || ''
+    ;(el.querySelector('#svc-profit-syp') as HTMLInputElement).value = service?.profitAmountUSD != null && this.exchangeRate > 0
+      ? String(Math.round(Number(service.profitAmountUSD) * this.exchangeRate))
+      : service?.profitAmountSYP?.toString() || ''
     ;(el.querySelector('#svc-profit-usd') as HTMLInputElement).value = service?.profitAmountUSD?.toString() || ''
     ;(el.querySelector('#svc-profit-margin') as HTMLInputElement).value = service?.profitMargin?.toString() || '25'
     const profitType = service?.profitType || 'percentage'

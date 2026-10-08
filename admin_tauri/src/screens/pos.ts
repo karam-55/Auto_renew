@@ -2,13 +2,14 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
-import { loadExchangeRate, fmtUsd } from '../utils/currency'
+import { loadExchangeRate, sypFromUsd, fmtUsd } from '../utils/currency'
 
 export class PosScreen {
   private auth: AuthService
   private api: ApiClient
   private router: Router
-  private cart: { id: string; name: string; price: number; qty: number }[] = []
+  private cart: { id: string; name: string; price: number; priceUSD: number | null; qty: number }[] = []
+  private taxRate = 0
 
   constructor(auth: AuthService, api: ApiClient, router: Router) {
     this.auth = auth
@@ -95,7 +96,8 @@ export class PosScreen {
           const id = btn.getAttribute('data-product-id')!
           const name = btn.getAttribute('data-product-name') || '-'
           const price = parseFloat(btn.getAttribute('data-product-price') || '0')
-          this.addToCart(id, name, price)
+          const priceUSD = parseFloat(btn.getAttribute('data-product-price-usd') || '')
+          this.addToCart(id, name, price, Number.isFinite(priceUSD) ? priceUSD : null)
           this.renderCart(content)
         }
       })
@@ -114,12 +116,12 @@ export class PosScreen {
     return layout.render(content)
   }
 
-  private addToCart(id: string, name: string, price: number) {
+  private addToCart(id: string, name: string, price: number, priceUSD: number | null) {
     const existing = this.cart.find(item => item.id === id)
     if (existing) {
       existing.qty++
     } else {
-      this.cart.push({ id, name, price, qty: 1 })
+      this.cart.push({ id, name, price, priceUSD, qty: 1 })
     }
   }
 
@@ -138,10 +140,10 @@ export class PosScreen {
         <div class="flex items-center justify-between bg-surface-subtle rounded-lg p-3 border border-border">
           <div>
             <p class="font-body-md text-on-surface">${item.name}</p>
-            <p class="text-sm text-text-secondary">${item.qty} × ${item.price.toLocaleString('ar-SA')} ل.س</p>
+            <p class="text-sm text-text-secondary">${item.qty} × ${item.price.toLocaleString('ar-SA')} ل.س${item.priceUSD != null ? ` · $${fmtUsd(item.priceUSD)}` : ''}</p>
           </div>
           <div class="flex items-center gap-2">
-            <span class="font-body-md font-bold text-on-surface">${(item.qty * item.price).toLocaleString('ar-SA')}</span>
+            <span class="font-body-md font-bold text-on-surface">${(item.qty * item.price).toLocaleString('ar-SA')}${item.priceUSD != null ? ` · $${fmtUsd(item.qty * item.priceUSD)}` : ''}</span>
             <button class="touch-safe w-6 h-6 rounded hover:bg-error/10 text-error flex items-center justify-center" aria-label="إزالة المنتج من السلة" data-remove="${idx}">
               <span class="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
             </button>
@@ -159,12 +161,17 @@ export class PosScreen {
     }
 
     const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
-    const tax = Math.round(subtotal * 0.05)
+    const subtotalUSD = this.cart.every((item) => item.priceUSD != null)
+      ? this.cart.reduce((sum, item) => sum + (Number(item.priceUSD) * item.qty), 0)
+      : null
+    const tax = Math.round(subtotal * (this.taxRate / 100))
+    const taxUSD = subtotalUSD == null ? null : Math.round(subtotalUSD * (this.taxRate / 100) * 100) / 100
     const total = subtotal + tax
+    const totalUSD = subtotalUSD == null || taxUSD == null ? null : subtotalUSD + taxUSD
 
-    if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س`
-    if (taxEl) taxEl.textContent = `${tax.toLocaleString('ar-SA')} ل.س`
-    if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س`
+    if (subtotalEl) subtotalEl.textContent = `${subtotal.toLocaleString('ar-SA')} ل.س${subtotalUSD != null ? ` · $${fmtUsd(subtotalUSD)}` : ''}`
+    if (taxEl) taxEl.textContent = `${tax.toLocaleString('ar-SA')} ل.س${taxUSD != null ? ` · $${fmtUsd(taxUSD)}` : ''}`
+    if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س${totalUSD != null ? ` · $${fmtUsd(totalUSD)}` : ''}`
   }
 
   private checkout() {
@@ -185,12 +192,20 @@ export class PosScreen {
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.data || []
         if (items.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">shopping_basket</span><br/>لا توجد منتجات</div>'; return }
+        try {
+          const settings = await this.api.get<any>('/api/settings/exchange-rate', false)
+          this.taxRate = Number(settings.data?.taxRate || 0)
+        } catch {
+          this.taxRate = 0
+        }
         await loadExchangeRate(this.api)
         const colors = ['primary', 'secondary', 'tertiary', 'info', 'warning']
         const icons = ['oil_barrel', 'filter_alt', 'air', 'car_crash', 'build', 'handyman', 'inventory_2']
         grid.innerHTML = items.map((item: any, i: number) => {
           const color = colors[i % colors.length]
           const icon = icons[i % icons.length]
+          const priceUSD = item.sellingPriceUSD == null ? null : Number(item.sellingPriceUSD)
+          const priceSYP = priceUSD != null ? sypFromUsd(priceUSD) || Number(item.sellingPriceSYP || 0) : Number(item.sellingPriceSYP || 0)
           const colorCls: Record<string,string> = {
             primary: 'bg-primary-container/10 text-primary hover:bg-primary-container/20',
             secondary: 'bg-secondary/10 text-secondary hover:bg-secondary/20',
@@ -203,7 +218,7 @@ export class PosScreen {
             info: 'rgba(8,145,178,0.3)', warning: 'rgba(217,119,6,0.3)',
           }
           return `
-            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${item.id}" data-product-name="${item.name || '-'}" data-product-price="${item.sellingPriceSYP || 0}">
+            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${item.id}" data-product-name="${item.name || '-'}" data-product-price="${priceSYP}" data-product-price-usd="${priceUSD ?? ''}">
               <div class="absolute inset-x-0 top-0 h-1 bg-${color}"></div>
               <div class="w-12 h-12 rounded-xl ${colorCls[color]} flex items-center justify-center transition-all group-hover:scale-110" style="box-shadow:0 4px 12px ${glow[color]}">
                 <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">${icon}</span>
@@ -211,7 +226,7 @@ export class PosScreen {
               <div class="text-center">
                 <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${item.name || '-'}</h4>
                 ${item.sellingPriceUSD != null ? `<p class="text-sm text-text-tertiary font-semibold">$${fmtUsd(item.sellingPriceUSD)}</p>` : ''}
-                <p class="text-financial-data text-primary font-bold">${(item.sellingPriceSYP || 0).toLocaleString('ar-SA')} ل.س</p>
+                <p class="text-financial-data text-primary font-bold">${priceSYP.toLocaleString('ar-SA')} ل.س</p>
               </div>
             </button>
           `

@@ -3,26 +3,28 @@ import { TransactionType } from '@prisma/client';
 import prisma from '../../src/config/database';
 
 // Mock Prisma
-jest.mock('../../src/config/database', () => ({
+jest.mock('../../src/config/database', () => {
+  const client: any = {
+    part: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    warehouse: { findFirst: jest.fn() },
+    supplier: { findFirst: jest.fn() },
+    companySettings: { findUnique: jest.fn().mockResolvedValue({ exchangeRate: 139 }) },
+    inventoryTransaction: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
+  };
+  client.$transaction = jest.fn(async (operation: any) =>
+    typeof operation === 'function' ? operation(client) : Promise.all(operation)
+  );
+  return { __esModule: true, default: client };
+});
+jest.mock('../../src/services/settings.service', () => ({
   __esModule: true,
-  default: {
-    part: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    warehouse: {
-      findFirst: jest.fn(),
-    },
-    inventoryTransaction: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
-  },
+  default: { getRequiredExchangeRate: jest.fn().mockResolvedValue(139) },
+}));
+jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
+  createInventoryAdjustmentJournalEntry: jest.fn().mockResolvedValue({ id: 'adjustment-entry' }),
+  createStockConsumptionJournalEntry: jest.fn().mockResolvedValue({ id: 'cogs-entry' }),
+  createStockIntakeJournalEntry: jest.fn().mockResolvedValue({ id: 'stock-entry' }),
+  ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('InventoryTransactionService', () => {
@@ -32,6 +34,9 @@ describe('InventoryTransactionService', () => {
   beforeEach(() => {
     inventoryTransactionService = new InventoryTransactionService();
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
+    (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.part.update as jest.Mock).mockResolvedValue({});
   });
 
   describe('createInventoryTransaction', () => {
@@ -493,13 +498,8 @@ describe('InventoryTransactionService', () => {
   });
 
   describe('updateInventoryTransaction', () => {
-    it('should update an existing transaction', async () => {
+    it('should reject changes to posted quantities and costs', async () => {
       const transactionId = 'transaction-1';
-      const updateData = {
-        quantity: 150,
-        unitCost: 55000,
-      };
-
       const mockExistingTransaction = {
         id: transactionId,
         tenantId: mockTenantId,
@@ -507,37 +507,16 @@ describe('InventoryTransactionService', () => {
         type: TransactionType.PURCHASE,
         quantity: 100,
         costSYP: 50000,
-      };
-
-      const mockPart = {
-        id: 'part-1',
-        tenantId: mockTenantId,
-        quantity: 200,
-      };
-
-      const mockUpdatedTransaction = {
-        ...mockExistingTransaction,
-        quantity: updateData.quantity,
-        costSYP: updateData.unitCost,
+        costUSD: 359.71,
       };
 
       (prisma.inventoryTransaction.findFirst as jest.Mock).mockResolvedValue(mockExistingTransaction);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockPart);
-      (prisma.part.findUnique as jest.Mock).mockResolvedValue(mockPart);
-      (prisma.part.update as jest.Mock).mockResolvedValue(mockPart);
-      (prisma.inventoryTransaction.update as jest.Mock).mockResolvedValue(mockUpdatedTransaction);
-
-      const result = await inventoryTransactionService.updateInventoryTransaction(
+      await expect(inventoryTransactionService.updateInventoryTransaction(
         transactionId,
         mockTenantId,
-        updateData
-      );
-
-      expect(prisma.inventoryTransaction.findFirst).toHaveBeenCalledWith({
-        where: { id: transactionId, tenantId: mockTenantId },
-      });
-      expect(prisma.inventoryTransaction.update).toHaveBeenCalled();
-      expect(result.quantity).toBe(updateData.quantity);
+        { quantity: 150, unitCost: 55000 }
+      )).rejects.toThrow('Posted inventory movements are immutable');
+      expect(prisma.inventoryTransaction.update).not.toHaveBeenCalled();
     });
 
     it('should throw error if transaction not found', async () => {
@@ -553,35 +532,13 @@ describe('InventoryTransactionService', () => {
   });
 
   describe('deleteInventoryTransaction', () => {
-    it('should delete a transaction', async () => {
+    it('should reject deleting a posted transaction', async () => {
       const transactionId = 'transaction-1';
-      const mockTransaction = {
-        id: transactionId,
-        tenantId: mockTenantId,
-        partId: 'part-1',
-        type: TransactionType.PURCHASE,
-        quantity: 100,
-      };
+      (prisma.inventoryTransaction.findFirst as jest.Mock).mockResolvedValue({ id: transactionId });
 
-      const mockPart = {
-        id: 'part-1',
-        tenantId: mockTenantId,
-        quantity: 150,
-      };
-
-      (prisma.inventoryTransaction.findFirst as jest.Mock).mockResolvedValue(mockTransaction);
-      (prisma.part.findUnique as jest.Mock).mockResolvedValue(mockPart);
-      (prisma.part.update as jest.Mock).mockResolvedValue(mockPart);
-      (prisma.inventoryTransaction.delete as jest.Mock).mockResolvedValue(mockTransaction);
-
-      await inventoryTransactionService.deleteInventoryTransaction(transactionId, mockTenantId);
-
-      expect(prisma.inventoryTransaction.findFirst).toHaveBeenCalledWith({
-        where: { id: transactionId, tenantId: mockTenantId },
-      });
-      expect(prisma.inventoryTransaction.delete).toHaveBeenCalledWith({
-        where: { id: transactionId },
-      });
+      await expect(inventoryTransactionService.deleteInventoryTransaction(transactionId, mockTenantId))
+        .rejects.toThrow('Posted inventory movements cannot be deleted');
+      expect(prisma.inventoryTransaction.delete).not.toHaveBeenCalled();
     });
 
     it('should throw error if transaction not found', async () => {
@@ -707,6 +664,7 @@ describe('InventoryTransactionService', () => {
         transactionType: 'ADJUSTMENT' as TransactionType,
         quantity: 5,
         unitCost: 50000,
+        notes: 'Physical count adjustment',
       };
 
       const mockPart = {

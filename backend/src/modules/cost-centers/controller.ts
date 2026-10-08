@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../shared/middlewares/auth';
 import { costCenterService } from './service';
+import settingsService from '../../services/settings.service';
 
 export class CostCenterController {
   // ─── Initialize Defaults ───
@@ -144,24 +145,30 @@ export class CostCenterController {
       const {
         serviceId,
         laborCostSYP,
+        laborCostUSD,
         materialCostSYP,
+        materialCostUSD,
         estimatedDurationMinutes,
         estimatedMaterialMoves,
         profitPercent,
         profitAmountSYP,
-        exchangeRate,
+        profitAmountUSD,
       } = req.body;
+      const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+      const normalizedLaborSYP = laborCostSYP != null ? Number(laborCostSYP) : Math.round(Number(laborCostUSD || 0) * exchangeRate);
+      const normalizedMaterialSYP = materialCostSYP != null ? Number(materialCostSYP) : Math.round(Number(materialCostUSD || 0) * exchangeRate);
+      const normalizedProfitSYP = profitAmountSYP != null ? Number(profitAmountSYP) : Math.round(Number(profitAmountUSD || 0) * exchangeRate);
 
       const breakdown = await costCenterService.calculateServiceCost(
         tenantId,
         serviceId,
-        laborCostSYP || 0,
-        materialCostSYP || 0,
+        normalizedLaborSYP,
+        normalizedMaterialSYP,
         estimatedDurationMinutes || 60,
         estimatedMaterialMoves || 1,
         profitPercent || 0,
-        profitAmountSYP || 0,
-        exchangeRate || 15000
+        normalizedProfitSYP,
+        exchangeRate
       );
       res.json({ success: true, data: breakdown });
     } catch (error: any) {

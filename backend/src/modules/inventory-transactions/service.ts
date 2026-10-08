@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
-import { TransactionType as PrismaTransactionType } from '@prisma/client';
+import settingsService from '../../services/settings.service';
+import { Prisma, TransactionType as PrismaTransactionType } from '@prisma/client';
 import { Logger } from '../../infrastructure/logging/logger';
 import {
   InventoryTransaction,
@@ -11,113 +12,121 @@ import {
   ConsumePartDto,
   TransactionType,
 } from './types';
-import { createStockConsumptionJournalEntry } from '../accounting/automatic-journal-entries';
+import {
+  createInventoryAdjustmentJournalEntry,
+  createStockConsumptionJournalEntry,
+  createStockIntakeJournalEntry,
+  ensureDefaultAccounts,
+} from '../accounting/automatic-journal-entries';
 
 export class InventoryTransactionService {
   async createInventoryTransaction(
     tenantId: string,
-    data: CreateInventoryTransactionDto
+    data: CreateInventoryTransactionDto,
+    createdBy?: string
   ): Promise<InventoryTransaction> {
-    // Verify part exists and belongs to tenant
-    const part = await prisma.part.findFirst({
-      where: { id: data.partId, tenantId },
-    });
-
-    if (!part) {
-      throw new Error('Part not found');
-    }
-
-    // Validate quantity
-    if (data.quantity <= 0) {
-      throw new Error('Quantity must be greater than 0');
-    }
-
-    // Validate unit cost
-    if (data.unitCost < 0) {
+    if (!Number.isInteger(data.quantity) || data.quantity <= 0) throw new Error('Quantity must be a positive whole number');
+    if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
       throw new Error('Unit cost cannot be negative');
     }
-
-    // Validate warehouse is required
-    if (!data.warehouseId) {
-      throw new Error('Warehouse is required');
+    const usesPartAverageCost = ['CONSUMPTION', 'SALE', 'ADJUSTMENT', 'STOCK_OUT'].includes(data.transactionType);
+    if (data.unitCost == null && data.unitCostUSD == null && !usesPartAverageCost) {
+      throw new Error('Unit cost is required in USD or SYP');
+    }
+    if (data.transactionType === 'ADJUSTMENT' && !data.notes) throw new Error('Adjustment transactions require a reason/notes');
+    if (data.transactionType === 'STOCK_OUT' && !data.notes) throw new Error('Stock-out transactions require a reason/notes');
+    if (data.transactionType === 'TRANSFER') throw new Error('Use the paired transfer endpoint for warehouse transfers');
+    if (data.transactionType === 'RETURN') throw new Error('Returns must be linked to the original sale or GRN movement');
+    if (data.settlementAccount && !['CASH', 'BANK', 'PAYABLE'].includes(data.settlementAccount)) {
+      throw new Error('Invalid stock settlement account');
     }
 
-    // Verify warehouse exists and belongs to tenant
-    const warehouse = await prisma.warehouse.findFirst({
-      where: { id: data.warehouseId, tenantId },
-    });
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    let unitCostUSD = data.unitCostUSD != null
+      ? Number(data.unitCostUSD)
+      : data.unitCost != null ? Math.round((Number(data.unitCost) / exchangeRate) * 100) / 100 : 0;
+    let unitCost = data.unitCostUSD != null
+      ? Math.round(unitCostUSD * exchangeRate)
+      : data.unitCost != null ? Number(data.unitCost) : 0;
 
-    if (!warehouse) {
-      throw new Error('Warehouse not found');
-    }
+    const transaction = await prisma.$transaction(async (tx) => {
+      const part = await tx.part.findFirst({ where: { id: data.partId, tenantId } });
+      if (!part) throw new Error('Part not found');
+      if (['CONSUMPTION', 'SALE', 'ADJUSTMENT', 'STOCK_OUT'].includes(data.transactionType)) {
+        unitCostUSD = part.costUSD != null
+          ? Number(part.costUSD)
+          : Math.round((Number(part.costSYP) / exchangeRate) * 100) / 100;
+        unitCost = part.costUSD != null
+          ? Math.round(unitCostUSD * exchangeRate)
+          : Number(part.costSYP);
+      }
 
-    // Validate supplier for PURCHASE transactions
-    if (data.transactionType === 'PURCHASE' && !data.supplierId) {
-      throw new Error('Supplier is required for PURCHASE transactions');
-    }
+      if (data.warehouseId) {
+        const warehouse = await tx.warehouse.findFirst({ where: { id: data.warehouseId, tenantId } });
+        if (!warehouse) throw new Error('Warehouse not found');
+      }
+      if (data.supplierId) {
+        const supplier = await tx.supplier.findFirst({ where: { id: data.supplierId, tenantId } });
+        if (!supplier) throw new Error('Supplier not found');
+      }
 
-    // Verify supplier exists and belongs to tenant (if provided)
-    if (data.supplierId) {
-      const supplier = await prisma.supplier.findFirst({
-        where: { id: data.supplierId, tenantId },
+      const created = await tx.inventoryTransaction.create({
+        data: {
+          tenantId,
+          partId: data.partId,
+          warehouseId: data.warehouseId,
+          supplierId: data.supplierId,
+          createdBy,
+          type: data.transactionType as PrismaTransactionType,
+          quantity: data.quantity,
+          costSYP: unitCost,
+          costUSD: unitCostUSD,
+          reference: data.referenceType && data.referenceId ? `${data.referenceType}:${data.referenceId}` : null,
+          notes: data.notes,
+        },
+        include: { part: true },
       });
 
-      if (!supplier) {
-        throw new Error('Supplier not found');
-      }
-    }
-
-    // Validate STOCK_OUT doesn't exceed available quantity
-    if (data.transactionType === 'SALE' || data.transactionType === 'CONSUMPTION' || data.transactionType === 'TRANSFER') {
-      if (part.quantity < data.quantity) {
-        throw new Error('Insufficient part quantity for this transaction');
-      }
-    }
-
-    // Validate ADJUSTMENT requires reason
-    if (data.transactionType === 'ADJUSTMENT' && !data.notes) {
-      throw new Error('Adjustment transactions require a reason/notes');
-    }
-
-    // Calculate total cost
-    const totalCost = data.quantity * data.unitCost;
-
-    // Create transaction
-    const transaction = await prisma.inventoryTransaction.create({
-      data: {
-        tenantId,
-        partId: data.partId,
-        warehouseId: data.warehouseId,
-        supplierId: data.supplierId,
-        type: data.transactionType as PrismaTransactionType,
-        quantity: data.quantity,
-        costSYP: data.unitCost,
-        reference: data.referenceType && data.referenceId
-          ? `${data.referenceType}:${data.referenceId}`
-          : null,
-        notes: data.notes,
-      },
-    });
-
-    // Update part quantity based on transaction type
-    await this.updatePartQuantity(data.partId, data.transactionType, data.quantity);
-
-    // Create auto-journal entry for CONSUMPTION transactions
-    if (data.transactionType === 'CONSUMPTION') {
-      try {
-        const transactionWithPart = await prisma.inventoryTransaction.findUnique({
-          where: { id: transaction.id },
-          include: { part: true },
+      await this.updatePartQuantity(data.partId, data.transactionType, data.quantity, tenantId, tx);
+      if (data.transactionType === 'PURCHASE' || data.transactionType === 'STOCK_IN') {
+        const currentCostSYP = Number(part.costSYP || 0);
+        const currentCostUSD = part.costUSD != null
+          ? Number(part.costUSD)
+          : Math.round((currentCostSYP / exchangeRate) * 100) / 100;
+        const resultingQuantity = part.quantity + data.quantity;
+        await tx.part.update({
+          where: { id: part.id },
+          data: {
+            costSYP: part.quantity > 0
+              ? (currentCostSYP * part.quantity + unitCost * data.quantity) / resultingQuantity
+              : unitCost,
+            costUSD: part.quantity > 0
+              ? (currentCostUSD * part.quantity + unitCostUSD * data.quantity) / resultingQuantity
+              : unitCostUSD,
+          },
         });
-
-        if (transactionWithPart) {
-          await createStockConsumptionJournalEntry(transactionWithPart, tenantId, null);
-        }
-      } catch (error) {
-        Logger.error('Error creating journal entry for stock consumption:', error);
-        throw new Error('Inventory transaction recorded but journal entry creation failed. Please check the chart of accounts setup.');
       }
-    }
+      if (data.transactionType === 'CONSUMPTION' || data.transactionType === 'SALE') {
+        await createStockConsumptionJournalEntry(created, tenantId, createdBy || null, tx);
+      }
+      if (data.transactionType === 'PURCHASE' || data.transactionType === 'STOCK_IN') {
+        const settlement = data.settlementAccount || (data.transactionType === 'PURCHASE' ? 'PAYABLE' : undefined);
+        if (!settlement) throw new Error('A settlement account is required for stock intake');
+        await ensureDefaultAccounts(tenantId, tx);
+        await createStockIntakeJournalEntry(created, tenantId, settlement, createdBy || null, tx);
+      }
+      if (data.transactionType === 'ADJUSTMENT' || data.transactionType === 'STOCK_OUT') {
+        await ensureDefaultAccounts(tenantId, tx);
+        await createInventoryAdjustmentJournalEntry(
+          created,
+          tenantId,
+          data.transactionType === 'ADJUSTMENT' ? 'IN' : 'OUT',
+          createdBy || null,
+          tx
+        );
+      }
+      return created;
+    }, { isolationLevel: 'Serializable' });
 
     return this.mapToInventoryTransactionResponse(transaction);
   }
@@ -213,97 +222,49 @@ export class InventoryTransactionService {
     tenantId: string,
     data: UpdateInventoryTransactionDto
   ): Promise<InventoryTransaction> {
-    // Check if transaction exists and belongs to tenant
-    const existingTransaction = await prisma.inventoryTransaction.findFirst({
-      where: { id, tenantId },
-    });
+    const existing = await prisma.inventoryTransaction.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Inventory transaction not found');
 
-    if (!existingTransaction) {
-      throw new Error('Inventory transaction not found');
+    if (data.partId !== undefined && data.partId !== existing.partId ||
+        data.transactionType !== undefined && data.transactionType !== existing.type ||
+        data.quantity !== undefined && data.quantity !== existing.quantity ||
+        data.unitCost !== undefined && data.unitCost !== Number(existing.costSYP) ||
+        data.unitCostUSD !== undefined && data.unitCostUSD !== Number(existing.costUSD || 0)) {
+      throw new Error('Posted inventory movements are immutable; record a compensating movement instead');
     }
 
-    // If updating partId, verify new part exists
-    if (data.partId && data.partId !== existingTransaction.partId) {
-      const part = await prisma.part.findFirst({
-        where: { id: data.partId, tenantId },
-      });
-
-      if (!part) {
-        throw new Error('Part not found');
-      }
+    if (data.warehouseId) {
+      const warehouse = await prisma.warehouse.findFirst({ where: { id: data.warehouseId, tenantId } });
+      if (!warehouse) throw new Error('Warehouse not found');
+    }
+    if (data.supplierId) {
+      const supplier = await prisma.supplier.findFirst({ where: { id: data.supplierId, tenantId } });
+      if (!supplier) throw new Error('Supplier not found');
     }
 
-    // If updating warehouseId, verify new warehouse exists
-    if (data.warehouseId && data.warehouseId !== existingTransaction.warehouseId) {
-      const warehouse = await prisma.warehouse.findFirst({
-        where: { id: data.warehouseId, tenantId },
-      });
-
-      if (!warehouse) {
-        throw new Error('Warehouse not found');
-      }
-    }
-
-    // Calculate new total cost if quantity or unitCost changed
-    const quantity = data.quantity ?? existingTransaction.quantity;
-    const unitCost = data.unitCost ?? Number(existingTransaction.costSYP);
-    const totalCost = quantity * unitCost;
-
-    // Revert old quantity change
-    await this.updatePartQuantity(
-      existingTransaction.partId,
-      existingTransaction.type as TransactionType,
-      -existingTransaction.quantity
-    );
-
-    // Apply new quantity change
-    const newType = data.transactionType ?? (existingTransaction.type as TransactionType);
-    await this.updatePartQuantity(data.partId ?? existingTransaction.partId, newType, quantity);
-
-    // Update transaction
+    const reference = data.referenceType !== undefined || data.referenceId !== undefined
+      ? [data.referenceType, data.referenceId].filter(Boolean).join(':') || null
+      : existing.reference;
     const transaction = await prisma.inventoryTransaction.update({
       where: { id },
       data: {
-        partId: data.partId,
         warehouseId: data.warehouseId,
-        type: data.transactionType as PrismaTransactionType,
-        quantity: data.quantity,
-        costSYP: data.unitCost,
-        reference: data.referenceType && data.referenceId
-          ? `${data.referenceType}:${data.referenceId}`
-          : existingTransaction.reference,
+        supplierId: data.supplierId,
+        reference,
         notes: data.notes,
       },
-      include: {
-        part: true,
-        warehouse: true,
-      },
+      include: { part: true, warehouse: true },
     });
-
     return this.mapToInventoryTransactionResponse(transaction);
   }
 
   async deleteInventoryTransaction(id: string, tenantId: string): Promise<void> {
-    // Check if transaction exists and belongs to tenant
     const existingTransaction = await prisma.inventoryTransaction.findFirst({
       where: { id, tenantId },
+      select: { id: true },
     });
-
-    if (!existingTransaction) {
-      throw new Error('Inventory transaction not found');
-    }
-
-    // Revert quantity change
-    await this.updatePartQuantity(
-      existingTransaction.partId,
-      existingTransaction.type as TransactionType,
-      -existingTransaction.quantity
-    );
-
-    // Delete transaction
-    await prisma.inventoryTransaction.delete({
-      where: { id },
-    });
+    if (!existingTransaction) throw new Error('Inventory transaction not found');
+    throw new Error('Posted inventory movements cannot be deleted; record a compensating stock movement instead');
   }
 
   async getPartHistory(
@@ -396,73 +357,22 @@ export class InventoryTransactionService {
     warehouseId?: string,
     notes?: string
   ): Promise<InventoryTransaction> {
-    // Verify part exists and belongs to tenant
-    const part = await prisma.part.findFirst({
-      where: { id: partId, tenantId },
+    const part = await prisma.part.findFirst({ where: { id: partId, tenantId } });
+    if (!part) throw new Error('Part not found');
+    const booking = await prisma.booking.findFirst({ where: { id: bookingId, tenantId } });
+    if (!booking) throw new Error('Booking not found');
+
+    return this.createInventoryTransaction(tenantId, {
+      partId,
+      warehouseId,
+      transactionType: 'CONSUMPTION',
+      quantity,
+      unitCost: Number(part.costSYP),
+      unitCostUSD: part.costUSD == null ? undefined : Number(part.costUSD),
+      referenceType: 'BOOKING',
+      referenceId: bookingId,
+      notes: notes || `Consumed for booking ${bookingId}`,
     });
-
-    if (!part) {
-      throw new Error('Part not found');
-    }
-
-    // Check if part has sufficient quantity
-    if (part.quantity < quantity) {
-      throw new Error('Insufficient part quantity');
-    }
-
-    // Verify booking exists and belongs to tenant
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId },
-    });
-
-    if (!booking) {
-      throw new Error('Booking not found');
-    }
-
-    // Verify warehouse exists and belongs to tenant (if provided)
-    if (warehouseId) {
-      const warehouse = await prisma.warehouse.findFirst({
-        where: { id: warehouseId, tenantId },
-      });
-
-      if (!warehouse) {
-        throw new Error('Warehouse not found');
-      }
-    }
-
-    // Create consumption transaction
-    const transaction = await prisma.inventoryTransaction.create({
-      data: {
-        tenantId,
-        partId,
-        warehouseId,
-        type: 'CONSUMPTION' as PrismaTransactionType,
-        quantity,
-        costSYP: part.costSYP,
-        reference: `BOOKING:${bookingId}`,
-        notes: notes || `Consumed for booking ${bookingId}`,
-      },
-    });
-
-    // Update part quantity (decrease for consumption)
-    await this.updatePartQuantity(partId, 'CONSUMPTION', quantity);
-
-    // Create auto-journal entry for COGS
-    try {
-      const transactionWithPart = await prisma.inventoryTransaction.findUnique({
-        where: { id: transaction.id },
-        include: { part: true },
-      });
-
-      if (transactionWithPart) {
-        await createStockConsumptionJournalEntry(transactionWithPart, tenantId, null);
-      }
-    } catch (error) {
-      Logger.error('Error creating journal entry for stock consumption:', error);
-      throw new Error('Inventory transaction recorded but journal entry creation failed. Please check the chart of accounts setup.');
-    }
-
-    return this.mapToInventoryTransactionResponse(transaction);
   }
 
   async createTransferTransaction(
@@ -473,120 +383,67 @@ export class InventoryTransactionService {
     destinationWarehouseId: string,
     notes?: string
   ): Promise<{ outTransaction: InventoryTransaction; inTransaction: InventoryTransaction }> {
-    // Verify part exists and belongs to tenant
-    const part = await prisma.part.findFirst({
-      where: { id: partId, tenantId },
-    });
+    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('Transfer quantity must be a positive whole number');
+    if (sourceWarehouseId === destinationWarehouseId) throw new Error('Source and destination warehouses cannot be the same');
 
-    if (!part) {
-      throw new Error('Part not found');
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const part = await tx.part.findFirst({ where: { id: partId, tenantId } });
+      if (!part) throw new Error('Part not found');
+      if (part.quantity < quantity) throw new Error('Insufficient part quantity for transfer');
 
-    // Check if part has sufficient quantity
-    if (part.quantity < quantity) {
-      throw new Error('Insufficient part quantity for transfer');
-    }
+      const [sourceWarehouse, destinationWarehouse] = await Promise.all([
+        tx.warehouse.findFirst({ where: { id: sourceWarehouseId, tenantId } }),
+        tx.warehouse.findFirst({ where: { id: destinationWarehouseId, tenantId } }),
+      ]);
+      if (!sourceWarehouse) throw new Error('Source warehouse not found');
+      if (!destinationWarehouse) throw new Error('Destination warehouse not found');
 
-    // Verify source warehouse exists and belongs to tenant
-    const sourceWarehouse = await prisma.warehouse.findFirst({
-      where: { id: sourceWarehouseId, tenantId },
-    });
-
-    if (!sourceWarehouse) {
-      throw new Error('Source warehouse not found');
-    }
-
-    // Verify destination warehouse exists and belongs to tenant
-    const destinationWarehouse = await prisma.warehouse.findFirst({
-      where: { id: destinationWarehouseId, tenantId },
-    });
-
-    if (!destinationWarehouse) {
-      throw new Error('Destination warehouse not found');
-    }
-
-    if (sourceWarehouseId === destinationWarehouseId) {
-      throw new Error('Source and destination warehouses cannot be the same');
-    }
-
-    // Create OUT transaction from source warehouse
-    const outTransaction = await prisma.inventoryTransaction.create({
-      data: {
-        tenantId,
-        partId,
-        warehouseId: sourceWarehouseId,
-        type: 'TRANSFER' as PrismaTransactionType,
-        quantity,
-        costSYP: part.costSYP,
-        reference: `TRANSFER:${sourceWarehouseId}->${destinationWarehouseId}`,
-        notes: notes || `Transfer to ${destinationWarehouse.name}`,
-      },
-    });
-
-    // Create IN transaction to destination warehouse
-    const inTransaction = await prisma.inventoryTransaction.create({
-      data: {
-        tenantId,
-        partId,
-        warehouseId: destinationWarehouseId,
-        type: 'STOCK_IN' as PrismaTransactionType,
-        quantity,
-        costSYP: part.costSYP,
-        reference: `TRANSFER:${sourceWarehouseId}->${destinationWarehouseId}`,
-        notes: notes || `Transfer from ${sourceWarehouse.name}`,
-      },
-    });
-
-    // Update part quantity (transfer doesn't change total quantity, just moves it)
-    // The updatePartQuantity logic handles this correctly for TRANSFER
+      const reference = `TRANSFER:${sourceWarehouseId}->${destinationWarehouseId}`;
+      const [outTransaction, inTransaction] = await Promise.all([
+        tx.inventoryTransaction.create({
+          data: {
+            tenantId, partId, warehouseId: sourceWarehouseId,
+            type: 'TRANSFER', quantity, costSYP: part.costSYP, costUSD: part.costUSD,
+            reference, notes: notes || `Transfer to ${destinationWarehouse.name}`,
+          },
+        }),
+        tx.inventoryTransaction.create({
+          data: {
+            tenantId, partId, warehouseId: destinationWarehouseId,
+            type: 'STOCK_IN', quantity, costSYP: part.costSYP, costUSD: part.costUSD,
+            reference, notes: notes || `Transfer from ${sourceWarehouse.name}`,
+          },
+        }),
+      ]);
+      return { outTransaction, inTransaction };
+    }, { isolationLevel: 'Serializable' });
 
     return {
-      outTransaction: this.mapToInventoryTransactionResponse(outTransaction),
-      inTransaction: this.mapToInventoryTransactionResponse(inTransaction),
+      outTransaction: this.mapToInventoryTransactionResponse(result.outTransaction),
+      inTransaction: this.mapToInventoryTransactionResponse(result.inTransaction),
     };
   }
 
   private async updatePartQuantity(
     partId: string,
     transactionType: TransactionType,
-    quantity: number
+    quantity: number,
+    tenantId: string,
+    tx: Prisma.TransactionClient
   ): Promise<void> {
-    const part = await prisma.part.findUnique({
-      where: { id: partId },
+    const part = await tx.part.findFirst({ where: { id: partId, tenantId } });
+    if (!part) throw new Error('Part not found');
+
+    const increasesStock = transactionType === 'PURCHASE' || transactionType === 'STOCK_IN' ||
+      transactionType === 'RETURN' || transactionType === 'ADJUSTMENT';
+    const quantityChange = increasesStock ? quantity : -quantity;
+    if (part.quantity + quantityChange < 0) throw new Error('Insufficient part quantity');
+
+    const result = await tx.part.updateMany({
+      where: { id: partId, tenantId, quantity: part.quantity },
+      data: { quantity: { increment: quantityChange } },
     });
-
-    if (!part) {
-      throw new Error('Part not found');
-    }
-
-    let quantityChange = 0;
-
-    // Determine quantity change based on transaction type
-    switch (transactionType) {
-      case 'PURCHASE':
-      case 'ADJUSTMENT':
-      case 'RETURN':
-        quantityChange = quantity;
-        break;
-      case 'SALE':
-      case 'TRANSFER':
-      case 'CONSUMPTION':
-        quantityChange = -quantity;
-        break;
-    }
-
-    const newQuantity = part.quantity + quantityChange;
-
-    if (newQuantity < 0) {
-      throw new Error('Insufficient part quantity');
-    }
-
-    await prisma.part.update({
-      where: { id: partId },
-      data: {
-        quantity: newQuantity,
-      },
-    });
+    if (result.count !== 1) throw new Error('Part quantity changed concurrently; retry the transaction');
   }
 
   private mapToInventoryTransactionResponse(transaction: any): InventoryTransaction {
@@ -602,7 +459,9 @@ export class InventoryTransactionService {
       transactionType: transaction.type as TransactionType,
       quantity: transaction.quantity,
       unitCost: Number(transaction.costSYP),
+      unitCostUSD: transaction.costUSD == null ? null : Number(transaction.costUSD),
       totalCost: Number(transaction.costSYP) * transaction.quantity,
+      totalCostUSD: transaction.costUSD == null ? null : Number(transaction.costUSD) * transaction.quantity,
       referenceType,
       referenceId,
       notes: transaction.notes,

@@ -51,7 +51,7 @@ describe('Reports API E2E', () => {
       expect(data).toHaveProperty('assets');
       expect(data).toHaveProperty('liabilities');
       expect(data).toHaveProperty('equity');
-      expect(data).toHaveProperty('asOfDate');
+      expect(data).toHaveProperty('reportDate');
     });
 
     it('GET /api/reports/balance-sheet validates invalid dates', async () => {
@@ -98,9 +98,9 @@ describe('Reports API E2E', () => {
       expect(res.body).toHaveProperty('data');
 
       const data = res.body.data;
-      expect(data).toHaveProperty('operatingActivities');
-      expect(data).toHaveProperty('investingActivities');
-      expect(data).toHaveProperty('financingActivities');
+      expect(data).toHaveProperty('operating');
+      expect(data).toHaveProperty('investing');
+      expect(data).toHaveProperty('financing');
       expect(data).toHaveProperty('netCashFlow');
     });
   });
@@ -117,9 +117,9 @@ describe('Reports API E2E', () => {
 
       const data = res.body.data;
       expect(data).toHaveProperty('accounts');
-      expect(data).toHaveProperty('totalDebits');
-      expect(data).toHaveProperty('totalCredits');
-      expect(data).toHaveProperty('asOfDate');
+      expect(data).toHaveProperty('totalDebit');
+      expect(data).toHaveProperty('totalCredit');
+      expect(data).toHaveProperty('fromDate');
     });
   });
 });

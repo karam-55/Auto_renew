@@ -300,4 +300,40 @@ export class DealerController {
       res.status(400).json({ error: error.message || 'Failed to delete warranty' });
     }
   };
+
+  adminGetWarrantyReceipts = async (req: AuthRequest, res: Response) => {
+    try {
+      const { warrantyId } = req.params;
+      const receipts = await this.dealerService.getWarrantyReceipts(warrantyId, req.user!.tenantId);
+      res.json({ receipts });
+    } catch (error: any) {
+      Logger.error('Get warranty receipts error', error);
+      res.status(400).json({ error: error.message || 'Failed to fetch receipts' });
+    }
+  };
+
+  adminRecordWarrantyReceipt = async (req: AuthRequest, res: Response) => {
+    try {
+      const { warrantyId } = req.params;
+      const receipt = await this.dealerService.recordWarrantyReceipt(warrantyId, req.user!.tenantId, {
+        ...req.body,
+        createdById: req.user!.id,
+      });
+      res.status(201).json({ receipt });
+    } catch (error: any) {
+      Logger.error('Record warranty receipt error', error);
+      res.status(400).json({ error: error.message || 'Failed to record receipt' });
+    }
+  };
+
+  adminVoidWarrantyReceipt = async (req: AuthRequest, res: Response) => {
+    try {
+      const { receiptId } = req.params;
+      await this.dealerService.voidWarrantyReceipt(receiptId, req.user!.tenantId, req.user!.id);
+      res.json({ message: 'Receipt voided successfully' });
+    } catch (error: any) {
+      Logger.error('Void warranty receipt error', error);
+      res.status(400).json({ error: error.message || 'Failed to void receipt' });
+    }
+  };
 }

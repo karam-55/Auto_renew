@@ -173,7 +173,7 @@ export class SetupWizardScreen {
       address: (c.querySelector('#step1-address') as HTMLInputElement)?.value.trim() || undefined,
       phone: phone || undefined,
       taxNumber: (c.querySelector('#step1-tax') as HTMLInputElement)?.value.trim() || undefined,
-      currency: (c.querySelector('#step1-currency') as HTMLSelectElement)?.value || 'SYP',
+      currency: (c.querySelector('#step1-currency') as HTMLSelectElement)?.value || 'USD',
       timezone: (c.querySelector('#step1-timezone') as HTMLSelectElement)?.value || undefined,
       dateFormat: (c.querySelector('#step1-dateformat') as HTMLSelectElement)?.value || undefined,
     }

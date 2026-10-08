@@ -67,7 +67,9 @@ export interface ServicePartResponse {
   partName: string;
   quantity: number;
   unitCostSYP: number;
+  unitCostUSD: number | null;
   totalCostSYP: number;
+  totalCostUSD: number | null;
 }
 
 export interface ServiceResponse {

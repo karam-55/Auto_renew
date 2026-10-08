@@ -1,5 +1,7 @@
 import prisma from '../../config/database';
+import settingsService from '../../services/settings.service';
 import { OrderStatus as PrismaOrderStatus } from '@prisma/client';
+import { createStockIntakeJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 import {
   PurchaseOrder,
   PurchaseOrderLine,
@@ -16,61 +18,56 @@ import {
 export class PurchaseOrderService {
   async createPurchaseOrder(tenantId: string, data: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     // Check if supplier exists and belongs to tenant
-    const supplier = await prisma.supplier.findFirst({
-      where: { id: data.supplierId, tenantId },
-    });
-
-    if (!supplier) {
-      throw new Error('Supplier not found');
-    }
+    const supplier = await prisma.supplier.findFirst({ where: { id: data.supplierId, tenantId } });
+    if (!supplier) throw new Error('Supplier not found');
 
     // Validate supplier is active
-    if (!supplier.isActive) {
-      throw new Error('Supplier is not active');
-    }
+    if (!supplier.isActive) throw new Error('Supplier is not active');
+
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    let subtotalSYP = 0;
+    let subtotalUSD = 0;
+    const itemsToCreate = [] as any[];
 
     // Validate items if provided
-    if (data.items && data.items.length > 0) {
-      for (const item of data.items) {
-        if (item.quantity <= 0) {
-          throw new Error('Item quantity must be greater than 0');
-        }
-        if (item.unitCost <= 0) {
-          throw new Error('Item unit cost must be greater than 0');
-        }
-
-        // Check if part exists
-        const part = await prisma.part.findFirst({
-          where: { id: item.partId, tenantId },
-        });
-        if (!part) {
-          throw new Error(`Part with ID ${item.partId} not found`);
-        }
+    for (const item of data.items || []) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+      const suppliedSYP = item.unitCost ?? undefined;
+      if (suppliedSYP == null && item.unitCostUSD == null) throw new Error('Item unit cost is required in USD or SYP');
+      if (suppliedSYP != null && suppliedSYP < 0 || item.unitCostUSD != null && item.unitCostUSD < 0) {
+        throw new Error('Item unit cost cannot be negative');
       }
+
+      // Check if part exists
+      const part = await prisma.part.findFirst({ where: { id: item.partId, tenantId } });
+      if (!part) throw new Error(`Part with ID ${item.partId} not found`);
+
+      const unitCostUSD = item.unitCostUSD != null
+        ? Number(item.unitCostUSD)
+        : Math.round((Number(suppliedSYP) / exchangeRate) * 100) / 100;
+      const unitCostSYP = item.unitCostUSD != null
+        ? Math.round(unitCostUSD * exchangeRate)
+        : Number(suppliedSYP);
+      const totalCostSYP = item.quantity * unitCostSYP;
+      const totalCostUSD = Math.round(item.quantity * unitCostUSD * 100) / 100;
+      subtotalSYP += totalCostSYP;
+      subtotalUSD += totalCostUSD;
+      itemsToCreate.push({
+        tenantId,
+        partId: item.partId,
+        quantity: item.quantity,
+        costSYP: unitCostSYP,
+        costUSD: unitCostUSD,
+        totalSYP: totalCostSYP,
+        totalUSD: totalCostUSD,
+        receivedQty: 0,
+      });
     }
 
     // Generate order number
     const orderNumber = await this.generateOrderNumber(tenantId);
-
-    // Calculate totals from items if provided
-    let subtotal = 0;
-    let tax = 0;
-    const itemsToCreate = data.items?.map((item) => {
-      const totalCost = item.quantity * item.unitCost;
-      subtotal += totalCost;
-      return {
-        tenantId,
-        partId: item.partId,
-        quantity: item.quantity,
-        costSYP: item.unitCost,
-        totalSYP: totalCost,
-        receivedQty: 0,
-      };
-    }) || [];
-
-    // Calculate tax (assuming 10% tax rate - can be made configurable)
-    tax = subtotal * 0.1;
-    const total = subtotal + tax;
+    const totalSYP = subtotalSYP;
+    const totalUSD = Math.round(subtotalUSD * 100) / 100;
 
     const purchaseOrder = await prisma.purchaseOrder.create({
       data: {
@@ -78,33 +75,15 @@ export class PurchaseOrderService {
         supplierId: data.supplierId,
         orderNumber,
         orderDate: data.orderDate || new Date(),
-        totalSYP: total,
-        totalUSD: null,
+        totalSYP,
+        totalUSD,
         status: 'PENDING' as PrismaOrderStatus,
         notes: data.notes,
-        items: {
-          create: itemsToCreate,
-        },
+        items: { create: itemsToCreate },
       },
       include: {
-        supplier: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-          },
-        },
-        items: {
-          include: {
-            part: {
-              select: {
-                id: true,
-                partNumber: true,
-                name: true,
-              },
-            },
-          },
-        },
+        supplier: { select: { id: true, name: true, phone: true } },
+        items: { include: { part: { select: { id: true, partNumber: true, name: true } } } },
       },
     });
 
@@ -332,7 +311,18 @@ export class PurchaseOrderService {
       throw new Error('Part not found');
     }
 
-    const totalCost = data.quantity * data.unitCost;
+    if (!Number.isInteger(data.quantity) || data.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+    if (data.unitCost == null && data.unitCostUSD == null) throw new Error('Item unit cost is required in USD or SYP');
+    if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) throw new Error('Item unit cost cannot be negative');
+    const rate = await settingsService.getRequiredExchangeRate(tenantId);
+    const unitCostUSD = data.unitCostUSD != null
+      ? Number(data.unitCostUSD)
+      : Math.round((Number(data.unitCost) / rate) * 100) / 100;
+    const unitCostSYP = data.unitCostUSD != null
+      ? Math.round(unitCostUSD * rate)
+      : Number(data.unitCost);
+    const totalCostSYP = data.quantity * unitCostSYP;
+    const totalCostUSD = Math.round(data.quantity * unitCostUSD * 100) / 100;
 
     // Add the new line item
     await prisma.purchaseOrderItem.create({
@@ -341,8 +331,10 @@ export class PurchaseOrderService {
         purchaseOrderId,
         partId: data.partId,
         quantity: data.quantity,
-        costSYP: data.unitCost,
-        totalSYP: totalCost,
+        costSYP: unitCostSYP,
+        costUSD: unitCostUSD,
+        totalSYP: totalCostSYP,
+        totalUSD: totalCostUSD,
         receivedQty: 0,
       },
     });
@@ -381,21 +373,42 @@ export class PurchaseOrderService {
 
     // Update the line item
     const updateData: any = {};
-    if (data.quantity !== undefined) {
-      updateData.quantity = data.quantity;
-    }
-    if (data.unitCost !== undefined) {
-      updateData.costSYP = data.unitCost;
+    const quantity = data.quantity ?? lineItem.quantity;
+    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+    if (data.quantity !== undefined) updateData.quantity = quantity;
+
+    let unitCostSYP = Number(lineItem.costSYP);
+    let unitCostUSD = lineItem.costUSD == null ? null : Number(lineItem.costUSD);
+    if (data.unitCostUSD != null || data.unitCost != null) {
+      if (data.unitCostUSD != null && data.unitCostUSD < 0 || data.unitCost != null && data.unitCost < 0) {
+        throw new Error('Item unit cost cannot be negative');
+      }
+      const rate = await settingsService.getRequiredExchangeRate(tenantId);
+      if (data.unitCostUSD != null) {
+        unitCostUSD = Number(data.unitCostUSD);
+        unitCostSYP = Math.round(unitCostUSD * rate);
+      } else {
+        unitCostSYP = Number(data.unitCost);
+        unitCostUSD = Math.round((unitCostSYP / rate) * 100) / 100;
+      }
+      updateData.costSYP = unitCostSYP;
+      updateData.costUSD = unitCostUSD;
     }
     if (data.receivedQuantity !== undefined) {
+      if (!Number.isInteger(data.receivedQuantity) || data.receivedQuantity < 0 || data.receivedQuantity > quantity) {
+        throw new Error('Received quantity must be between zero and ordered quantity');
+      }
       updateData.receivedQty = data.receivedQuantity;
     }
 
-    // Recalculate total if quantity or unit cost changed
-    if (data.quantity !== undefined || data.unitCost !== undefined) {
-      const quantity = data.quantity ?? lineItem.quantity;
-      const unitCost = data.unitCost ?? Number(lineItem.costSYP);
-      updateData.totalSYP = quantity * unitCost;
+    if (data.quantity !== undefined || data.unitCost !== undefined || data.unitCostUSD !== undefined) {
+      if (unitCostUSD == null) {
+        const rate = await settingsService.getRequiredExchangeRate(tenantId);
+        unitCostUSD = Math.round((unitCostSYP / rate) * 100) / 100;
+        updateData.costUSD = unitCostUSD;
+      }
+      updateData.totalSYP = quantity * unitCostSYP;
+      updateData.totalUSD = Math.round(quantity * unitCostUSD * 100) / 100;
     }
 
     await prisma.purchaseOrderItem.update({
@@ -551,152 +564,124 @@ export class PurchaseOrderService {
   }
 
   async receivePurchaseOrder(id: string, tenantId: string, userId: string): Promise<PurchaseOrder> {
-    // Check if purchase order exists and belongs to tenant
-    const purchaseOrder = await prisma.purchaseOrder.findFirst({
-      where: { id, tenantId },
-      include: {
-        items: {
-          include: {
-            part: true,
-          },
-        },
-      },
-    });
-
-    if (!purchaseOrder) {
-      throw new Error('Purchase order not found');
-    }
-
-    // Check if purchase order can be received (must be APPROVED/SENT)
-    if (purchaseOrder.status !== 'APPROVED' && purchaseOrder.status !== 'PENDING') {
-      throw new Error('Can only receive approved or pending purchase orders');
-    }
-
-    // Get company settings to check autoUpdatePurchasePrice
-    const companySettings = await prisma.companySettings.findUnique({
-      where: { tenantId },
-    });
-
-    // Default to true if setting doesn't exist
-    const autoUpdatePurchasePrice = true;
-
-    // Process each item
-    for (const item of purchaseOrder.items) {
-      // Create PURCHASE inventory transaction
-      await prisma.inventoryTransaction.create({
-        data: {
-          tenantId,
-          partId: item.partId,
-          type: 'PURCHASE',
-          quantity: item.quantity,
-          costSYP: Number(item.costSYP),
-          costUSD: item.costUSD ? Number(item.costUSD) : null,
-          reference: purchaseOrder.orderNumber,
-          notes: `Received from purchase order ${purchaseOrder.orderNumber}`,
-        },
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      const current = await tx.purchaseOrder.findFirst({
+        where: { id, tenantId },
+        include: { items: true },
       });
+      if (!current) throw new Error('Purchase order not found');
+      if (current.status !== 'APPROVED' && current.status !== 'PENDING') {
+        throw new Error('Can only receive approved or pending purchase orders');
+      }
+      if (current.items.length === 0) throw new Error('Cannot receive a purchase order without items');
 
-      // Add quantity to inventory
-      await prisma.part.update({
-        where: { id: item.partId },
-        data: {
-          quantity: {
-            increment: item.quantity,
-          },
-        },
+      const claim = await tx.purchaseOrder.updateMany({
+        where: { id, tenantId, status: current.status },
+        data: { status: 'RECEIVED' },
       });
+      if (claim.count !== 1) throw new Error('Purchase order status changed; reload and retry');
+      await ensureDefaultAccounts(tenantId, tx);
 
-      // Update purchase price if setting is enabled
-      if (autoUpdatePurchasePrice) {
-        await prisma.part.update({
-          where: { id: item.partId },
+      for (const item of current.items) {
+        const quantity = item.quantity - item.receivedQty;
+        if (quantity <= 0) continue;
+        const part = await tx.part.findFirst({ where: { id: item.partId, tenantId } });
+        if (!part) throw new Error(`Part with ID ${item.partId} not found`);
+
+        const unitCostSYP = Number(item.costSYP);
+        const unitCostUSD = item.costUSD != null
+          ? Number(item.costUSD)
+          : Math.round((unitCostSYP / exchangeRate) * 100) / 100;
+        const currentQuantity = part.quantity;
+        const newQuantity = currentQuantity + quantity;
+        const currentCostUSD = part.costUSD != null
+          ? Number(part.costUSD)
+          : Math.round((Number(part.costSYP || 0) / exchangeRate) * 100) / 100;
+        const currentCostSYP = part.costUSD != null
+          ? Math.round(currentCostUSD * exchangeRate)
+          : Number(part.costSYP || 0);
+        const stockUpdate = await tx.part.updateMany({
+          where: { id: part.id, tenantId, quantity: currentQuantity },
           data: {
-            costSYP: item.costSYP,
-            costUSD: item.costUSD,
+            quantity: { increment: quantity },
+            costSYP: currentQuantity > 0
+              ? (currentCostSYP * currentQuantity + unitCostSYP * quantity) / newQuantity
+              : unitCostSYP,
+            costUSD: currentQuantity > 0
+              ? (currentCostUSD * currentQuantity + unitCostUSD * quantity) / newQuantity
+              : unitCostUSD,
+          },
+        });
+        if (stockUpdate.count !== 1) throw new Error(`Stock changed concurrently for part ${part.name}`);
+
+        const transaction = await tx.inventoryTransaction.create({
+          data: {
+            tenantId,
+            partId: item.partId,
+            supplierId: current.supplierId,
+            type: 'PURCHASE',
+            quantity,
+            costSYP: unitCostSYP,
+            costUSD: unitCostUSD,
+            reference: current.orderNumber,
+            notes: `Received from purchase order ${current.orderNumber}`,
+            createdBy: userId,
+          },
+          include: { part: { select: { name: true } } },
+        });
+        await createStockIntakeJournalEntry(transaction, tenantId, 'PAYABLE', userId, tx);
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: {
+            receivedQty: item.quantity,
+            costUSD: unitCostUSD,
+            totalUSD: Math.round(item.quantity * unitCostUSD * 100) / 100,
           },
         });
       }
 
-      // Update received quantity
-      await prisma.purchaseOrderItem.update({
-        where: { id: item.id },
-        data: {
-          receivedQty: item.quantity,
+      return tx.purchaseOrder.findFirst({
+        where: { id, tenantId },
+        include: {
+          supplier: { select: { id: true, name: true, phone: true } },
+          items: { include: { part: { select: { id: true, partNumber: true, name: true } } } },
         },
       });
-    }
+    }, { isolationLevel: 'Serializable' });
 
-    // Update purchase order status to RECEIVED
-    const updatedPurchaseOrder = await prisma.purchaseOrder.update({
-      where: { id },
-      data: {
-        status: 'RECEIVED' as PrismaOrderStatus,
-      },
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-          },
-        },
-        items: {
-          include: {
-            part: {
-              select: {
-                id: true,
-                partNumber: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    return this.mapToPurchaseOrderResponse(updatedPurchaseOrder);
+    if (!purchaseOrder) throw new Error('Purchase order not found after receipt');
+    return this.mapToPurchaseOrderResponse(purchaseOrder);
   }
 
-  async generateOrderNumber(tenantId: string): Promise<string> {
-    // Get the current year
+  async generateOrderNumber(_tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
-    
-    // Find the last order number for this tenant and year
-    const lastOrder = await prisma.purchaseOrder.findFirst({
-      where: {
-        tenantId,
-        orderNumber: {
-          startsWith: `PO-${year}-`,
-        },
-      },
-      orderBy: {
-        orderNumber: 'desc',
-      },
+    const sequence = await prisma.purchaseOrderNumberSequence.upsert({
+      where: { year },
+      create: { year, lastValue: 1 },
+      update: { lastValue: { increment: 1 } },
     });
-
-    let sequenceNumber = 1;
-    if (lastOrder) {
-      const lastSequence = parseInt(lastOrder.orderNumber.split('-')[2]);
-      sequenceNumber = lastSequence + 1;
-    }
-
-    // Format: PO-YYYY-XXXXX (5-digit sequence)
-    return `PO-${year}-${sequenceNumber.toString().padStart(5, '0')}`;
+    return `PO-${year}-${String(sequence.lastValue).padStart(5, '0')}`;
   }
 
   private async recalculateTotals(purchaseOrderId: string): Promise<void> {
-    const items = await prisma.purchaseOrderItem.findMany({
-      where: { purchaseOrderId },
-    });
+    const [items, purchaseOrder] = await Promise.all([
+      prisma.purchaseOrderItem.findMany({ where: { purchaseOrderId } }),
+      prisma.purchaseOrder.findUnique({ where: { id: purchaseOrderId }, select: { tenantId: true } }),
+    ]);
+    if (!purchaseOrder) throw new Error('Purchase order not found');
 
-    const subtotal = items.reduce((sum, item) => sum + Number(item.totalSYP), 0);
-    const tax = subtotal * 0.1; // 10% tax rate
-    const total = subtotal + tax;
+    const rate = await settingsService.getRequiredExchangeRate(purchaseOrder.tenantId);
+    const subtotalSYP = items.reduce((sum, item) => sum + Number(item.totalSYP), 0);
+    const subtotalUSD = items.reduce((sum, item) => sum + (item.totalUSD != null
+      ? Number(item.totalUSD)
+      : Math.round((Number(item.totalSYP) / rate) * 100) / 100), 0);
 
     await prisma.purchaseOrder.update({
       where: { id: purchaseOrderId },
       data: {
-        totalSYP: total,
+        totalSYP: subtotalSYP,
+        totalUSD: Math.round(subtotalUSD * 100) / 100,
       },
     });
   }
@@ -708,7 +693,9 @@ export class PurchaseOrderService {
       partId: item.partId,
       quantity: item.quantity,
       unitCost: Number(item.costSYP),
+      unitCostUSD: item.costUSD == null ? null : Number(item.costUSD),
       totalCost: Number(item.totalSYP),
+      totalCostUSD: item.totalUSD == null ? null : Number(item.totalUSD),
       receivedQuantity: item.receivedQty,
       part: item.part ? {
         id: item.part.id,
@@ -718,8 +705,13 @@ export class PurchaseOrderService {
     })) || [];
 
     const total = Number(purchaseOrder.totalSYP);
+    const totalUSD = purchaseOrder.totalUSD == null ? null : Number(purchaseOrder.totalUSD);
     const subtotal = items.reduce((sum: number, item: PurchaseOrderLine) => sum + item.totalCost, 0);
+    const subtotalUSD = items.every((item: PurchaseOrderLine) => item.totalCostUSD != null)
+      ? items.reduce((sum: number, item: PurchaseOrderLine) => sum + Number(item.totalCostUSD), 0)
+      : null;
     const tax = total - subtotal;
+    const taxUSD = totalUSD != null && subtotalUSD != null ? totalUSD - subtotalUSD : null;
 
     return {
       id: purchaseOrder.id,
@@ -731,8 +723,11 @@ export class PurchaseOrderService {
       expectedDate: undefined, // Not in schema yet
       status: purchaseOrder.status as PurchaseOrderStatus,
       subtotal,
+      subtotalUSD,
       tax,
+      taxUSD,
       total,
+      totalUSD,
       notes: purchaseOrder.notes,
       approvedBy: purchaseOrder.approvedBy,
       approvedAt: purchaseOrder.approvedAt,

@@ -157,7 +157,7 @@ export class InvoiceController {
       const tenantId = req.user!.tenantId;
       const { id } = req.params;
 
-      const invoice = await this.invoiceService.finalizeInvoice(tenantId, id);
+      const invoice = await this.invoiceService.finalizeInvoice(tenantId, id, req.user!.id);
 
       // Log invoice finalization
       logAuditFromRequest(req, 'INVOICE_FINALIZED', 'Invoice', id, null, invoice);
@@ -180,7 +180,7 @@ export class InvoiceController {
       const tenantId = req.user!.tenantId;
       const { id } = req.params;
 
-      const invoice = await this.invoiceService.cancelInvoice(tenantId, id);
+      const invoice = await this.invoiceService.cancelInvoice(tenantId, id, req.user!.id);
 
       // Log invoice cancellation
       logAuditFromRequest(req, 'INVOICE_CANCELLED', 'Invoice', id, null, invoice);

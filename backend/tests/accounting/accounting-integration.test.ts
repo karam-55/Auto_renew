@@ -1,10 +1,15 @@
 import { describe, test, expect, beforeAll } from '@jest/globals';
 import request, { Test } from 'supertest';
-import { app } from '../../src/server';
+let app: any;
+const databaseUrl = process.env.TEST_DATABASE_URL || '';
+const runDatabaseIntegrationTests = process.env.RUN_DATABASE_INTEGRATION_TESTS === 'true' &&
+  /@(localhost|127\.0\.0\.1|postgres|postgres-test)(:|\/)/.test(databaseUrl) &&
+  !databaseUrl.includes('178.105.209.59');
+const integrationDescribe = runDatabaseIntegrationTests ? describe : describe.skip;
 
 const uniqueId = () => Math.random().toString(36).substring(2, 10);
 
-describe('Accounting Module Integration Tests', () => {
+integrationDescribe('Accounting Module Integration Tests', () => {
   let authToken = '';
   let tenantId = '';
   let journalFiscalPeriodId = '';
@@ -63,6 +68,8 @@ describe('Accounting Module Integration Tests', () => {
   };
 
   beforeAll(async () => {
+    const server = await import('../../src/server');
+    app = server.app;
     const loginResponse = await request(app)
       .post('/api/auth/login')
       .send({ username: 'admin', password: 'admin123', tenantId: 'default' });

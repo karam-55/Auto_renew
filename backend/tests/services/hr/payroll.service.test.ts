@@ -8,6 +8,7 @@ jest.mock('../../../src/config/database', () => ({
     payrollRecord: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -62,15 +63,19 @@ describe('PayrollService', () => {
       ];
 
       (prisma.payrollRecord.findMany as jest.Mock).mockResolvedValue(mockPayrollRecords);
+      (prisma.payrollRecord.count as jest.Mock).mockResolvedValue(1);
 
       const result = await payrollService.getAllPayrollRecords(mockTenantId);
 
-      expect(prisma.payrollRecord.findMany).toHaveBeenCalledWith({
+      expect(prisma.payrollRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { tenantId: mockTenantId },
         select: expect.any(Object),
         orderBy: { periodStart: 'desc' },
-      });
-      expect(result).toHaveLength(1);
+        skip: 0,
+        take: 50,
+      }));
+      expect(result.payrollRecords).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
   });
 

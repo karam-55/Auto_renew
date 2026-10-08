@@ -23,10 +23,12 @@ model Tenant {
   customers                Customer[]
   dealers                  Dealer[]
   dealerWarranties         DealerWarranty[]
+  dealerWarrantyReceipts   DealerWarrantyReceipt[]
   departments              Department[]
   documents                Document[]
   employees                Employee[]
   invoices                 Invoice[]
+  invoiceNumberSequences   InvoiceNumberSequence[]
   journalEntries           JournalEntry[]
   suppliers                Supplier[]
   users                    User[]
@@ -408,7 +410,7 @@ model Booking {
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
   priority                String?
-  paymentMethod           BookingPaymentMethod     @default(CASH)
+  paymentMethod           BookingPaymentMethod @default(CASH)
   scheduledDate           DateTime
   scheduledTime           String?
   appointmentLog          AppointmentLog?
@@ -615,28 +617,30 @@ model Warehouse {
 }
 
 model InventoryTransaction {
-  id          String          @id @default(uuid())
-  tenantId    String
-  branchId    String?
-  partId      String
-  warehouseId String?
-  supplierId  String?
-  type        TransactionType
-  quantity    Int
-  costSYP     Decimal         @db.Decimal(12, 2)
-  costUSD     Decimal?        @db.Decimal(12, 2)
-  reference   String?
-  notes       String?
-  invoiceId   String?
-  createdBy   String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  part        Part            @relation(fields: [partId], references: [id], onDelete: Cascade)
-  warehouse   Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  branch      Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  supplier    Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  deletedAt   DateTime?
+  id             String          @id @default(uuid())
+  tenantId       String
+  branchId       String?
+  partId         String
+  warehouseId    String?
+  supplierId     String?
+  type           TransactionType
+  quantity       Int
+  costSYP        Decimal         @db.Decimal(12, 2)
+  costUSD        Decimal?        @db.Decimal(12, 2)
+  reference      String?
+  notes          String?
+  invoiceId      String?
+  idempotencyKey String?
+  createdBy      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  part           Part            @relation(fields: [partId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  deletedAt      DateTime?
 
+  @@unique([tenantId, idempotencyKey])
   @@index([tenantId])
   @@index([branchId])
   @@index([partId])
@@ -755,7 +759,7 @@ model Invoice {
   customerId            String?
   vehicleId             String?
   bookingId             String?
-  invoiceNumber         String           @unique
+  invoiceNumber         String
   invoiceDate           DateTime         @default(now())
   dueDate               DateTime?
   subtotalSYP           Decimal          @db.Decimal(12, 2)
@@ -791,6 +795,7 @@ model Invoice {
   payments              Payment[]
   deletedAt             DateTime?
 
+  @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
   @@index([branchId])
   @@index([customerId])
@@ -799,6 +804,17 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([invoiceDate])
   @@index([status, createdAt])
+}
+
+model InvoiceNumberSequence {
+  tenantId  String
+  year      Int
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, year])
 }
 
 model InvoiceItem {
@@ -1060,7 +1076,7 @@ model CompanySettings {
   // General Settings
   timezone                    String    @default("UTC")
   currency                    String    @default("USD")
-  exchangeRate                Decimal   @default(15000.00) @db.Decimal(12, 4)
+  exchangeRate                Decimal   @default(0) @db.Decimal(12, 4)
   taxRate                     Decimal   @default(0.00) @db.Decimal(5, 2)
   dateFormat                  String    @default("DD/MM/YYYY")
   timeFormat                  String    @default("24h")
@@ -1488,6 +1504,13 @@ model VehicleInspectionChecklist {
   @@index([inspectionDate])
 }
 
+model PurchaseOrderNumberSequence {
+  year      Int      @id
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model PurchaseOrder {
   id          String              @id @default(uuid())
   tenantId    String
@@ -1539,6 +1562,13 @@ model PurchaseOrderItem {
   @@index([partId])
 }
 
+model GoodsReceiptNoteNumberSequence {
+  year      Int      @id
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model GoodsReceiptNote {
   id              String                 @id @default(uuid())
   tenantId        String
@@ -1576,7 +1606,9 @@ model GoodsReceiptNoteLine {
   receivedQuantity Int
   damagedQuantity  Int              @default(0)
   unitCost         Decimal          @db.Decimal(12, 2)
+  unitCostUSD      Decimal?         @db.Decimal(12, 2)
   totalCost        Decimal          @db.Decimal(12, 2)
+  totalCostUSD     Decimal?         @db.Decimal(12, 2)
   createdAt        DateTime         @default(now())
   tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   grn              GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
@@ -2774,21 +2806,21 @@ model RolePermission {
 }
 
 model Dealer {
-  id          String          @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
   name        String
-  phone       String          @unique
+  phone       String           @unique
   password    String?
   companyName String
   address     String?
   city        String?
   taxId       String?
   notes       String?
-  status      DealerStatus    @default(ACTIVE)
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status      DealerStatus     @default(ACTIVE)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   warranties  DealerWarranty[]
   deletedAt   DateTime?
 
@@ -2798,7 +2830,7 @@ model Dealer {
 }
 
 model DealerWarranty {
-  id              String   @id @default(uuid())
+  id              String                    @id @default(uuid())
   tenantId        String
   dealerId        String
   customerName    String
@@ -2811,16 +2843,21 @@ model DealerWarranty {
   mileage         Int
   color           String
   durationMonths  Int
-  amountPaid      Decimal  @db.Decimal(12, 2)
-  currency        String   @default("SYP") // SYP or USD
-  startDate       DateTime @default(now())
+  amountPaid      Decimal                   @db.Decimal(12, 2)
+  currency        String                    @default("SYP")
+  engineType      DealerWarrantyEngineType?
+  customerPaidUSD Decimal?                  @db.Decimal(12, 2)
+  companyShareUSD Decimal?                  @db.Decimal(12, 2)
+  dealerShareUSD  Decimal?                  @db.Decimal(12, 2)
+  startDate       DateTime                  @default(now())
   endDate         DateTime
   pdfUrl          String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  dealer          Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isActive        Boolean                   @default(true)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  dealer          Dealer                    @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipts        DealerWarrantyReceipt[]
   deletedAt       DateTime?
 
   @@index([tenantId])
@@ -2829,8 +2866,37 @@ model DealerWarranty {
   @@index([isActive])
 }
 
+enum DealerWarrantyEngineType {
+  GASOLINE
+  HYBRID
+  ELECTRIC
+}
+
+model DealerWarrantyReceipt {
+  id               String         @id @default(uuid())
+  tenantId         String
+  dealerWarrantyId String
+  amountSYP        Decimal        @db.Decimal(12, 2)
+  amountUSD        Decimal        @db.Decimal(12, 2)
+  paymentDate      DateTime       @default(now())
+  paymentMethod    PaymentMethod
+  reference        String?
+  notes            String?
+  idempotencyKey   String?
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealerWarranty   DealerWarranty @relation(fields: [dealerWarrantyId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([dealerWarrantyId, paymentDate])
+}
+
 model Document {
-  id          String          @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
   fileName    String
   fileType    String
@@ -2841,9 +2907,9 @@ model Document {
   entityId    String?
   description String?
   uploadedBy  String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deletedAt   DateTime?
 
   @@index([tenantId])
@@ -2900,20 +2966,20 @@ enum DepreciationMethod {
 }
 
 model CostCenter {
-  id              String         @id @default(uuid())
-  tenantId        String
-  name            String
-  nameAr          String?
-  code            String?
-  type            CostCenterType
-  costDriver      CostDriver
-  driverQuantity  Int            @default(1)
-  monthlyBudget   Decimal        @db.Decimal(12, 2)
-  actualCost      Decimal?       @db.Decimal(12, 2)
-  isActive        Boolean        @default(true)
-  isDefault       Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  tenantId       String
+  name           String
+  nameAr         String?
+  code           String?
+  type           CostCenterType
+  costDriver     CostDriver
+  driverQuantity Int            @default(1)
+  monthlyBudget  Decimal        @db.Decimal(12, 2)
+  actualCost     Decimal?       @db.Decimal(12, 2)
+  isActive       Boolean        @default(true)
+  isDefault      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   allocationsFrom CostCenterAllocation[] @relation("FromCenter")
   allocationsTo   CostCenterAllocation[] @relation("ToCenter")
@@ -2944,16 +3010,16 @@ model CostCenterAllocation {
 }
 
 model AssetCategory {
-  id                 String    @id @default(uuid())
-  tenantId           String
-  name               String
-  description        String?
-  depreciationMethod String    @default("STRAIGHT_LINE")
-  usefulLifeYears    Int       @default(5)
+  id                  String   @id @default(uuid())
+  tenantId            String
+  name                String
+  description         String?
+  depreciationMethod  String   @default("STRAIGHT_LINE")
+  usefulLifeYears     Int      @default(5)
   salvageValuePercent Decimal  @default(10.00) @db.Decimal(5, 2)
-  isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   assets Asset[]
 
@@ -2961,20 +3027,20 @@ model AssetCategory {
 }
 
 model Asset {
-  id                       String              @id @default(uuid())
+  id                       String   @id @default(uuid())
   tenantId                 String
   categoryId               String
   name                     String
   description              String?
-  purchaseCost             Decimal             @db.Decimal(12, 2)
+  purchaseCost             Decimal  @db.Decimal(12, 2)
   purchaseDate             DateTime
-  salvageValue             Decimal             @db.Decimal(12, 2) @default(0)
-  monthlyDepreciation      Decimal?            @db.Decimal(12, 2)
-  userAdjustedDepreciation Decimal?            @db.Decimal(12, 2)
-  accumulatedDepreciation  Decimal?            @db.Decimal(12, 2)
-  isActive                 Boolean             @default(true)
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @updatedAt
+  salvageValue             Decimal  @default(0) @db.Decimal(12, 2)
+  monthlyDepreciation      Decimal? @db.Decimal(12, 2)
+  userAdjustedDepreciation Decimal? @db.Decimal(12, 2)
+  accumulatedDepreciation  Decimal? @db.Decimal(12, 2)
+  isActive                 Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   category     AssetCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   serviceCosts ServiceCostDetail[]
@@ -2985,17 +3051,17 @@ model Asset {
 }
 
 model ServiceCostDetail {
-  id           String     @id @default(uuid())
+  id           String   @id @default(uuid())
   tenantId     String
   serviceId    String
   costCenterId String?
   assetId      String?
   costType     CostType
-  amountSYP    Decimal    @db.Decimal(12, 2)
-  amountUSD    Decimal?   @db.Decimal(12, 2)
-  isCalculated Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  amountSYP    Decimal  @db.Decimal(12, 2)
+  amountUSD    Decimal? @db.Decimal(12, 2)
+  isCalculated Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   service    Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   costCenter CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
@@ -3008,20 +3074,20 @@ model ServiceCostDetail {
 }
 
 model BookingJobCost {
-  id            String    @id @default(uuid())
-  tenantId      String
-  bookingId     String
-  mechanicId    String?
-  serviceId     String
-  costCenterId  String?
-  laborHours    Decimal?  @db.Decimal(5, 2)
-  laborCost     Decimal?  @db.Decimal(12, 2)
-  materialCost  Decimal?  @db.Decimal(12, 2)
-  overheadCost  Decimal?  @db.Decimal(12, 2)
-  totalCost     Decimal?  @db.Decimal(12, 2)
-  varianceNote  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(uuid())
+  tenantId     String
+  bookingId    String
+  mechanicId   String?
+  serviceId    String
+  costCenterId String?
+  laborHours   Decimal? @db.Decimal(5, 2)
+  laborCost    Decimal? @db.Decimal(12, 2)
+  materialCost Decimal? @db.Decimal(12, 2)
+  overheadCost Decimal? @db.Decimal(12, 2)
+  totalCost    Decimal? @db.Decimal(12, 2)
+  varianceNote String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   costCenter CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
 

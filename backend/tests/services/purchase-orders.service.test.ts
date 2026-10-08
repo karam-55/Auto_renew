@@ -3,35 +3,31 @@ import { OrderStatus } from '@prisma/client';
 import prisma from '../../src/config/database';
 
 // Mock Prisma
-jest.mock('../../src/config/database', () => ({
-  __esModule: true,
-  default: {
-    supplier: {
-      findFirst: jest.fn(),
-    },
+jest.mock('../../src/config/database', () => {
+  const client: any = {
+    supplier: { findFirst: jest.fn() },
+    companySettings: { findUnique: jest.fn().mockResolvedValue({ exchangeRate: 139, taxRate: 0 }) },
     purchaseOrder: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(),
+      update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), count: jest.fn(),
     },
+    purchaseOrderNumberSequence: { upsert: jest.fn() },
     purchaseOrderItem: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(),
+      delete: jest.fn(), count: jest.fn(),
     },
-    part: {
-      findFirst: jest.fn(),
-    },
-    goodsReceiptNote: {
-      count: jest.fn(),
-    },
-  },
+    part: { findFirst: jest.fn(), updateMany: jest.fn() },
+    inventoryTransaction: { create: jest.fn() },
+    goodsReceiptNote: { count: jest.fn() },
+  };
+  client.$transaction = jest.fn(async (operation: any) =>
+    typeof operation === 'function' ? operation(client) : Promise.all(operation)
+  );
+  return { __esModule: true, default: client };
+});
+jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
+  createStockIntakeJournalEntry: jest.fn().mockResolvedValue({ id: 'stock-entry' }),
+  ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('PurchaseOrderService', () => {
@@ -41,6 +37,12 @@ describe('PurchaseOrderService', () => {
   beforeEach(() => {
     purchaseOrderService = new PurchaseOrderService();
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
+    (prisma.purchaseOrderNumberSequence.upsert as jest.Mock).mockResolvedValue({ lastValue: 1 });
+    (prisma.part.findFirst as jest.Mock).mockResolvedValue({ id: 'part-1', tenantId: mockTenantId });
+    (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.purchaseOrder.findUnique as jest.Mock).mockResolvedValue({ tenantId: mockTenantId });
+    (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   describe('createPurchaseOrder', () => {
@@ -67,6 +69,7 @@ describe('PurchaseOrderService', () => {
         id: 'supplier-1',
         tenantId: mockTenantId,
         name: 'Auto Parts Supplier',
+        isActive: true,
         phone: '+971501234567',
       };
 
@@ -150,6 +153,7 @@ describe('PurchaseOrderService', () => {
         id: 'supplier-1',
         tenantId: mockTenantId,
         name: 'Auto Parts Supplier',
+        isActive: true,
       };
 
       const mockPurchaseOrder = {
@@ -196,6 +200,7 @@ describe('PurchaseOrderService', () => {
           supplier: {
             id: 'supplier-1',
             name: 'Auto Parts Supplier',
+        isActive: true,
             phone: '+971501234567',
           },
           items: [],
@@ -929,25 +934,59 @@ describe('PurchaseOrderService', () => {
     });
   });
 
+  describe('receivePurchaseOrder', () => {
+    it('receives stock and posts purchase accounting atomically at AVCO cost', async () => {
+      const currentPart = { id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', quantity: 2, costSYP: 139, costUSD: 1 };
+      const line = { id: 'line-1', partId: 'part-1', quantity: 4, receivedQty: 0, costSYP: 1390, costUSD: 10 };
+      const order = {
+        id: 'po-1', tenantId: mockTenantId, supplierId: 'supplier-1', orderNumber: 'PO-2026-00001',
+        status: OrderStatus.APPROVED, items: [line],
+      };
+      const transaction = { id: 'movement-1', partId: 'part-1', quantity: 4, costSYP: 1390, costUSD: 10 };
+      (prisma.purchaseOrder.findFirst as jest.Mock)
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce({ ...order, status: OrderStatus.RECEIVED });
+      (prisma.purchaseOrder.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.purchaseOrderItem.findFirst as jest.Mock).mockResolvedValue(line);
+      (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([{ quantity: 4, receivedQty: 4 }]);
+      (prisma.part.findFirst as jest.Mock).mockResolvedValue(currentPart);
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue(transaction);
+
+      const result = await purchaseOrderService.receivePurchaseOrder('po-1', mockTenantId, 'user-1');
+
+      expect(prisma.part.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'part-1', tenantId: mockTenantId, quantity: 2 },
+        data: expect.objectContaining({ quantity: { increment: 4 }, costSYP: 973, costUSD: 7 }),
+      }));
+      expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ type: 'PURCHASE', quantity: 4, costSYP: 1390, costUSD: 10 }),
+      }));
+      const { createStockIntakeJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
+      expect(createStockIntakeJournalEntry).toHaveBeenCalledWith(transaction, mockTenantId, 'PAYABLE', 'user-1', prisma);
+      expect(result.status).toBe(OrderStatus.RECEIVED);
+    });
+  });
+
   describe('generateOrderNumber', () => {
     it('should generate first order number for year', async () => {
       const year = new Date().getFullYear();
 
-      (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.purchaseOrderNumberSequence.upsert as jest.Mock).mockResolvedValue({ lastValue: 1 });
 
       const result = await purchaseOrderService.generateOrderNumber(mockTenantId);
 
       expect(result).toBe(`PO-${year}-00001`);
+      expect(prisma.purchaseOrderNumberSequence.upsert).toHaveBeenCalledWith({
+        where: { year },
+        create: { year, lastValue: 1 },
+        update: { lastValue: { increment: 1 } },
+      });
     });
 
     it('should generate sequential order number', async () => {
       const year = new Date().getFullYear();
-
-      const mockLastOrder = {
-        orderNumber: `PO-${year}-00005`,
-      };
-
-      (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(mockLastOrder);
+      (prisma.purchaseOrderNumberSequence.upsert as jest.Mock).mockResolvedValue({ lastValue: 6 });
 
       const result = await purchaseOrderService.generateOrderNumber(mockTenantId);
 
@@ -977,6 +1016,7 @@ describe('PurchaseOrderService', () => {
         id: 'supplier-1',
         tenantId: mockTenantId,
         name: 'Auto Parts Supplier',
+        isActive: true,
       };
 
       const mockPurchaseOrder = {

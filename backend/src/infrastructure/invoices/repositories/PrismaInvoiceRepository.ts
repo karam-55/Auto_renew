@@ -17,9 +17,9 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
     return this.mapToDomain(invoice);
   }
 
-  async findByInvoiceNumber(invoiceNumber: InvoiceNumber): Promise<Invoice | null> {
+  async findByInvoiceNumber(tenantId: string, invoiceNumber: InvoiceNumber): Promise<Invoice | null> {
     const invoice = await prisma.invoice.findUnique({
-      where: { invoiceNumber: invoiceNumber.getValue() },
+      where: { tenantId_invoiceNumber: { tenantId, invoiceNumber: invoiceNumber.getValue() } },
     });
 
     if (!invoice) {

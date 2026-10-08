@@ -15,8 +15,11 @@ export interface PurchaseOrder {
   expectedDate?: Date;
   status: PurchaseOrderStatus;
   subtotal: number;
+  subtotalUSD: number | null;
   tax: number;
+  taxUSD: number | null;
   total: number;
+  totalUSD: number | null;
   notes?: string;
   approvedBy?: string;
   approvedAt?: Date;
@@ -36,7 +39,9 @@ export interface PurchaseOrderLine {
   partId: string;
   quantity: number;
   unitCost: number;
+  unitCostUSD: number | null;
   totalCost: number;
+  totalCostUSD: number | null;
   receivedQuantity: number;
   part?: {
     id: string;
@@ -66,12 +71,14 @@ export interface UpdatePurchaseOrderDto {
 export interface CreatePurchaseOrderLineDto {
   partId: string;
   quantity: number;
-  unitCost: number;
+  unitCost?: number;
+  unitCostUSD?: number;
 }
 
 export interface UpdatePurchaseOrderLineDto {
   quantity?: number;
   unitCost?: number;
+  unitCostUSD?: number;
   receivedQuantity?: number;
 }
 

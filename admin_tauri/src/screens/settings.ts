@@ -3,6 +3,7 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { isPhone, isRequired, validateFields, showValidationErrors, clearValidationErrors, showFormError, clearFormError } from '../utils/validation'
+import { loadExchangeRate } from '../utils/currency'
 
 export class SettingsScreen {
   private auth: AuthService
@@ -59,13 +60,13 @@ export class SettingsScreen {
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">العملة الافتراضية</label>
               <select id="setting-currency" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg pr-4 pl-10 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow appearance-none" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23475569%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem;">
                 <option value="SYP">ليرة سورية (SYP)</option>
-                <option value="USD">دولار أمريكي (USD)</option>
+                <option value="USD" selected>دولار أمريكي (USD)</option>
               </select>
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر صرف الدولار (ل.س) — سعر السوق</label>
               <div class="flex gap-2">
-                <input id="setting-exchange-rate" class="flex-1 h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" placeholder="139" />
+                <input id="setting-exchange-rate" class="flex-1 h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" type="number" min="0" placeholder="أدخل السعر أو اجلبه من السوق" />
                 <button type="button" class="h-[48px] px-4 bg-secondary/10 text-secondary font-ibmPlexSans font-body-md rounded-lg border border-secondary/30 hover:bg-secondary/20 transition-colors flex items-center gap-2" id="sync-exchange-rate-btn" title="جلب سعر السوق تلقائياً">
                   <span class="material-symbols-outlined text-[20px]">sync</span>
                   جلب من السوق
@@ -107,6 +108,7 @@ export class SettingsScreen {
         const res = await this.api.post<any>('/api/settings/exchange-rate/sync', {})
         if (res.success && res.data?.rate) {
           if (rateInput) rateInput.value = String(res.data.rate)
+          await loadExchangeRate(this.api, true)
           if (status) status.textContent = `تم جلب السعر من السوق: ${res.data.rate} ل.س للدولار (${new Date(res.data.fetchedAt).toLocaleString('ar-SA')})`
           ;(window as any).toast?.show?.({ message: `تم تحديث سعر الصرف: ${res.data.rate} ل.س`, type: 'success' })
         } else {
@@ -185,7 +187,7 @@ export class SettingsScreen {
     try {
       const payload: any = {
         companyName: name,
-        currency: currency || 'SYP',
+        currency: currency || 'USD',
       }
       if (address) payload.address = address
       if (phone) payload.phone = phone

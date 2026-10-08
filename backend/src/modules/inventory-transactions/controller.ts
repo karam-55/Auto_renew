@@ -21,7 +21,8 @@ export class InventoryTransactionController {
     try {
       const transaction = await this.inventoryTransactionService.createInventoryTransaction(
         req.user!.tenantId,
-        req.body
+        req.body,
+        req.user!.id
       );
       
       // Log inventory transaction creation

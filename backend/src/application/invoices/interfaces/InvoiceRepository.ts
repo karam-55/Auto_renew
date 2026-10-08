@@ -4,7 +4,7 @@ import { InvoiceStatus } from '../../../domain/invoices/entities/Invoice';
 
 export interface InvoiceRepository {
   findById(id: string): Promise<Invoice | null>;
-  findByInvoiceNumber(invoiceNumber: InvoiceNumber): Promise<Invoice | null>;
+  findByInvoiceNumber(tenantId: string, invoiceNumber: InvoiceNumber): Promise<Invoice | null>;
   findByCustomerId(customerId: string): Promise<Invoice[]>;
   findByBookingId(bookingId: string): Promise<Invoice[]>;
   findByTenantId(tenantId: string): Promise<Invoice[]>;

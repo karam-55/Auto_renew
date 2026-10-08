@@ -13,7 +13,7 @@ export class GetVATSummaryUseCase {
     for (const entry of journalEntries) {
       for (const line of entry.lines) {
         // VAT account code is 2200
-        if (line.accountCode === '2200') {
+        if (line.accountCode === '2130') {
           if (entry.sourceType === 'INVOICE') {
             totalSalesVAT += line.credit; // VAT on sales is a credit
           } else if (entry.sourceType === 'GRN') {

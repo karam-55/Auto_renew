@@ -2,7 +2,7 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
-import { loadExchangeRate, wireUsdSypPair } from '../utils/currency'
+import { loadExchangeRate, sypFromUsd, wireUsdSypPair } from '../utils/currency'
 
 export class InventoryScreen {
   private editingPartId: string | null = null
@@ -138,8 +138,8 @@ export class InventoryScreen {
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية</label>
-                <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-quantity" placeholder="0" />
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية الحالية (تتغير عبر حركة مخزون)</label>
+                <input type="number" min="0" disabled class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow disabled:opacity-70" id="part-quantity" placeholder="0" />
               </div>
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الحد الأدنى</label>
@@ -258,6 +258,7 @@ export class InventoryScreen {
           </div>
           <div class="p-6 space-y-4">
             <input type="hidden" id="intake-part-id" value="" />
+            <input type="hidden" id="intake-idempotency-key" value="" />
             <!-- Package mode (part has unitsPerPackage) -->
             <div id="intake-package-fields" class="space-y-4">
               <div>
@@ -292,6 +293,15 @@ export class InventoryScreen {
                   <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-unit-cost-usd" placeholder="0.00" />
                 </div>
               </div>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">طريقة تسجيل تكلفة الاستلام *</label>
+              <select id="intake-settlement-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none">
+                <option value="">اختر الحساب الدائن</option>
+                <option value="CASH">نقداً (الصندوق)</option>
+                <option value="BANK">مدفوع من البنك</option>
+                <option value="PAYABLE">على حساب المورد</option>
+              </select>
             </div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">ملاحظات</label>
@@ -435,9 +445,9 @@ export class InventoryScreen {
           الفئة: p.category?.name || '',
           الكمية: p.quantity || 0,
           الحد_الأدنى: p.minQuantity || 0,
-          سعر_البيع: p.sellingPriceSYP || 0,
+          سعر_البيع: p.sellingPriceUSD != null ? (sypFromUsd(Number(p.sellingPriceUSD)) || p.sellingPriceSYP || 0) : (p.sellingPriceSYP || 0),
           سعر_البيع_دولار: p.sellingPriceUSD || '',
-          التكلفة: p.costSYP || 0,
+          التكلفة: p.costUSD != null ? (sypFromUsd(Number(p.costUSD)) || p.costSYP || 0) : (p.costSYP || 0),
           التكلفة_دولار: p.costUSD || '',
         }))
         const csv = [Object.keys(data[0] || {}).join(','), ...data.map((row: any) => Object.values(row).join(','))].join('\n')
@@ -461,6 +471,7 @@ export class InventoryScreen {
     if (!modal) return
     const nameEl = el.querySelector('#intake-part-name') as HTMLElement
     const idEl = el.querySelector('#intake-part-id') as HTMLInputElement
+    const idempotencyKeyEl = el.querySelector('#intake-idempotency-key') as HTMLInputElement
     const pkgFields = el.querySelector('#intake-package-fields') as HTMLElement
     const unitFields = el.querySelector('#intake-unit-fields') as HTMLElement
     const preview = el.querySelector('#intake-preview') as HTMLElement
@@ -470,16 +481,27 @@ export class InventoryScreen {
     const unitsIn = el.querySelector('#intake-units') as HTMLInputElement
     const unitCostIn = el.querySelector('#intake-unit-cost') as HTMLInputElement
     const unitCostUsdIn = el.querySelector('#intake-unit-cost-usd') as HTMLInputElement
+    const settlementSelect = el.querySelector('#intake-settlement-account') as HTMLSelectElement
     const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
 
     if (nameEl) nameEl.textContent = part?.name || ''
     if (idEl) idEl.value = part?.id || ''
+    if (idempotencyKeyEl && part?.id) {
+      const storageKey = `stock-intake-id:${part.id}`
+      let key = localStorage.getItem(storageKey)
+      if (!key) {
+        key = crypto.randomUUID()
+        localStorage.setItem(storageKey, key)
+      }
+      idempotencyKeyEl.value = key
+    }
     if (packagesIn) packagesIn.value = ''
     if (pkgCostIn) pkgCostIn.value = ''
     if (pkgCostUsdIn) pkgCostUsdIn.value = ''
     if (unitsIn) unitsIn.value = ''
     if (unitCostIn) unitCostIn.value = ''
     if (unitCostUsdIn) unitCostUsdIn.value = ''
+    if (settlementSelect) settlementSelect.value = ''
     if (notesIn) notesIn.value = ''
     if (preview) preview.classList.add('hidden')
 
@@ -525,10 +547,15 @@ export class InventoryScreen {
     const idEl = el.querySelector('#intake-part-id') as HTMLInputElement
     const id = idEl?.value
     if (!id) return
+    const idempotencyKey = (el.querySelector('#intake-idempotency-key') as HTMLInputElement)?.value
+    if (!idempotencyKey) { ;(window as any).toast?.show?.({ message: 'تعذر إنشاء مفتاح الاستلام، أغلق النافذة وافتحها مجدداً', type: 'error' }); return }
     const part = this.currentIntakePart
     const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
 
     let payload: Record<string, unknown> = {}
+    const settlementAccount = (el.querySelector('#intake-settlement-account') as HTMLSelectElement)?.value
+    if (!settlementAccount) { ;(window as any).toast?.show?.({ message: 'اختر حساب تسجيل تكلفة الاستلام', type: 'warning' }); return }
+    payload.settlementAccount = settlementAccount
     const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
     if (notesIn?.value?.trim()) payload.notes = notesIn.value.trim()
 
@@ -552,9 +579,14 @@ export class InventoryScreen {
       if (unitCostUsdRaw) payload.unitCostUSD = parseFloat(unitCostUsdRaw)
     }
 
+    payload.idempotencyKey = idempotencyKey
+    const submitButton = el.querySelector('#submit-intake-btn') as HTMLButtonElement
+    if (submitButton?.disabled) return
+    if (submitButton) submitButton.disabled = true
     try {
       const res = await this.api.post<any>(`/api/parts/${id}/stock-intake`, payload)
       if (res.success !== false) {
+        localStorage.removeItem(`stock-intake-id:${id}`)
         this.closeModal(el, '#intake-modal')
         ;(window as any).toast?.show?.({ message: 'تم تسجيل الاستلام وتحديث المخزون', type: 'success' })
         onSuccess()
@@ -563,6 +595,8 @@ export class InventoryScreen {
       }
     } catch (e: any) {
       ;(window as any).toast?.show?.({ message: e?.message || 'حدث خطأ أثناء الاستلام', type: 'error' })
+    } finally {
+      if (submitButton) submitButton.disabled = false
     }
   }
 
@@ -752,8 +786,12 @@ export class InventoryScreen {
     }
     if (qtyIn) qtyIn.value = part?.quantity != null ? String(part.quantity) : ''
     if (minQtyIn) minQtyIn.value = part?.minQuantity != null ? String(part.minQuantity) : ''
-    if (priceIn) priceIn.value = part?.sellingPriceSYP != null ? String(part.sellingPriceSYP) : ''
-    if (costIn) costIn.value = part?.costSYP != null ? String(part.costSYP) : ''
+    if (priceIn) priceIn.value = part?.sellingPriceUSD != null && sypFromUsd(Number(part.sellingPriceUSD)) > 0
+      ? String(sypFromUsd(Number(part.sellingPriceUSD)))
+      : part?.sellingPriceSYP != null ? String(part.sellingPriceSYP) : ''
+    if (costIn) costIn.value = part?.costUSD != null && sypFromUsd(Number(part.costUSD)) > 0
+      ? String(sypFromUsd(Number(part.costUSD)))
+      : part?.costSYP != null ? String(part.costSYP) : ''
     if (usdPriceIn) usdPriceIn.value = part?.sellingPriceUSD != null ? String(part.sellingPriceUSD) : ''
     if (usdCostIn) usdCostIn.value = part?.costUSD != null ? String(part.costUSD) : ''
     if (baseUnitIn) baseUnitIn.value = part?.baseUnitName || ''
@@ -847,6 +885,7 @@ export class InventoryScreen {
   private async loadParts(el: HTMLElement) {
     const tbody = el.querySelector('#inventory-tbody') as HTMLElement
     try {
+      await loadExchangeRate(this.api)
       const searchInput = el.querySelector('#part-search') as HTMLInputElement
       const categorySelect = el.querySelector('#category-filter') as HTMLSelectElement
       const stockSelect = el.querySelector('#stock-filter') as HTMLSelectElement
@@ -925,11 +964,11 @@ export class InventoryScreen {
         <td class="px-6 py-4 font-body-md text-text-secondary">${min}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">
           ${p.sellingPriceUSD != null ? `<div>$${this.fmtUsd(p.sellingPriceUSD)}</div>` : ''}
-          <div class="${p.sellingPriceUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.sellingPriceSYP || p.unitPrice || 0)} ل.س</div>
+          <div class="${p.sellingPriceUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.sellingPriceUSD != null ? (sypFromUsd(Number(p.sellingPriceUSD)) || p.sellingPriceSYP || 0) : (p.sellingPriceSYP || p.unitPrice || 0))} ل.س</div>
         </td>
         <td class="px-6 py-4 font-body-md text-text-secondary">
           ${p.costUSD != null ? `<div>$${this.fmtUsd(p.costUSD)}</div>` : ''}
-          <div class="${p.costUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.costSYP || 0)} ل.س</div>
+          <div class="${p.costUSD != null ? 'text-sm text-text-tertiary' : ''}">${this.fmt(p.costUSD != null ? (sypFromUsd(Number(p.costUSD)) || p.costSYP || 0) : (p.costSYP || 0))} ل.س</div>
         </td>
         <td class="px-6 py-4">${this.stockBadge(status)}</td>
         <td class="px-6 py-4">

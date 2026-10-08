@@ -35,8 +35,8 @@ export class AutoJournalForStockConsumptionUseCase {
     }
 
     // Get accounts
-    const inventoryAccount = await this.accountRepository.findByCode('1000'); // Inventory
-    const costOfGoodsSoldAccount = await this.accountRepository.findByCode('5000'); // COGS
+    const inventoryAccount = await this.accountRepository.findByCode('1140'); // Inventory
+    const costOfGoodsSoldAccount = await this.accountRepository.findByCode('5100'); // COGS
 
     if (!inventoryAccount || !costOfGoodsSoldAccount) {
       throw new Error('Required accounts not found in chart of accounts');

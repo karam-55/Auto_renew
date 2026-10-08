@@ -84,6 +84,7 @@ export const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '1130', nameAr: 'العملاء (الذمم المدينة)', nameEn: 'Accounts Receivable', accountType: 'ASSET', parentCode: '1100' },
   { code: '1140', nameAr: 'المخزون', nameEn: 'Inventory', accountType: 'ASSET', parentCode: '1100' },
   { code: '1150', nameAr: 'مصروفات مدفوعة مقدماً', nameEn: 'Prepaid Expenses', accountType: 'ASSET', parentCode: '1100' },
+  { code: '1400', nameAr: 'شيكات تحت التحصيل', nameEn: 'Cheques Receivable', accountType: 'ASSET', parentCode: '1100' },
   { code: '1200', nameAr: 'الأصول الثابتة', nameEn: 'Fixed Assets', accountType: 'ASSET', parentCode: '1000' },
   { code: '1210', nameAr: 'الأراضي', nameEn: 'Land', accountType: 'ASSET', parentCode: '1200' },
   { code: '1220', nameAr: 'المباني', nameEn: 'Buildings', accountType: 'ASSET', parentCode: '1200' },
@@ -103,6 +104,7 @@ export const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '2140', nameAr: 'رواتب مستحقة', nameEn: 'Salaries Payable', accountType: 'LIABILITY', parentCode: '2100' },
   { code: '2150', nameAr: 'مصاريف مستحقة', nameEn: 'Accrued Expenses', accountType: 'LIABILITY', parentCode: '2100' },
   { code: '2160', nameAr: 'أقساط مستحقة', nameEn: 'Installments Payable', accountType: 'LIABILITY', parentCode: '2100' },
+  { code: '2170', nameAr: 'شيكات مستحقة', nameEn: 'Cheques Payable', accountType: 'LIABILITY', parentCode: '2100' },
   { code: '2200', nameAr: 'الخصوم طويلة الأجل', nameEn: 'Long-term Liabilities', accountType: 'LIABILITY', parentCode: '2000' },
   { code: '2210', nameAr: 'قروض طويلة الأجل', nameEn: 'Long-term Loans', accountType: 'LIABILITY', parentCode: '2200' },
 
@@ -122,9 +124,13 @@ export const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '4120', nameAr: 'إيرادات قطع الغيار', nameEn: 'Spare Parts Revenue', accountType: 'REVENUE', parentCode: '4100' },
   { code: '4130', nameAr: 'إيرادات الغسيل والتلميع', nameEn: 'Wash & Polish Revenue', accountType: 'REVENUE', parentCode: '4100' },
   { code: '4140', nameAr: 'إيرادات الفحص الدوري', nameEn: 'Periodic Inspection Revenue', accountType: 'REVENUE', parentCode: '4100' },
+  { code: '4150', nameAr: 'إيرادات خدمات أخرى', nameEn: 'Other Service Revenue', accountType: 'REVENUE', parentCode: '4100' },
+  { code: '4160', nameAr: 'إيرادات الكفالات', nameEn: 'Warranty Revenue', accountType: 'REVENUE', parentCode: '4100' },
   { code: '4200', nameAr: 'إيرادات أخرى', nameEn: 'Other Revenue', accountType: 'REVENUE', parentCode: '4000' },
   { code: '4210', nameAr: 'إيرادات إيجارية', nameEn: 'Rental Revenue', accountType: 'REVENUE', parentCode: '4200' },
   { code: '4220', nameAr: 'إيرادات متنوعة', nameEn: 'Miscellaneous Revenue', accountType: 'REVENUE', parentCode: '4200' },
+  { code: '4300', nameAr: 'خصومات المبيعات', nameEn: 'Sales Discounts', accountType: 'REVENUE', parentCode: '4000', category: 'CONTRA_REVENUE' },
+  { code: '4310', nameAr: 'فائض جرد المخزون', nameEn: 'Inventory Adjustment Gain', accountType: 'REVENUE', parentCode: '4200' },
 
   // ===== تكاليف البضاعة المباعة (COGS) 5xxx =====
   { code: '5000', nameAr: 'تكاليف البضاعة المباعة', nameEn: 'Cost of Goods Sold', accountType: 'EXPENSE' },
@@ -146,6 +152,8 @@ export const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '6700', nameAr: 'مصروفات التسويق والإعلان', nameEn: 'Marketing & Advertising', accountType: 'EXPENSE', parentCode: '6000' },
   { code: '6800', nameAr: 'مصروفات الإدارة والمكتب', nameEn: 'Administrative Expenses', accountType: 'EXPENSE', parentCode: '6000' },
   { code: '6900', nameAr: 'مصروفات متنوعة', nameEn: 'Miscellaneous Expenses', accountType: 'EXPENSE', parentCode: '6000' },
+  { code: '6910', nameAr: 'خصومات مسموح بها', nameEn: 'Discounts Allowed', accountType: 'EXPENSE', parentCode: '6900' },
+  { code: '6920', nameAr: 'تالف المخزون', nameEn: 'Damaged Inventory Expense', accountType: 'EXPENSE', parentCode: '6900' },
 
   // ===== المصروفات المالية (Financial Expenses) 7xxx =====
   { code: '7000', nameAr: 'المصروفات المالية', nameEn: 'Financial Expenses', accountType: 'EXPENSE' },

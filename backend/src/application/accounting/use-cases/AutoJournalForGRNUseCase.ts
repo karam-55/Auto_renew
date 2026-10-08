@@ -30,9 +30,9 @@ export class AutoJournalForGRNUseCase {
     }
 
     // Get accounts
-    const inventoryAccount = await this.accountRepository.findByCode('1000'); // Inventory
-    const accountsPayableAccount = await this.accountRepository.findByCode('2000'); // AP
-    const vatAccount = await this.accountRepository.findByCode('2200'); // VAT payable
+    const inventoryAccount = await this.accountRepository.findByCode('1140'); // Inventory
+    const accountsPayableAccount = await this.accountRepository.findByCode('2110'); // AP
+    const vatAccount = await this.accountRepository.findByCode('2130'); // VAT payable
 
     if (!inventoryAccount || !accountsPayableAccount || !vatAccount) {
       throw new Error('Required accounts not found in chart of accounts');

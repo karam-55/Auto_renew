@@ -571,6 +571,7 @@ router.put('/entity/warranties/:id', requireSovereign, async (req: Request, res:
       'customerName', 'customerPhone', 'manufacturer', 'vehicleModel', 'vehicleYear',
       'chassisNumber', 'plateNumber', 'mileage', 'color', 'durationMonths',
       'amountPaid', 'currency', 'startDate', 'endDate', 'isActive', 'dealerId',
+      'engineType', 'customerPaidUSD', 'companyShareUSD', 'dealerShareUSD',
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {
@@ -585,6 +586,12 @@ router.put('/entity/warranties/:id', requireSovereign, async (req: Request, res:
     if (data.mileage !== undefined) data.mileage = parseInt(String(data.mileage), 10);
     if (data.durationMonths !== undefined) data.durationMonths = parseInt(String(data.durationMonths), 10);
     if (data.amountPaid !== undefined) data.amountPaid = parseFloat(String(data.amountPaid));
+    if (data.customerPaidUSD !== undefined) data.customerPaidUSD = parseFloat(String(data.customerPaidUSD));
+    if (data.companyShareUSD !== undefined) data.companyShareUSD = parseFloat(String(data.companyShareUSD));
+    if (data.dealerShareUSD !== undefined) data.dealerShareUSD = parseFloat(String(data.dealerShareUSD));
+    if (data.engineType !== undefined && !['GASOLINE', 'HYBRID', 'ELECTRIC'].includes(String(data.engineType))) {
+      return res.status(400).json({ error: 'نوع المحرك غير صالح' });
+    }
     if (data.startDate) data.startDate = new Date(String(data.startDate));
     if (data.endDate) data.endDate = new Date(String(data.endDate));
     if (data.isActive !== undefined) data.isActive = Boolean(data.isActive);

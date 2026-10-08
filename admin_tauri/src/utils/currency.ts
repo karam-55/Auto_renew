@@ -10,7 +10,7 @@ let loaded = false
 export async function loadExchangeRate(api: ApiClient, force = false): Promise<number> {
   if (loaded && !force) return exchangeRate
   try {
-    const res = await api.get<any>('/api/settings')
+    const res = await api.get<any>('/api/settings/exchange-rate', false)
     if (res.success && res.data?.exchangeRate) {
       exchangeRate = Number(res.data.exchangeRate) || 0
       loaded = true

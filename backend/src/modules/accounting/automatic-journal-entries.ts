@@ -1,4 +1,4 @@
-import { AccountType } from '@prisma/client';
+import { AccountType, JournalEntryStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 
 /**
@@ -15,41 +15,45 @@ import prisma from '../../config/database';
  */
 
 // Default Account Codes (can be overridden per tenant)
-const DEFAULT_ACCOUNT_CODES = {
+export const DEFAULT_ACCOUNT_CODES = {
   // Assets
-  CASH: '1000',
-  BANK: '1100',
-  INVENTORY: '1200',
-  ACCOUNTS_RECEIVABLE: '1300',
+  CASH: '1110',
+  BANK: '1120',
+  INVENTORY: '1140',
+  ACCOUNTS_RECEIVABLE: '1130',
   CHEQUES_RECEIVABLE: '1400',
 
   // Liabilities
-  ACCOUNTS_PAYABLE: '2000',
-  CHEQUES_PAYABLE: '2100',
-  VAT_PAYABLE: '2200',
-  INSTALLMENTS_PAYABLE: '2300',
-  PAYROLL_PAYABLE: '2400',
+  ACCOUNTS_PAYABLE: '2110',
+  CHEQUES_PAYABLE: '2170',
+  VAT_PAYABLE: '2130',
+  INSTALLMENTS_PAYABLE: '2160',
+  PAYROLL_PAYABLE: '2140',
 
   // Equity
-  CAPITAL: '3000',
-  RETAINED_EARNINGS: '3100',
+  CAPITAL: '3110',
+  RETAINED_EARNINGS: '3200',
+  OPENING_BALANCE_EQUITY: '3900',
 
   // Revenue
-  SERVICE_REVENUE: '4000',
-  PARTS_REVENUE: '4100',
-  DISCOUNT_REVENUE: '4200',
+  SERVICE_REVENUE: '4150',
+  WARRANTY_REVENUE: '4160',
+  PARTS_REVENUE: '4120',
+  DISCOUNT_REVENUE: '4300',
+  INVENTORY_ADJUSTMENT_GAIN: '4310',
 
   // Expenses
-  COST_OF_GOODS_SOLD: '5000',
-  LABOR_EXPENSE: '5100',
-  RENT_EXPENSE: '5200',
-  UTILITIES_EXPENSE: '5300',
-  SUPPLIES_EXPENSE: '5400',
-  DISCOUNT_EXPENSE: '5500',
-  BANK_CHARGES_EXPENSE: '5600',
-  PAYROLL_EXPENSE: '5700',
-  DEPRECIATION_EXPENSE: '5800',
-  ACCUMULATED_DEPRECIATION: '1900',
+  COST_OF_GOODS_SOLD: '5100',
+  LABOR_EXPENSE: '5300',
+  RENT_EXPENSE: '6200',
+  UTILITIES_EXPENSE: '6300',
+  SUPPLIES_EXPENSE: '6900',
+  DISCOUNT_EXPENSE: '6910',
+  INVENTORY_DAMAGE_EXPENSE: '6920',
+  BANK_CHARGES_EXPENSE: '7200',
+  PAYROLL_EXPENSE: '6110',
+  DEPRECIATION_EXPENSE: '6400',
+  ACCUMULATED_DEPRECIATION: '1260',
 };
 
 /**
@@ -69,37 +73,51 @@ interface JournalLineInput {
 /**
  * Auto-create default accounts if missing for a tenant
  */
-export async function ensureDefaultAccounts(tenantId: string): Promise<void> {
+export async function ensureDefaultAccounts(tenantId: string, client?: Prisma.TransactionClient): Promise<void> {
+  const db = client || prisma;
   const defaults = [
-    { code: DEFAULT_ACCOUNT_CODES.CASH, nameAr: 'الصندوق', nameEn: 'Cash', accountType: AccountType.ASSET },
-    { code: DEFAULT_ACCOUNT_CODES.BANK, nameAr: 'البنك', nameEn: 'Bank', accountType: AccountType.ASSET },
-    { code: DEFAULT_ACCOUNT_CODES.INVENTORY, nameAr: 'المخزون', nameEn: 'Inventory', accountType: AccountType.ASSET },
-    { code: DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE, nameAr: 'العملاء', nameEn: 'Accounts Receivable', accountType: AccountType.ASSET },
-    { code: DEFAULT_ACCOUNT_CODES.CHEQUES_RECEIVABLE, nameAr: 'شيكات تحت التحصيل', nameEn: 'Cheques Receivable', accountType: AccountType.ASSET },
-    { code: DEFAULT_ACCOUNT_CODES.ACCOUNTS_PAYABLE, nameAr: 'الموردين', nameEn: 'Accounts Payable', accountType: AccountType.LIABILITY },
-    { code: DEFAULT_ACCOUNT_CODES.VAT_PAYABLE, nameAr: 'ضريبة القيمة المضافة مستحقة', nameEn: 'VAT Payable', accountType: AccountType.LIABILITY },
-    { code: DEFAULT_ACCOUNT_CODES.INSTALLMENTS_PAYABLE, nameAr: 'أقساط مستحقة', nameEn: 'Installments Payable', accountType: AccountType.LIABILITY },
-    { code: DEFAULT_ACCOUNT_CODES.SERVICE_REVENUE, nameAr: 'إيرادات الخدمات', nameEn: 'Service Revenue', accountType: AccountType.REVENUE },
-    { code: DEFAULT_ACCOUNT_CODES.PARTS_REVENUE, nameAr: 'إيرادات القطع', nameEn: 'Parts Revenue', accountType: AccountType.REVENUE },
-    { code: DEFAULT_ACCOUNT_CODES.DISCOUNT_REVENUE, nameAr: 'خصومات مكتسبة', nameEn: 'Discount Revenue', accountType: AccountType.REVENUE },
-    { code: DEFAULT_ACCOUNT_CODES.COST_OF_GOODS_SOLD, nameAr: 'تكلفة البضاعة المباعة', nameEn: 'Cost of Goods Sold', accountType: AccountType.COGS },
-    { code: DEFAULT_ACCOUNT_CODES.DISCOUNT_EXPENSE, nameAr: 'خصم مسموح به', nameEn: 'Discount Allowed', accountType: AccountType.EXPENSE },
-    { code: DEFAULT_ACCOUNT_CODES.BANK_CHARGES_EXPENSE, nameAr: 'مصاريف بنكية', nameEn: 'Bank Charges', accountType: AccountType.EXPENSE },
-    { code: DEFAULT_ACCOUNT_CODES.PAYROLL_EXPENSE, nameAr: 'مصاريف رواتب', nameEn: 'Payroll Expense', accountType: AccountType.EXPENSE },
-    { code: DEFAULT_ACCOUNT_CODES.DEPRECIATION_EXPENSE, nameAr: 'مصاريف الإهلاك', nameEn: 'Depreciation Expense', accountType: AccountType.EXPENSE },
-    { code: DEFAULT_ACCOUNT_CODES.ACCUMULATED_DEPRECIATION, nameAr: 'مجمع الإهلاك', nameEn: 'Accumulated Depreciation', accountType: AccountType.ASSET },
+    { code: DEFAULT_ACCOUNT_CODES.CASH, nameAr: 'الصندوق', nameEn: 'Cash', accountType: AccountType.ASSET, parentCode: '1100' },
+    { code: DEFAULT_ACCOUNT_CODES.BANK, nameAr: 'البنك', nameEn: 'Bank', accountType: AccountType.ASSET, parentCode: '1100' },
+    { code: DEFAULT_ACCOUNT_CODES.INVENTORY, nameAr: 'المخزون', nameEn: 'Inventory', accountType: AccountType.ASSET, parentCode: '1100' },
+    { code: DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE, nameAr: 'العملاء', nameEn: 'Accounts Receivable', accountType: AccountType.ASSET, parentCode: '1100' },
+    { code: DEFAULT_ACCOUNT_CODES.CHEQUES_RECEIVABLE, nameAr: 'شيكات تحت التحصيل', nameEn: 'Cheques Receivable', accountType: AccountType.ASSET, parentCode: '1100' },
+    { code: DEFAULT_ACCOUNT_CODES.ACCOUNTS_PAYABLE, nameAr: 'الموردين', nameEn: 'Accounts Payable', accountType: AccountType.LIABILITY, parentCode: '2100' },
+    { code: DEFAULT_ACCOUNT_CODES.CHEQUES_PAYABLE, nameAr: 'شيكات مستحقة', nameEn: 'Cheques Payable', accountType: AccountType.LIABILITY, parentCode: '2100' },
+    { code: DEFAULT_ACCOUNT_CODES.VAT_PAYABLE, nameAr: 'ضريبة القيمة المضافة مستحقة', nameEn: 'VAT Payable', accountType: AccountType.LIABILITY, parentCode: '2100' },
+    { code: DEFAULT_ACCOUNT_CODES.INSTALLMENTS_PAYABLE, nameAr: 'أقساط مستحقة', nameEn: 'Installments Payable', accountType: AccountType.LIABILITY, parentCode: '2100' },
+    { code: DEFAULT_ACCOUNT_CODES.PAYROLL_PAYABLE, nameAr: 'رواتب مستحقة', nameEn: 'Payroll Payable', accountType: AccountType.LIABILITY, parentCode: '2100' },
+    { code: DEFAULT_ACCOUNT_CODES.SERVICE_REVENUE, nameAr: 'إيرادات الخدمات', nameEn: 'Service Revenue', accountType: AccountType.REVENUE, parentCode: '4100' },
+    { code: DEFAULT_ACCOUNT_CODES.WARRANTY_REVENUE, nameAr: 'إيرادات الكفالات', nameEn: 'Warranty Revenue', accountType: AccountType.REVENUE, parentCode: '4100' },
+    { code: DEFAULT_ACCOUNT_CODES.PARTS_REVENUE, nameAr: 'إيرادات القطع', nameEn: 'Parts Revenue', accountType: AccountType.REVENUE, parentCode: '4100' },
+    { code: DEFAULT_ACCOUNT_CODES.DISCOUNT_REVENUE, nameAr: 'خصومات المبيعات', nameEn: 'Sales Discounts', accountType: AccountType.REVENUE, category: 'CONTRA_REVENUE', parentCode: '4000' },
+    { code: DEFAULT_ACCOUNT_CODES.INVENTORY_ADJUSTMENT_GAIN, nameAr: 'فائض جرد المخزون', nameEn: 'Inventory Adjustment Gain', accountType: AccountType.REVENUE, parentCode: '4200' },
+    { code: DEFAULT_ACCOUNT_CODES.COST_OF_GOODS_SOLD, nameAr: 'تكلفة البضاعة المباعة', nameEn: 'Cost of Goods Sold', accountType: AccountType.COGS, parentCode: '5000' },
+    { code: DEFAULT_ACCOUNT_CODES.DISCOUNT_EXPENSE, nameAr: 'خصم مسموح به', nameEn: 'Discount Allowed', accountType: AccountType.EXPENSE, parentCode: '6900' },
+    { code: DEFAULT_ACCOUNT_CODES.INVENTORY_DAMAGE_EXPENSE, nameAr: 'تالف المخزون', nameEn: 'Damaged Inventory Expense', accountType: AccountType.EXPENSE, parentCode: '6900' },
+    { code: DEFAULT_ACCOUNT_CODES.BANK_CHARGES_EXPENSE, nameAr: 'مصاريف بنكية', nameEn: 'Bank Charges', accountType: AccountType.EXPENSE, parentCode: '7000' },
+    { code: DEFAULT_ACCOUNT_CODES.PAYROLL_EXPENSE, nameAr: 'مصاريف رواتب', nameEn: 'Payroll Expense', accountType: AccountType.EXPENSE, parentCode: '6100' },
+    { code: DEFAULT_ACCOUNT_CODES.DEPRECIATION_EXPENSE, nameAr: 'مصاريف الإهلاك', nameEn: 'Depreciation Expense', accountType: AccountType.EXPENSE, parentCode: '6000' },
+    { code: DEFAULT_ACCOUNT_CODES.ACCUMULATED_DEPRECIATION, nameAr: 'مجمع الإهلاك', nameEn: 'Accumulated Depreciation', accountType: AccountType.ASSET, category: 'CONTRA_ASSET', parentCode: '1200' },
   ];
 
   for (const acc of defaults) {
-    await prisma.account.upsert({
+    const parent = (acc as any).parentCode
+      ? await db.account.findFirst({
+          where: { tenantId, code: (acc as any).parentCode },
+          select: { id: true },
+        })
+      : null;
+    await db.account.upsert({
       where: { tenantId_code: { tenantId, code: acc.code } },
-      update: {},
+      update: parent ? { parentId: parent.id } : {},
       create: {
         tenantId,
         code: acc.code,
         nameAr: acc.nameAr,
         nameEn: acc.nameEn,
         accountType: acc.accountType,
+        category: (acc as any).category,
+        parentId: parent?.id,
         isActive: true,
       },
     });
@@ -112,8 +130,12 @@ export async function ensureDefaultAccounts(tenantId: string): Promise<void> {
  * @param code - The account code
  * @returns The account ID or null if not found
  */
-export async function getAccountIdByCode(tenantId: string, code: string): Promise<string | null> {
-  const account = await prisma.account.findFirst({
+export async function getAccountIdByCode(
+  tenantId: string,
+  code: string,
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<string | null> {
+  const account = await client.account.findFirst({
     where: {
       tenantId,
       code,
@@ -121,7 +143,7 @@ export async function getAccountIdByCode(tenantId: string, code: string): Promis
     },
     select: { id: true },
   });
-  
+
   return account?.id || null;
 }
 
@@ -160,8 +182,12 @@ async function getDefaultExchangeRate(
  * @param date - The date to check
  * @returns The fiscal period or null if not found
  */
-export async function getOpenFiscalPeriod(tenantId: string, date: Date): Promise<any | null> {
-  const fiscalPeriod = await prisma.fiscalPeriod.findFirst({
+export async function getOpenFiscalPeriod(
+  tenantId: string,
+  date: Date,
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<any | null> {
+  return client.fiscalPeriod.findFirst({
     where: {
       tenantId,
       startDate: { lte: date },
@@ -169,8 +195,6 @@ export async function getOpenFiscalPeriod(tenantId: string, date: Date): Promise
       isClosed: false,
     },
   });
-
-  return fiscalPeriod;
 }
 
 /**
@@ -194,21 +218,39 @@ export async function createJournalEntry(
   sourceType: string | null = null,
   sourceId: string | null = null,
   createdById: string | null = null,
-  lines: JournalLineInput[]
+  lines: JournalLineInput[],
+  client?: Prisma.TransactionClient
 ): Promise<any> {
-  // Idempotency check: if a journal entry with the same sourceType and sourceId exists, return it
-  if (sourceType && sourceId) {
-    const existingEntry = await prisma.journalEntry.findFirst({
-      where: {
+  if (!client) {
+    try {
+      return await prisma.$transaction((tx) => createJournalEntry(
         tenantId,
+        entryDate,
+        description,
+        reference,
         sourceType,
         sourceId,
-      },
-    });
-
-    if (existingEntry) {
-      return existingEntry;
+        createdById,
+        lines,
+        tx
+      ));
+    } catch (error) {
+      if ((error as any)?.code === 'P2002' && sourceType && sourceId) {
+        const existingEntry = await prisma.journalEntry.findFirst({
+          where: { tenantId, sourceType, sourceId, isReversed: false },
+        });
+        if (existingEntry) return existingEntry;
+      }
+      throw error;
     }
+  }
+
+  // Idempotency check: if a journal entry with the same sourceType and sourceId exists, return it
+  if (sourceType && sourceId) {
+    const existingEntry = await client.journalEntry.findFirst({
+      where: { tenantId, sourceType, sourceId, isReversed: false },
+    });
+    if (existingEntry) return existingEntry;
   }
 
   // Validate that entry balances
@@ -220,19 +262,16 @@ export async function createJournalEntry(
   if (Math.abs(totalDebitSYP - totalCreditSYP) > 0.01) {
     throw new Error(`Journal entry does not balance in SYP: Debit ${totalDebitSYP} != Credit ${totalCreditSYP}`);
   }
-
   if (Math.abs(totalDebitUSD - totalCreditUSD) > 0.01) {
     throw new Error(`Journal entry does not balance in USD: Debit ${totalDebitUSD} != Credit ${totalCreditUSD}`);
   }
 
   // Check fiscal period
-  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, entryDate);
-  if (!fiscalPeriod) {
-    throw new Error('No open fiscal period found for the entry date');
-  }
+  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, entryDate, client);
+  if (!fiscalPeriod) throw new Error('No open fiscal period found for the entry date');
 
   // Create journal entry
-  const journalEntry = await prisma.journalEntry.create({
+  const journalEntry = await client.journalEntry.create({
     data: {
       tenantId,
       entryDate,
@@ -242,12 +281,13 @@ export async function createJournalEntry(
       sourceType: sourceType || undefined,
       sourceId: sourceId || undefined,
       createdById: createdById || undefined,
+      status: JournalEntryStatus.POSTED,
     },
   });
 
   // Create journal lines
-  await prisma.journalLine.createMany({
-    data: lines.map((line, index) => ({
+  await client.journalLine.createMany({
+    data: lines.map((line) => ({
       entryId: journalEntry.id,
       accountId: line.accountId,
       accountName: line.description || description,
@@ -263,7 +303,7 @@ export async function createJournalEntry(
 
   // Update account balances
   for (const line of lines) {
-    await updateAccountBalance(line.accountId, line.debitSYP, line.creditSYP, line.debitUSD, line.creditUSD);
+    await updateAccountBalance(line.accountId, line.debitSYP, line.creditSYP, line.debitUSD, line.creditUSD, client);
   }
 
   return journalEntry;
@@ -282,45 +322,33 @@ export async function updateAccountBalance(
   debitSYP: number,
   creditSYP: number,
   debitUSD: number,
-  creditUSD: number
+  creditUSD: number,
+  client?: Prisma.TransactionClient
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const account = await tx.account.findUnique({
-      where: { id: accountId },
-    });
+  if (!client) {
+    return prisma.$transaction((tx) => updateAccountBalance(accountId, debitSYP, creditSYP, debitUSD, creditUSD, tx));
+  }
 
-    if (!account) {
-      throw new Error('Account not found');
-    }
+  const account = await client.account.findUnique({
+    where: { id: accountId },
+    select: { accountType: true },
+  });
+  if (!account) throw new Error('Account not found');
 
-    const currentBalanceSYP = Number(account.balanceSYP);
-    const currentBalanceUSD = Number(account.balanceUSD);
+  // Update balance based on account type
+  // For assets, COGS and expenses: debit increases balance, credit decreases
+  // For liabilities, equity, revenue: credit increases balance, debit decreases
+  const debitIncreases = account.accountType === AccountType.ASSET ||
+    account.accountType === AccountType.COGS || account.accountType === AccountType.EXPENSE;
+  const deltaSYP = debitIncreases ? debitSYP - creditSYP : creditSYP - debitSYP;
+  const deltaUSD = debitIncreases ? debitUSD - creditUSD : creditUSD - debitUSD;
 
-    let newBalanceSYP = currentBalanceSYP;
-    let newBalanceUSD = currentBalanceUSD;
-
-    // Update balance based on account type
-    if (
-      account.accountType === AccountType.ASSET ||
-      account.accountType === AccountType.COGS ||
-      account.accountType === AccountType.EXPENSE
-    ) {
-      // For assets, COGS and expenses: debit increases balance, credit decreases
-      newBalanceSYP = currentBalanceSYP + debitSYP - creditSYP;
-      newBalanceUSD = currentBalanceUSD + debitUSD - creditUSD;
-    } else {
-      // For liabilities, equity, revenue: credit increases balance, debit decreases
-      newBalanceSYP = currentBalanceSYP - debitSYP + creditSYP;
-      newBalanceUSD = currentBalanceUSD - debitUSD + creditUSD;
-    }
-
-    await tx.account.update({
-      where: { id: accountId },
-      data: {
-        balanceSYP: newBalanceSYP,
-        balanceUSD: newBalanceUSD,
-      },
-    });
+  await client.account.update({
+    where: { id: accountId },
+    data: {
+      balanceSYP: { increment: deltaSYP },
+      balanceUSD: { increment: deltaUSD },
+    },
   });
 }
 
@@ -334,20 +362,22 @@ export async function updateAccountBalance(
 export async function createInvoiceJournalEntry(
   invoice: any,
   tenantId: string,
-  createdById: string | null = null
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
 ): Promise<any> {
   // Get fiscal period for invoice date
-  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, invoice.invoiceDate);
+  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, invoice.invoiceDate, client || prisma);
   if (!fiscalPeriod) {
     throw new Error('No open fiscal period found for invoice date');
   }
 
   // Get account codes
-  const arAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE);
-  const serviceRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.SERVICE_REVENUE);
-  const partsRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.PARTS_REVENUE);
-  const discountRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.DISCOUNT_REVENUE);
-  const vatPayableAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.VAT_PAYABLE);
+  const db = client || prisma;
+  const arAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE, db);
+  const serviceRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.SERVICE_REVENUE, db);
+  const partsRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.PARTS_REVENUE, db);
+  const discountRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.DISCOUNT_REVENUE, db);
+  const vatPayableAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.VAT_PAYABLE, db);
 
   if (!arAccountId || !serviceRevenueAccountId || !partsRevenueAccountId) {
     throw new Error('Required accounts not found. Please set up chart of accounts.');
@@ -424,7 +454,8 @@ export async function createInvoiceJournalEntry(
     'INVOICE',
     invoice.id,
     createdById,
-    lines
+    lines,
+    client
   );
 }
 
@@ -438,25 +469,32 @@ export async function createInvoiceJournalEntry(
 export async function createPaymentReceivedJournalEntry(
   payment: any,
   tenantId: string,
-  createdById: string | null = null
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient,
+  journalSourceType = 'PAYMENT',
+  journalSourceId = payment.id
 ): Promise<any> {
   // Get fiscal period for payment date
-  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, payment.paymentDate);
+  const db = client || prisma;
+  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, payment.paymentDate, db);
   if (!fiscalPeriod) {
     throw new Error('No open fiscal period found for payment date');
   }
 
   // Get account codes based on payment method
-  const cashAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.CASH);
-  const bankAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.BANK);
-  const arAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE);
-  const discountExpenseAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.DISCOUNT_EXPENSE);
+  const cashAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.CASH, db);
+  const bankAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.BANK, db);
+  const chequeAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.CHEQUES_RECEIVABLE, db);
+  const arAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE, db);
+  const discountExpenseAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.DISCOUNT_EXPENSE, db);
 
-  if (!cashAccountId || !bankAccountId || !arAccountId) {
+  if (!cashAccountId || !bankAccountId || !chequeAccountId || !arAccountId) {
     throw new Error('Required accounts not found. Please set up chart of accounts.');
   }
 
-  const debitAccountId = payment.paymentMethod === 'CASH' ? cashAccountId : bankAccountId;
+  const debitAccountId = payment.paymentMethod === 'CASH'
+    ? cashAccountId
+    : payment.paymentMethod === 'CHECK' ? chequeAccountId : bankAccountId;
   const amountSYP = Number(payment.amountSYP);
   const amountUSD = Number(payment.amountUSD || 0);
   const discountSYP = Number(payment.discountSYP || 0);
@@ -474,8 +512,8 @@ export async function createPaymentReceivedJournalEntry(
       creditSYP: 0,
       creditUSD: 0,
       description: `Payment received - ${payment.paymentMethod}`,
-      sourceType: 'PAYMENT',
-      sourceId: payment.id,
+      sourceType: journalSourceType,
+      sourceId: journalSourceId,
     },
     {
       accountId: arAccountId,
@@ -484,13 +522,13 @@ export async function createPaymentReceivedJournalEntry(
       creditSYP: arCreditSYP,
       creditUSD: arCreditUSD,
       description: `Payment for invoice ${payment.invoiceNumber || payment.reference}`,
-      sourceType: 'PAYMENT',
-      sourceId: payment.id,
+      sourceType: journalSourceType,
+      sourceId: journalSourceId,
     },
   ];
 
   // Add discount if any (debit discount expense, AR already includes it)
-  if (discountSYP > 0) {
+  if (discountSYP > 0 || discountUSD > 0) {
     lines.push({
       accountId: discountExpenseAccountId!,
       debitSYP: discountSYP,
@@ -498,8 +536,8 @@ export async function createPaymentReceivedJournalEntry(
       creditSYP: 0,
       creditUSD: 0,
       description: 'Early payment discount',
-      sourceType: 'PAYMENT',
-      sourceId: payment.id,
+      sourceType: journalSourceType,
+      sourceId: journalSourceId,
     });
   }
 
@@ -508,10 +546,11 @@ export async function createPaymentReceivedJournalEntry(
     payment.paymentDate,
     `Payment received - ${payment.paymentNumber || payment.reference}`,
     payment.paymentNumber || payment.reference,
-    'PAYMENT',
-    payment.id,
+    journalSourceType,
+    journalSourceId,
     createdById,
-    lines
+    lines,
+    client
   );
 }
 
@@ -525,30 +564,47 @@ export async function createPaymentReceivedJournalEntry(
 export async function createGRNJournalEntry(
   grn: any,
   tenantId: string,
-  createdById: string | null = null
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
 ): Promise<any> {
   // Get fiscal period for GRN date
-  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, grn.receivedDate);
-  if (!fiscalPeriod) {
-    throw new Error('No open fiscal period found for GRN date');
-  }
+  const db = client || prisma;
+  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, grn.receivedDate, db);
+  if (!fiscalPeriod) throw new Error('No open fiscal period found for GRN date');
 
   // Get account codes
-  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY);
-  const accountsPayableAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_PAYABLE);
+  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY, db);
+  const accountsPayableAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.ACCOUNTS_PAYABLE, db);
+  const damagedInventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY_DAMAGE_EXPENSE, db);
+  if (!inventoryAccountId || !accountsPayableAccountId) throw new Error('Required accounts not found. Please set up chart of accounts.');
 
-  if (!inventoryAccountId || !accountsPayableAccountId) {
-    throw new Error('Required accounts not found. Please set up chart of accounts.');
+  let inventorySYP = 0;
+  let inventoryUSD = 0;
+  let damagedSYP = 0;
+  let damagedUSD = 0;
+  let payableSYP = 0;
+  let payableUSD = 0;
+  for (const line of grn.lines || []) {
+    const unitCostSYP = Number(line.unitCost);
+    const unitCostUSD = Number(line.unitCostUSD || 0);
+    const damagedQuantity = Number(line.damagedQuantity || 0);
+    const netQuantity = Math.max(0, Number(line.receivedQuantity) - damagedQuantity);
+    inventorySYP += netQuantity * unitCostSYP;
+    inventoryUSD += netQuantity * unitCostUSD;
+    damagedSYP += damagedQuantity * unitCostSYP;
+    damagedUSD += damagedQuantity * unitCostUSD;
+    payableSYP += Number(line.receivedQuantity) * unitCostSYP;
+    payableUSD += Number(line.receivedQuantity) * unitCostUSD;
   }
-
-  // Calculate total from GRN lines
-  const totalCost = grn.lines?.reduce((sum: number, line: any) => sum + (line.receivedQuantity * line.unitCost), 0) || 0;
+  if ((damagedSYP > 0 || damagedUSD > 0) && !damagedInventoryAccountId) {
+    throw new Error('Damaged inventory expense account is not configured');
+  }
 
   const lines: JournalLineInput[] = [
     {
       accountId: inventoryAccountId,
-      debitSYP: totalCost,
-      debitUSD: 0,
+      debitSYP: inventorySYP,
+      debitUSD: inventoryUSD,
       creditSYP: 0,
       creditUSD: 0,
       description: `Inventory received via GRN ${grn.grnNumber}`,
@@ -559,13 +615,25 @@ export async function createGRNJournalEntry(
       accountId: accountsPayableAccountId,
       debitSYP: 0,
       debitUSD: 0,
-      creditSYP: totalCost,
-      creditUSD: 0,
+      creditSYP: payableSYP,
+      creditUSD: payableUSD,
       description: `Supplier payable for GRN ${grn.grnNumber}`,
       sourceType: 'GRN',
       sourceId: grn.id,
     },
   ];
+  if (damagedInventoryAccountId && (damagedSYP > 0 || damagedUSD > 0)) {
+    lines.splice(1, 0, {
+      accountId: damagedInventoryAccountId,
+      debitSYP: damagedSYP,
+      debitUSD: damagedUSD,
+      creditSYP: 0,
+      creditUSD: 0,
+      description: `Damaged items from GRN ${grn.grnNumber}`,
+      sourceType: 'GRN',
+      sourceId: grn.id,
+    });
+  }
 
   return createJournalEntry(
     tenantId,
@@ -575,7 +643,8 @@ export async function createGRNJournalEntry(
     'GRN',
     grn.id,
     createdById,
-    lines
+    lines,
+    client
   );
 }
 
@@ -589,29 +658,32 @@ export async function createGRNJournalEntry(
 export async function createStockConsumptionJournalEntry(
   transaction: any,
   tenantId: string,
-  createdById: string | null = null
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
 ): Promise<any> {
   // Get fiscal period for transaction date
-  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, transaction.createdAt);
+  const db = client || prisma;
+  const fiscalPeriod = await getOpenFiscalPeriod(tenantId, transaction.createdAt, db);
   if (!fiscalPeriod) {
     throw new Error('No open fiscal period found for transaction date');
   }
 
   // Get account codes
-  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY);
-  const costOfGoodsSoldAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.COST_OF_GOODS_SOLD);
+  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY, db);
+  const costOfGoodsSoldAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.COST_OF_GOODS_SOLD, db);
 
   if (!inventoryAccountId || !costOfGoodsSoldAccountId) {
     throw new Error('Required accounts not found. Please set up chart of accounts.');
   }
 
-  const totalCost = Number(transaction.costSYP) * transaction.quantity;
+  const totalCostSYP = Number(transaction.costSYP) * transaction.quantity;
+  const totalCostUSD = Number(transaction.costUSD || 0) * transaction.quantity;
 
   const lines: JournalLineInput[] = [
     {
       accountId: costOfGoodsSoldAccountId,
-      debitSYP: totalCost,
-      debitUSD: 0,
+      debitSYP: totalCostSYP,
+      debitUSD: totalCostUSD,
       creditSYP: 0,
       creditUSD: 0,
       description: `COGS for ${transaction.type} - ${transaction.part?.name || 'Part'}`,
@@ -622,8 +694,8 @@ export async function createStockConsumptionJournalEntry(
       accountId: inventoryAccountId,
       debitSYP: 0,
       debitUSD: 0,
-      creditSYP: totalCost,
-      creditUSD: 0,
+      creditSYP: totalCostSYP,
+      creditUSD: totalCostUSD,
       description: `Inventory reduction for ${transaction.type}`,
       sourceType: 'INVENTORY_TRANSACTION',
       sourceId: transaction.id,
@@ -638,7 +710,120 @@ export async function createStockConsumptionJournalEntry(
     'INVENTORY_TRANSACTION',
     transaction.id,
     createdById,
-    lines
+    lines,
+    client
+  );
+}
+
+export type StockIntakeSettlementAccount = 'CASH' | 'BANK' | 'PAYABLE';
+
+export async function createStockIntakeJournalEntry(
+  transaction: any,
+  tenantId: string,
+  settlementAccount: StockIntakeSettlementAccount,
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
+): Promise<any> {
+  const db = client || prisma;
+  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY, db);
+  const offsetCode = settlementAccount === 'CASH'
+    ? DEFAULT_ACCOUNT_CODES.CASH
+    : settlementAccount === 'BANK' ? DEFAULT_ACCOUNT_CODES.BANK : DEFAULT_ACCOUNT_CODES.ACCOUNTS_PAYABLE;
+  const offsetAccountId = await getAccountIdByCode(tenantId, offsetCode, db);
+  if (!inventoryAccountId || !offsetAccountId) throw new Error('Required stock intake accounts are not configured');
+
+  const totalSYP = Number(transaction.costSYP) * transaction.quantity;
+  const totalUSD = Number(transaction.costUSD || 0) * transaction.quantity;
+  const lines: JournalLineInput[] = [
+    { accountId: inventoryAccountId, debitSYP: totalSYP, debitUSD: totalUSD, creditSYP: 0, creditUSD: 0, description: 'Inventory received', sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+    { accountId: offsetAccountId, debitSYP: 0, debitUSD: 0, creditSYP: totalSYP, creditUSD: totalUSD, description: `Stock intake offset (${settlementAccount})`, sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+  ];
+
+  return createJournalEntry(
+    tenantId,
+    transaction.createdAt,
+    `Stock intake - ${transaction.part?.name || transaction.partId}`,
+    transaction.reference || null,
+    'INVENTORY_TRANSACTION',
+    transaction.id,
+    createdById,
+    lines,
+    client
+  );
+}
+
+export async function createDealerWarrantyReceiptJournalEntry(
+  receipt: any,
+  tenantId: string,
+  userId: string | null = null,
+  client?: Prisma.TransactionClient
+): Promise<any> {
+  const db = client || prisma;
+  const settlementCode = receipt.paymentMethod === 'CASH'
+    ? DEFAULT_ACCOUNT_CODES.CASH
+    : receipt.paymentMethod === 'CHECK' ? DEFAULT_ACCOUNT_CODES.CHEQUES_RECEIVABLE : DEFAULT_ACCOUNT_CODES.BANK;
+  const settlementAccountId = await getAccountIdByCode(tenantId, settlementCode, db);
+  const warrantyRevenueAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.WARRANTY_REVENUE, db);
+  if (!settlementAccountId || !warrantyRevenueAccountId) throw new Error('Required dealer warranty receipt accounts are not configured');
+
+  const amountSYP = Number(receipt.amountSYP);
+  const amountUSD = Number(receipt.amountUSD);
+  const lines: JournalLineInput[] = [
+    { accountId: settlementAccountId, debitSYP: amountSYP, debitUSD: amountUSD, creditSYP: 0, creditUSD: 0, description: `Dealer warranty receipt ${receipt.dealerWarrantyId}`, sourceType: 'DEALER_WARRANTY_RECEIPT', sourceId: receipt.id },
+    { accountId: warrantyRevenueAccountId, debitSYP: 0, debitUSD: 0, creditSYP: amountSYP, creditUSD: amountUSD, description: 'Dealer warranty revenue received', sourceType: 'DEALER_WARRANTY_RECEIPT', sourceId: receipt.id },
+  ];
+
+  return createJournalEntry(
+    tenantId,
+    receipt.paymentDate,
+    `Dealer warranty receipt - ${receipt.dealerWarrantyId}`,
+    receipt.reference || null,
+    'DEALER_WARRANTY_RECEIPT',
+    receipt.id,
+    userId,
+    lines,
+    client
+  );
+}
+
+export async function createInventoryAdjustmentJournalEntry(
+  transaction: any,
+  tenantId: string,
+  direction: 'IN' | 'OUT',
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
+): Promise<any> {
+  const db = client || prisma;
+  const inventoryAccountId = await getAccountIdByCode(tenantId, DEFAULT_ACCOUNT_CODES.INVENTORY, db);
+  const adjustmentAccountId = await getAccountIdByCode(
+    tenantId,
+    direction === 'IN' ? DEFAULT_ACCOUNT_CODES.INVENTORY_ADJUSTMENT_GAIN : DEFAULT_ACCOUNT_CODES.INVENTORY_DAMAGE_EXPENSE,
+    db
+  );
+  if (!inventoryAccountId || !adjustmentAccountId) throw new Error('Required inventory adjustment accounts are not configured');
+
+  const totalSYP = Number(transaction.costSYP) * transaction.quantity;
+  const totalUSD = Number(transaction.costUSD || 0) * transaction.quantity;
+  const lines: JournalLineInput[] = direction === 'IN'
+    ? [
+        { accountId: inventoryAccountId, debitSYP: totalSYP, debitUSD: totalUSD, creditSYP: 0, creditUSD: 0, description: 'Inventory adjustment increase', sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+        { accountId: adjustmentAccountId, debitSYP: 0, debitUSD: 0, creditSYP: totalSYP, creditUSD: totalUSD, description: 'Inventory adjustment gain', sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+      ]
+    : [
+        { accountId: adjustmentAccountId, debitSYP: totalSYP, debitUSD: totalUSD, creditSYP: 0, creditUSD: 0, description: 'Inventory shrinkage expense', sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+        { accountId: inventoryAccountId, debitSYP: 0, debitUSD: 0, creditSYP: totalSYP, creditUSD: totalUSD, description: 'Inventory adjustment decrease', sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id },
+      ];
+
+  return createJournalEntry(
+    tenantId,
+    transaction.createdAt,
+    `Inventory adjustment - ${transaction.part?.name || transaction.partId}`,
+    transaction.reference || null,
+    'INVENTORY_TRANSACTION',
+    transaction.id,
+    createdById,
+    lines,
+    client
   );
 }
 
@@ -1115,9 +1300,33 @@ export async function reverseJournalEntry(
   journalEntryId: string,
   reason: string,
   tenantId: string,
-  createdById: string | null = null
+  createdById: string | null = null,
+  client?: Prisma.TransactionClient
 ): Promise<any> {
-  const originalEntry = await prisma.journalEntry.findUnique({
+  if (!client) {
+    try {
+      return await prisma.$transaction((tx) => reverseJournalEntry(journalEntryId, reason, tenantId, createdById, tx));
+    } catch (error) {
+      if ((error as any)?.code === 'P2002') {
+        const originalEntry = await prisma.journalEntry.findUnique({
+          where: { id: journalEntryId },
+          select: { sourceType: true },
+        });
+        const reversal = await prisma.journalEntry.findFirst({
+          where: {
+            tenantId,
+            sourceType: `REVERSAL_OF_${originalEntry?.sourceType || 'JOURNAL'}`,
+            sourceId: journalEntryId,
+            isReversed: false,
+          },
+        });
+        if (reversal) return reversal;
+      }
+      throw error;
+    }
+  }
+
+  const originalEntry = await client.journalEntry.findUnique({
     where: { id: journalEntryId },
     include: { lines: true },
   });
@@ -1154,11 +1363,12 @@ export async function reverseJournalEntry(
     `REVERSAL_OF_${originalEntry.sourceType || 'JOURNAL'}`,
     originalEntry.id,
     createdById,
-    reversingLines
+    reversingLines,
+    client
   );
 
   // Mark original as reversed
-  await prisma.journalEntry.update({
+  await client.journalEntry.update({
     where: { id: journalEntryId },
     data: {
       isReversed: true,

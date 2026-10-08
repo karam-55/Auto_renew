@@ -14,7 +14,8 @@ import { LoyaltyService } from '../loyalty/service';
 import settingsService from '../../services/settings.service';
 import { WhatsAppService } from '../whatsapp/service';
 import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
-import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, createPaymentReceivedJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { PaymentService } from '../payments/service';
+import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, ensureDefaultAccounts, reverseJournalEntry } from '../accounting/automatic-journal-entries';
 
 export class InvoiceService {
   private loyaltyService: LoyaltyService;
@@ -104,21 +105,18 @@ export class InvoiceService {
     // Validate item quantities and prices — USD is the base currency;
     // accept either USD or SYP and auto-fill the missing side from the exchange rate
     const settings = await settingsService.getSettings(tenantId);
-    const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const defaultTaxRate = Number(settings.taxRate || 0) / 100;
     for (const item of data.items) {
-      if (item.quantity <= 0) {
-        throw new Error('Item quantity must be greater than 0');
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new Error('Item quantity must be a positive whole number');
       }
-      const hasSYP = item.priceSYP != null && item.priceSYP > 0;
-      const hasUSD = item.priceUSD != null && item.priceUSD > 0;
-      if (!hasSYP && !hasUSD) {
-        throw new Error('Item price is required (USD or SYP)');
-      }
-      if (!hasSYP && hasUSD && item.priceUSD != null) {
+      if (item.priceUSD != null && item.priceUSD > 0) {
         item.priceSYP = Math.round(item.priceUSD * exchangeRate);
-      }
-      if (hasSYP && !hasUSD) {
+      } else if (item.priceSYP != null && item.priceSYP > 0) {
         item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
+      } else {
+        throw new Error('Item price is required (USD or SYP)');
       }
     }
 
@@ -143,30 +141,36 @@ export class InvoiceService {
     });
 
     // Calculate tax if taxRateId is provided
-    let taxSYP = 0;
-    let taxUSD: number | null = null;
+    let taxRate = defaultTaxRate;
     if (data.taxRateId) {
-      const taxRate = await prisma.taxRate.findFirst({
+      const configuredTaxRate = await prisma.taxRate.findFirst({
         where: { id: data.taxRateId, tenantId },
       });
-      if (taxRate) {
-        taxSYP = subtotalSYP * Number(taxRate.rate);
-        if (subtotalUSD > 0) {
-          taxUSD = subtotalUSD * Number(taxRate.rate);
-        }
-      }
+      if (!configuredTaxRate) throw new Error('Tax rate not found');
+      taxRate = Number(configuredTaxRate.rate);
     }
+    const taxSYP = Math.round(subtotalSYP * taxRate * 100) / 100;
+    const taxUSD = subtotalUSD > 0
+      ? Math.round(subtotalUSD * taxRate * 100) / 100
+      : null;
 
     // Apply discount (percentage or fixed)
     const discountType = data.discountType || 'FIXED';
-    let discountSYP = data.discountSYP || 0;
-    let discountUSD = data.discountUSD || null;
+    let discountSYP = data.discountSYP ?? 0;
+    let discountUSD = data.discountUSD ?? null;
 
-    if (discountType === 'PERCENTAGE' && data.discountPercent && data.discountPercent > 0) {
-      discountSYP = Math.round(subtotalSYP * (data.discountPercent / 100));
-      if (subtotalUSD > 0) {
-        discountUSD = Math.round(subtotalUSD * (data.discountPercent / 100));
-      }
+    if (discountType === 'PERCENTAGE') {
+      const percent = data.discountPercent ?? 0;
+      if (percent < 0 || percent > 100) throw new Error('Discount percentage must be between 0 and 100');
+      discountSYP = Math.round(subtotalSYP * (percent / 100));
+      discountUSD = Math.round(subtotalUSD * (percent / 100) * 100) / 100;
+    } else if (discountUSD != null && discountUSD > 0) {
+      discountSYP = Math.round(discountUSD * exchangeRate);
+    } else if (discountSYP > 0) {
+      discountUSD = Math.round((discountSYP / exchangeRate) * 100) / 100;
+    }
+    if (discountSYP < 0 || discountUSD != null && discountUSD < 0 || discountSYP > subtotalSYP || discountUSD != null && discountUSD > subtotalUSD) {
+      throw new Error('Discount cannot be negative or exceed the invoice subtotal');
     }
 
     const totalSYP = subtotalSYP + taxSYP - discountSYP;
@@ -174,16 +178,17 @@ export class InvoiceService {
 
     // Generate invoice number (format: INV-YYYY-XXXXX)
     const year = invoiceDate.getFullYear();
-    const count = await prisma.invoice.count({
-      where: {
-        tenantId,
-        invoiceNumber: { startsWith: `INV-${year}` },
-      },
-    });
-    const invoiceNumber = `INV-${year}-${String(count + 1).padStart(5, '0')}`;
+    const invoicePrefix = settings.invoicePrefix?.trim() || 'INV';
 
     // Create invoice with items in a transaction
     const invoice = await prisma.$transaction(async (tx) => {
+      const sequence = await tx.invoiceNumberSequence.upsert({
+        where: { tenantId_year: { tenantId, year } },
+        create: { tenantId, year, lastValue: 1 },
+        update: { lastValue: { increment: 1 } },
+      });
+      const invoiceNumber = `${invoicePrefix}-${year}-${String(sequence.lastValue).padStart(5, '0')}`;
+
       // Create invoice
       const createdInvoice = await tx.invoice.create({
         data: {
@@ -213,56 +218,21 @@ export class InvoiceService {
         },
       });
 
-      // Create invoice items and create inventory transactions for parts
+      // Create invoice items; stock is consumed only when the invoice is finalized.
       const items = await Promise.all(
-        calculatedItems.map(async (item) => {
-          const invoiceItem = await tx.invoiceItem.create({
-            data: {
-              invoiceId: createdInvoice.id,
-              partId: item.partId,
-              serviceId: item.serviceId,
-              description: item.description,
-              quantity: item.quantity,
-              priceSYP: item.priceSYP,
-              priceUSD: item.priceUSD,
-              totalSYP: item.totalSYP,
-              totalUSD: item.totalUSD,
-            },
-          });
-
-          // If this is a part item, create inventory transaction (CONSUMPTION)
-          if (item.partId) {
-            const part = await tx.part.findUnique({
-              where: { id: item.partId },
-            });
-
-            if (part) {
-              await tx.inventoryTransaction.create({
-                data: {
-                  tenantId,
-                  partId: item.partId,
-                  type: 'CONSUMPTION',
-                  quantity: item.quantity,
-                  costSYP: part.costSYP,
-                  reference: `INV-${createdInvoice.invoiceNumber}`,
-                  notes: `Part consumed for invoice ${createdInvoice.invoiceNumber}`,
-                },
-              });
-
-              // Update part quantity
-              await tx.part.update({
-                where: { id: item.partId },
-                data: {
-                  quantity: {
-                    decrement: item.quantity,
-                  },
-                },
-              });
-            }
-          }
-
-          return invoiceItem;
-        })
+        calculatedItems.map((item) => tx.invoiceItem.create({
+          data: {
+            invoiceId: createdInvoice.id,
+            partId: item.partId,
+            serviceId: item.serviceId,
+            description: item.description,
+            quantity: item.quantity,
+            priceSYP: item.priceSYP,
+            priceUSD: item.priceUSD,
+            totalSYP: item.totalSYP,
+            totalUSD: item.totalUSD,
+          },
+        }))
       );
 
       return { invoice: createdInvoice, items };
@@ -391,11 +361,13 @@ export class InvoiceService {
       throw new Error('Invoice not found');
     }
 
-    // Allow discount updates on ISSUED invoices, but block item changes on non-DRAFT
-    const isDiscountOnlyUpdate = data.discountType !== undefined || data.discountPercent !== undefined || data.discountSYP !== undefined || data.discountUSD !== undefined;
+    // Financial changes are restricted to DRAFT invoices.
     const hasItemChanges = data.items && data.items.length > 0;
-    if (existingInvoice.status !== InvoiceStatus.DRAFT && hasItemChanges) {
-      throw new Error('CANNOT_MODIFY_ISSUED_INVOICE');
+    const hasFinancialChanges = hasItemChanges || data.discountType !== undefined ||
+      data.discountPercent !== undefined || data.discountSYP !== undefined ||
+      data.discountUSD !== undefined || data.taxRateId !== undefined;
+    if (existingInvoice.status !== InvoiceStatus.DRAFT && hasFinancialChanges) {
+      throw new Error('Only draft invoices can be changed financially');
     }
     if (existingInvoice.status === InvoiceStatus.PAID || existingInvoice.status === InvoiceStatus.CANCELLED) {
       throw new Error('CANNOT_MODIFY_PAID_OR_CANCELLED_INVOICE');
@@ -403,19 +375,18 @@ export class InvoiceService {
 
     // If updating items, recalculate totals
     if (data.items && data.items.length > 0) {
-      // Delete old items
-      await prisma.invoiceItem.deleteMany({
-        where: { invoiceId },
-      });
-
+      // Rebuild draft invoice items atomically after recalculating totals.
       // USD is the base currency — auto-fill the missing side from the exchange rate
-      const settings = await settingsService.getSettings(tenantId);
-      const exchangeRate = settings.exchangeRate > 0 ? settings.exchangeRate : 15000;
+      const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
       for (const item of data.items) {
-        const hasSYP = item.priceSYP != null && item.priceSYP > 0;
-        const hasUSD = item.priceUSD != null && item.priceUSD > 0;
-        if (!hasSYP && hasUSD && item.priceUSD != null) item.priceSYP = Math.round(item.priceUSD * exchangeRate);
-        if (hasSYP && !hasUSD) item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+        if (item.priceUSD != null && item.priceUSD > 0) {
+          item.priceSYP = Math.round(item.priceUSD * exchangeRate);
+        } else if (item.priceSYP != null && item.priceSYP > 0) {
+          item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
+        } else {
+          throw new Error('Item price is required (USD or SYP)');
+        }
       }
 
       // Calculate new totals
@@ -442,59 +413,73 @@ export class InvoiceService {
       let taxSYP = 0;
       let taxUSD: number | null = null;
       const effectiveTaxRateId = data.taxRateId || existingInvoice.taxRateId;
+      const settings = await settingsService.getSettings(tenantId);
+      let taxRate = Number(settings.taxRate || 0) / 100;
       if (effectiveTaxRateId) {
-        const taxRate = await prisma.taxRate.findFirst({
-          where: { id: effectiveTaxRateId, tenantId },
-        });
-        if (taxRate) {
-          taxSYP = subtotalSYP * Number(taxRate.rate);
-          if (subtotalUSD > 0) {
-            taxUSD = subtotalUSD * Number(taxRate.rate);
-          }
-        }
+        const configuredTaxRate = await prisma.taxRate.findFirst({ where: { id: effectiveTaxRateId, tenantId } });
+        if (!configuredTaxRate) throw new Error('Tax rate not found');
+        taxRate = Number(configuredTaxRate.rate);
       }
+      taxSYP = Math.round(subtotalSYP * taxRate * 100) / 100;
+      taxUSD = subtotalUSD > 0 ? Math.round(subtotalUSD * taxRate * 100) / 100 : null;
 
       const discountType = data.discountType || existingInvoice.discountType || 'FIXED';
       let discountSYP = Number(data.discountSYP ?? existingInvoice.discountSYP ?? 0);
-      let discountUSD = data.discountUSD ?? existingInvoice.discountUSD ?? null;
+      let discountUSD = data.discountUSD != null
+        ? Number(data.discountUSD)
+        : existingInvoice.discountUSD != null ? Number(existingInvoice.discountUSD) : null;
 
-      if (discountType === 'PERCENTAGE' && data.discountPercent && data.discountPercent > 0) {
-        discountSYP = Math.round(subtotalSYP * (data.discountPercent / 100));
-        if (subtotalUSD > 0) {
-          discountUSD = Math.round(subtotalUSD * (data.discountPercent / 100));
-        }
+      if (discountType === 'PERCENTAGE') {
+        const percent = data.discountPercent ?? Number(existingInvoice.discountPercent || 0);
+        if (percent < 0 || percent > 100) throw new Error('Discount percentage must be between 0 and 100');
+        discountSYP = Math.round(subtotalSYP * (percent / 100));
+        discountUSD = Math.round(subtotalUSD * (percent / 100) * 100) / 100;
+      } else if (data.discountUSD !== undefined && data.discountUSD !== null) {
+        discountUSD = Number(data.discountUSD);
+        discountSYP = Math.round(discountUSD * exchangeRate);
+      } else if (data.discountSYP !== undefined && data.discountSYP !== null) {
+        discountSYP = Number(data.discountSYP);
+        discountUSD = Math.round((discountSYP / exchangeRate) * 100) / 100;
+      } else if (data.discountType !== undefined && discountUSD != null && discountUSD > 0) {
+        discountSYP = Math.round(discountUSD * exchangeRate);
+      }
+      if (discountSYP < 0 || discountUSD != null && discountUSD < 0 || discountSYP > subtotalSYP || discountUSD != null && discountUSD > subtotalUSD) {
+        throw new Error('Discount cannot be negative or exceed the invoice subtotal');
       }
 
       const totalSYP = subtotalSYP + taxSYP - discountSYP;
       const totalUSD = subtotalUSD > 0 ? subtotalUSD + (taxUSD || 0) - Number(discountUSD || 0) : null;
 
       // Update invoice with new totals
-      const updatedInvoice = await prisma.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          invoiceDate: data.invoiceDate,
-          dueDate: data.dueDate,
-          notes: data.notes,
-          discountType,
-          discountPercent: data.discountPercent || null,
-          subtotalSYP,
-          subtotalUSD,
-          taxSYP,
-          taxUSD,
-          discountSYP,
-          discountUSD,
-          totalSYP,
-          totalUSD,
-        },
-      });
+      const { updatedInvoice, items } = await prisma.$transaction(async (tx) => {
+        await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+        const updatedInvoice = await tx.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            invoiceDate: data.invoiceDate,
+            dueDate: data.dueDate,
+            notes: data.notes,
+            taxRateId: effectiveTaxRateId,
+            discountType,
+            discountPercent: data.discountPercent ?? existingInvoice.discountPercent,
+            subtotalSYP,
+            subtotalUSD,
+            taxSYP,
+            taxUSD,
+            discountSYP,
+            discountUSD,
+            totalSYP,
+            totalUSD,
+          },
+        });
 
-      // Create new items
-      const items = await Promise.all(
-        calculatedItems.map((item) =>
-          prisma.invoiceItem.create({
+        // Create new items
+        const items = await Promise.all(
+          calculatedItems.map((item) => tx.invoiceItem.create({
             data: {
               invoiceId,
               partId: item.partId,
+              serviceId: item.serviceId,
               description: item.description,
               quantity: item.quantity,
               priceSYP: item.priceSYP,
@@ -502,34 +487,61 @@ export class InvoiceService {
               totalSYP: item.totalSYP,
               totalUSD: item.totalUSD,
             },
-          })
-        )
-      );
+          }))
+        );
+        return { updatedInvoice, items };
+      });
 
       return this.mapToInvoiceResponse(updatedInvoice, items);
     } else {
       // Update basic fields + recalculate totals if discount changed
-      let discountSYP = Number(existingInvoice.discountSYP);
-      let discountUSD = existingInvoice.discountUSD ? Number(existingInvoice.discountUSD) : 0;
-      let totalSYP = Number(existingInvoice.totalSYP);
-      let totalUSD = existingInvoice.totalUSD ? Number(existingInvoice.totalUSD) : 0;
+      let taxSYP = Number(existingInvoice.taxSYP);
+      let taxUSD = Number(existingInvoice.taxUSD || 0);
+      const effectiveTaxRateId = data.taxRateId || existingInvoice.taxRateId;
+      if (data.taxRateId !== undefined) {
+        const taxRate = effectiveTaxRateId
+          ? await prisma.taxRate.findFirst({ where: { id: effectiveTaxRateId, tenantId } })
+          : null;
+        if (effectiveTaxRateId && !taxRate) throw new Error('Tax rate not found');
+        const rate = Number(taxRate?.rate || 0);
+        taxSYP = Number(existingInvoice.subtotalSYP) * rate;
+        taxUSD = Number(existingInvoice.subtotalUSD || 0) * rate;
+      }
 
-      if (data.discountType !== undefined || data.discountPercent !== undefined || data.discountSYP !== undefined) {
-        const discountType = data.discountType || existingInvoice.discountType || 'FIXED';
-        if (discountType === 'PERCENTAGE' && (data.discountPercent !== undefined || existingInvoice.discountPercent)) {
-          const pct = data.discountPercent ?? existingInvoice.discountPercent ?? 0;
-          discountSYP = Math.round(Number(existingInvoice.subtotalSYP) * (Number(pct) / 100));
-          if (existingInvoice.subtotalUSD && Number(existingInvoice.subtotalUSD) > 0) {
-            discountUSD = Math.round(Number(existingInvoice.subtotalUSD) * (Number(pct) / 100));
-          }
-        } else if (data.discountSYP !== undefined) {
+      const discountType = data.discountType ?? existingInvoice.discountType;
+      let discountSYP = Number(data.discountSYP ?? existingInvoice.discountSYP ?? 0);
+      let discountUSD = Number(data.discountUSD ?? existingInvoice.discountUSD ?? 0);
+      const discountWasChanged = data.discountType !== undefined || data.discountPercent !== undefined ||
+        data.discountSYP !== undefined || data.discountUSD !== undefined;
+
+      if (discountType === 'PERCENTAGE' && discountWasChanged) {
+        const percent = Number(data.discountPercent ?? existingInvoice.discountPercent ?? 0);
+        if (percent < 0 || percent > 100) throw new Error('Discount percentage must be between 0 and 100');
+        discountSYP = Math.round(Number(existingInvoice.subtotalSYP) * (percent / 100));
+        discountUSD = Math.round(Number(existingInvoice.subtotalUSD || 0) * (percent / 100) * 100) / 100;
+      } else if (discountType === 'FIXED' && discountWasChanged) {
+        const rate = await settingsService.getRequiredExchangeRate(tenantId);
+        if (data.discountUSD != null) {
+          discountUSD = Number(data.discountUSD);
+          discountSYP = Math.round(discountUSD * rate);
+        } else if (data.discountSYP != null) {
           discountSYP = Number(data.discountSYP);
-        }
-        totalSYP = Number(existingInvoice.subtotalSYP) + Number(existingInvoice.taxSYP) - discountSYP;
-        if (existingInvoice.subtotalUSD && Number(existingInvoice.subtotalUSD) > 0) {
-          totalUSD = Number(existingInvoice.subtotalUSD) + Number(existingInvoice.taxUSD || 0) - discountUSD;
+          discountUSD = Math.round((discountSYP / rate) * 100) / 100;
+        } else if (discountUSD > 0) {
+          discountSYP = Math.round(discountUSD * rate);
+        } else if (discountSYP > 0) {
+          discountUSD = Math.round((discountSYP / rate) * 100) / 100;
         }
       }
+
+      if (discountSYP < 0 || discountUSD < 0 || discountSYP > Number(existingInvoice.subtotalSYP) || discountUSD > Number(existingInvoice.subtotalUSD || 0)) {
+        throw new Error('Discount cannot be negative or exceed the invoice subtotal');
+      }
+
+      const totalSYP = Number(existingInvoice.subtotalSYP) + taxSYP - discountSYP;
+      const totalUSD = Number(existingInvoice.subtotalUSD || 0) > 0
+        ? Number(existingInvoice.subtotalUSD) + taxUSD - discountUSD
+        : null;
 
       const updatedInvoice = await prisma.invoice.update({
         where: { id: invoiceId },
@@ -537,12 +549,15 @@ export class InvoiceService {
           invoiceDate: data.invoiceDate,
           dueDate: data.dueDate,
           notes: data.notes,
-          discountType: data.discountType,
-          discountPercent: data.discountPercent ?? null,
-          discountSYP: discountSYP as any,
-          discountUSD: discountUSD as any,
-          totalSYP: totalSYP as any,
-          totalUSD: totalUSD as any,
+          ...(data.taxRateId !== undefined ? { taxRateId: effectiveTaxRateId } : {}),
+          discountType,
+          discountPercent: data.discountPercent ?? existingInvoice.discountPercent,
+          taxSYP,
+          taxUSD,
+          discountSYP,
+          discountUSD,
+          totalSYP,
+          totalUSD,
         },
       });
 
@@ -563,9 +578,9 @@ export class InvoiceService {
       throw new Error('Invoice not found');
     }
 
-    // Only allow deletion of draft or issued invoices (issued allowed temporarily for cleanup)
-    if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.ISSUED) {
-      throw new Error('CANNOT_MODIFY_ISSUED_INVOICE');
+    // Only allow deletion of draft invoices; issued invoices must be cancelled with reversals.
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new Error('Only draft invoices can be deleted');
     }
 
     await prisma.invoice.delete({
@@ -576,36 +591,47 @@ export class InvoiceService {
   /**
    * Cancel invoice (change status from PENDING/ISSUED to CANCELLED)
    */
-  async cancelInvoice(tenantId: string, invoiceId: string): Promise<Invoice> {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId },
-    });
-
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    // Only allow cancellation of SENT or ISSUED invoices
-    if (invoice.status !== InvoiceStatus.SENT && invoice.status !== InvoiceStatus.ISSUED) {
-      throw new Error('CANNOT_CANCEL_INVOICE');
-    }
-
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: InvoiceStatus.CANCELLED,
-      },
-    });
-
-    // Create RETURN transactions to restore inventory
-    try {
-      const existingTransactions = await prisma.inventoryTransaction.findMany({
-        where: { invoiceId: invoiceId },
+  async cancelInvoice(tenantId: string, invoiceId: string, userId?: string): Promise<Invoice> {
+    const updatedInvoice = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({ where: { id: invoiceId, tenantId } });
+      if (!invoice) throw new Error('Invoice not found');
+      if (invoice.status !== InvoiceStatus.SENT && invoice.status !== InvoiceStatus.ISSUED) {
+        throw new Error('CANNOT_CANCEL_INVOICE');
+      }
+      const paymentTotals = await tx.payment.aggregate({
+        where: { tenantId, invoiceId, deletedAt: null },
+        _sum: { amountSYP: true, amountUSD: true },
       });
+      const paidSYP = Number(paymentTotals._sum.amountSYP || 0);
+      const paidUSD = Number(paymentTotals._sum.amountUSD || 0);
+      if (paidSYP > 0 || paidUSD > 0) {
+        throw new Error('Cannot cancel an invoice with payments; reverse/refund its payments first');
+      }
 
-      for (const transaction of existingTransactions) {
-        // Create RETURN transaction
-        await prisma.inventoryTransaction.create({
+      const claim = await tx.invoice.updateMany({
+        where: { id: invoiceId, tenantId, status: { in: [InvoiceStatus.SENT, InvoiceStatus.ISSUED] } },
+        data: { status: InvoiceStatus.CANCELLED },
+      });
+      if (claim.count !== 1) throw new Error('Invoice status changed; reload and retry');
+
+      const invoiceJournal = await tx.journalEntry.findFirst({
+        where: { tenantId, sourceType: 'INVOICE', sourceId: invoiceId, isReversed: false },
+      });
+      if (invoiceJournal) {
+        await reverseJournalEntry(invoiceJournal.id, `Invoice ${invoice.invoiceNumber} cancelled`, tenantId, userId || null, tx);
+      }
+
+      const transactions = await tx.inventoryTransaction.findMany({
+        where: { tenantId, invoiceId, type: 'CONSUMPTION' },
+      });
+      for (const transaction of transactions) {
+        const reversalExists = await tx.inventoryTransaction.findFirst({
+          where: { tenantId, invoiceId, type: 'RETURN', reference: `CANCEL:${transaction.id}` },
+          select: { id: true },
+        });
+        if (reversalExists) continue;
+
+        await tx.inventoryTransaction.create({
           data: {
             tenantId,
             partId: transaction.partId,
@@ -613,26 +639,27 @@ export class InvoiceService {
             quantity: transaction.quantity,
             costSYP: transaction.costSYP,
             costUSD: transaction.costUSD,
-            reference: transaction.reference,
+            reference: `CANCEL:${transaction.id}`,
             notes: `Restored from cancelled invoice ${invoice.invoiceNumber}`,
-            invoiceId: invoiceId,
+            invoiceId,
+            createdBy: userId,
           },
+        });
+        await tx.part.update({
+          where: { id: transaction.partId },
+          data: { quantity: { increment: transaction.quantity } },
         });
 
-        // Add quantity back to part
-        await prisma.part.update({
-          where: { id: transaction.partId },
-          data: {
-            quantity: {
-              increment: transaction.quantity,
-            },
-          },
+        const inventoryJournal = await tx.journalEntry.findFirst({
+          where: { tenantId, sourceType: 'INVENTORY_TRANSACTION', sourceId: transaction.id, isReversed: false },
         });
+        if (inventoryJournal) {
+          await reverseJournalEntry(inventoryJournal.id, `Invoice ${invoice.invoiceNumber} cancelled`, tenantId, userId || null, tx);
+        }
       }
-    } catch (error) {
-      Logger.error('Error creating RETURN inventory transactions:', error);
-      // Don't fail the invoice cancellation if inventory transactions fail
-    }
+
+      return tx.invoice.findUnique({ where: { id: invoiceId } });
+    });
 
     return this.mapToInvoiceResponse(updatedInvoice, []);
   }
@@ -641,191 +668,122 @@ export class InvoiceService {
    * Pay invoice (change status from SENT/ISSUED to PAID)
    */
   async payInvoice(tenantId: string, invoiceId: string, userId?: string): Promise<Invoice> {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId },
-    });
+    const invoice = await prisma.invoice.findFirst({ where: { id: invoiceId, tenantId } });
+    if (!invoice) throw new Error('Invoice not found');
+    if (invoice.status === InvoiceStatus.DRAFT) throw new Error('CANNOT_PAY_DRAFT');
+    if (invoice.status === InvoiceStatus.CANCELLED) throw new Error('CANNOT_PAY_CANCELLED');
+    if (invoice.status === InvoiceStatus.PAID) throw new Error('ALREADY_PAID');
 
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    // Only allow payment of SENT, ISSUED, or PARTIALLY_PAID invoices
-    if (invoice.status === InvoiceStatus.DRAFT) {
-      throw new Error('CANNOT_PAY_DRAFT');
-    }
-    if (invoice.status === InvoiceStatus.CANCELLED) {
-      throw new Error('CANNOT_PAY_CANCELLED');
-    }
-    if (invoice.status === InvoiceStatus.PAID) {
-      throw new Error('ALREADY_PAID');
-    }
-
-    // Ensure default accounts exist for journal entries
-    await ensureDefaultAccounts(tenantId);
-
-    // Create payment record and update invoice in a transaction
-    const updatedInvoice = await prisma.$transaction(async (tx) => {
-      // Create payment record for full amount
-      const remainingSYP = Number(invoice.totalSYP) - Number(invoice.paidSYP);
-      const remainingUSD = (Number(invoice.totalUSD) || 0) - (Number(invoice.paidUSD) || 0);
-
-      await tx.payment.create({
-        data: {
-          tenantId,
-          invoiceId,
-          amountSYP: remainingSYP,
-          amountUSD: remainingUSD > 0 ? remainingUSD : null,
-          paymentDate: new Date(),
-          paymentMethod: PaymentMethod.CASH,
-          notes: 'Auto payment from payInvoice',
-        },
+    const paymentService = new PaymentService();
+    if (invoice.totalUSD != null && Number(invoice.totalUSD) > 0) {
+      await paymentService.createPayment(tenantId, userId || 'system', {
+        invoiceId,
+        amountUSD: Math.max(0, Number(invoice.totalUSD) - Number(invoice.paidUSD || 0)),
+        paymentDate: new Date(),
+        paymentMethod: PaymentMethod.CASH,
+        notes: 'Auto payment from payInvoice',
       });
-
-      // Update invoice to fully paid
-      return await tx.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: InvoiceStatus.PAID,
-          paidSYP: invoice.totalSYP,
-          paidUSD: invoice.totalUSD || 0,
-        },
+    } else {
+      await paymentService.createPayment(tenantId, userId || 'system', {
+        invoiceId,
+        amountSYP: Math.max(0, Number(invoice.totalSYP) - Number(invoice.paidSYP || 0)),
+        paymentDate: new Date(),
+        paymentMethod: PaymentMethod.CASH,
+        notes: 'Auto payment from payInvoice',
       });
-    });
-
-    // Create auto-journal entry for payment received
-    try {
-      const paymentWithInvoice = await prisma.payment.findFirst({
-        where: { invoiceId, tenantId },
-        orderBy: { createdAt: 'desc' },
-        include: { invoice: true },
-      });
-
-      if (paymentWithInvoice) {
-        await createPaymentReceivedJournalEntry(paymentWithInvoice, tenantId, userId || 'system');
-      }
-    } catch (error) {
-      Logger.error('Error creating journal entry for payInvoice:', error);
     }
 
+    const updatedInvoice = await prisma.invoice.findFirst({ where: { id: invoiceId, tenantId } });
+    if (!updatedInvoice) throw new Error('Invoice not found after payment');
     return this.mapToInvoiceResponse(updatedInvoice, []);
   }
 
   /**
    * Finalize invoice (change status from DRAFT to ISSUED)
    */
-  async finalizeInvoice(tenantId: string, invoiceId: string): Promise<Invoice> {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId },
-      include: { 
-        items: {
-          include: {
-            service: {
-              include: {
-                serviceParts: {
-                  include: {
-                    part: true,
-                  },
-                },
+  async finalizeInvoice(tenantId: string, invoiceId: string, userId?: string): Promise<Invoice> {
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const { invoice, updatedInvoice } = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenantId },
+        include: {
+          items: {
+            include: {
+              service: {
+                include: { serviceParts: { include: { part: true } } },
               },
             },
           },
+          customer: true,
         },
-        customer: true 
-      },
-    });
+      });
+      if (!invoice) throw new Error('Invoice not found');
+      if (invoice.status !== InvoiceStatus.DRAFT) throw new Error('Can only finalize invoices in DRAFT status');
 
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
+      const claim = await tx.invoice.updateMany({
+        where: { id: invoiceId, tenantId, status: InvoiceStatus.DRAFT },
+        data: { status: InvoiceStatus.ISSUED },
+      });
+      if (claim.count !== 1) throw new Error('Invoice status changed; reload and retry');
 
-    if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new Error('Can only finalize invoices in DRAFT status');
-    }
+      await ensureDefaultAccounts(tenantId, tx);
 
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: InvoiceStatus.ISSUED,
-      },
-    });
+      const partsToConsume = new Map<string, { quantity: number; part: any }>();
+      const addPart = (part: any, quantity: number) => {
+        if (!part || part.tenantId !== tenantId) throw new Error('Invoice contains a missing or invalid part');
+        const existing = partsToConsume.get(part.id);
+        if (existing) existing.quantity += quantity;
+        else partsToConsume.set(part.id, { quantity, part });
+      };
 
-    // Create auto-journal entry for invoice
-    // NOTE: pass the invoice WITH items (the bare update result has no items,
-    // which produced unbalanced entries: debit without credit)
-    try {
-      await createInvoiceJournalEntry({ ...updatedInvoice, items: invoice.items }, tenantId);
-    } catch (error) {
-      Logger.error('Error creating journal entry for invoice:', error);
-      throw new Error('Invoice finalized but journal entry creation failed. Please check the chart of accounts setup.');
-    }
-
-    // Create inventory transactions for parts
-    try {
-      // Collect all parts to consume (merge fixed service parts + dynamic invoice parts)
-      const partsToConsume = new Map<string, { quantity: number; costSYP: number; costUSD: number | null }>();
-
-      // Add dynamic parts from invoice items
       for (const item of invoice.items) {
         if (item.partId) {
-          const existing = partsToConsume.get(item.partId);
-          if (existing) {
-            existing.quantity += item.quantity;
-          } else {
-            partsToConsume.set(item.partId, {
-              quantity: item.quantity,
-              costSYP: Number(item.priceSYP),
-              costUSD: item.priceUSD ? Number(item.priceUSD) : null,
-            });
-          }
+          const part = await tx.part.findFirst({ where: { id: item.partId, tenantId } });
+          addPart(part, item.quantity);
         }
-
-        // Add fixed service parts for services
         if (item.serviceId && item.service?.serviceParts) {
           for (const servicePart of item.service.serviceParts) {
-            const existing = partsToConsume.get(servicePart.partId);
-            if (existing) {
-              existing.quantity += servicePart.quantity;
-            } else {
-              partsToConsume.set(servicePart.partId, {
-                quantity: servicePart.quantity,
-                costSYP: Number(servicePart.part.costSYP),
-                costUSD: servicePart.part.costUSD ? Number(servicePart.part.costUSD) : null,
-              });
-            }
+            addPart(servicePart.part, servicePart.quantity * item.quantity);
           }
         }
       }
 
-      // Create CONSUMPTION transactions for all parts
-      for (const [partId, data] of partsToConsume.entries()) {
-        await prisma.inventoryTransaction.create({
+      for (const [partId, data] of partsToConsume) {
+        const deduction = await tx.part.updateMany({
+          where: { id: partId, tenantId, quantity: { gte: data.quantity } },
+          data: { quantity: { decrement: data.quantity } },
+        });
+        if (deduction.count !== 1) throw new Error(`Insufficient stock for part ${data.part.name}`);
+        const costUSD = data.part.costUSD != null
+          ? Number(data.part.costUSD)
+          : Math.round((Number(data.part.costSYP) / exchangeRate) * 100) / 100;
+        const costSYP = data.part.costUSD != null
+          ? Math.round(costUSD * exchangeRate)
+          : Number(data.part.costSYP);
+
+        const transaction = await tx.inventoryTransaction.create({
           data: {
             tenantId,
             partId,
             type: 'CONSUMPTION',
             quantity: data.quantity,
-            costSYP: data.costSYP,
-            costUSD: data.costUSD,
+            costSYP,
+            costUSD,
             reference: invoice.invoiceNumber,
             notes: `Part used in invoice ${invoice.invoiceNumber}`,
-            invoiceId: invoiceId,
+            invoiceId,
+            createdBy: userId,
           },
+          include: { part: { select: { name: true } } },
         });
-
-        // Deduct quantity from part
-        await prisma.part.update({
-          where: { id: partId },
-          data: {
-            quantity: {
-              decrement: data.quantity,
-            },
-          },
-        });
+        await createStockConsumptionJournalEntry(transaction, tenantId, userId || null, tx);
       }
-    } catch (error) {
-      Logger.error('Error creating inventory transactions:', error);
-      throw new Error('Invoice finalized but inventory transactions failed. Stock may not have been deducted properly.');
-    }
+
+      const updatedInvoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
+      if (!updatedInvoice) throw new Error('Invoice not found after finalization');
+      await createInvoiceJournalEntry({ ...updatedInvoice, items: invoice.items, customer: invoice.customer }, tenantId, userId || null, tx);
+      return { invoice, updatedInvoice };
+    }, { isolationLevel: 'Serializable' });
 
     // Add loyalty points if customer exists
     if (invoice.customerId && invoice.customer) {

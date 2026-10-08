@@ -32,6 +32,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
   final _durationMonthsCtrl = TextEditingController();
   final _amountPaidCtrl = TextEditingController();
   String _currency = 'SYP';
+  String _engineType = 'GASOLINE';
   bool _loading = false;
 
   bool get _isEdit => widget.warranty != null;
@@ -54,6 +55,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       _amountPaidCtrl.text = w.amountPaid.toStringAsFixed(
           w.amountPaid.truncateToDouble() == w.amountPaid ? 0 : 2);
       _currency = w.currency;
+      if (w.engineType != null) _engineType = w.engineType!;
     } else {
       _durationMonthsCtrl.text = '12';
       _mileageCtrl.text = '0';
@@ -79,6 +81,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
         'durationMonths': int.tryParse(_durationMonthsCtrl.text.trim()) ?? 0,
         'amountPaid': double.tryParse(_amountPaidCtrl.text.trim()) ?? 0,
         'currency': _currency,
+        'engineType': _engineType,
       };
 
       if (_isEdit) {
@@ -261,6 +264,20 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
                   DropdownMenuItem(value: 'USD', child: Text('دولار أمريكي (\$)')),
                 ],
                 onChanged: (v) => setState(() => _currency = v ?? 'SYP'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _engineType,
+                decoration: const InputDecoration(
+                  labelText: 'نوع المحرك',
+                  prefixIcon: Icon(Icons.electric_car, color: AppColors.primary),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'GASOLINE', child: Text('بنزين — حصة الشركة \$600')),
+                  DropdownMenuItem(value: 'HYBRID', child: Text('هجين — حصة الشركة \$300')),
+                  DropdownMenuItem(value: 'ELECTRIC', child: Text('كهربائي — حصة الشركة \$300')),
+                ],
+                onChanged: (v) => setState(() => _engineType = v ?? 'GASOLINE'),
               ),
               const SizedBox(height: 32),
               SizedBox(

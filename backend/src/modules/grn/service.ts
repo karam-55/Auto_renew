@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import settingsService from '../../services/settings.service';
 import {
   GoodsReceiptNote,
   GRNLine,
@@ -10,14 +11,14 @@ import {
   PaginationParams,
   PaginatedResponse,
 } from './types';
-import { Logger } from '../../infrastructure/logging/logger';
-import { createGRNJournalEntry } from '../accounting/automatic-journal-entries';
+import { createGRNJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 
 export class GRNService {
-  async createGRN(tenantId: string, data: CreateGRNDto): Promise<GoodsReceiptNote> {
+  async createGRN(tenantId: string, data: CreateGRNDto, userId?: string): Promise<GoodsReceiptNote> {
     // Check if purchase order exists and belongs to tenant
     const purchaseOrder = await prisma.purchaseOrder.findFirst({
       where: { id: data.purchaseOrderId, tenantId },
+      include: { items: { select: { partId: true, quantity: true, receivedQty: true } } },
     });
 
     if (!purchaseOrder) {
@@ -53,26 +54,43 @@ export class GRNService {
 
     // Validate lines quantities and costs
     for (const line of data.lines) {
-      if (line.receivedQuantity < 0) {
-        throw new Error('Received quantity cannot be negative');
+      const damagedQuantity = line.damagedQuantity ?? 0;
+      if (!Number.isInteger(line.orderedQuantity) || line.orderedQuantity < 0 ||
+          !Number.isInteger(line.receivedQuantity) || line.receivedQuantity < 0 ||
+          !Number.isInteger(damagedQuantity) || damagedQuantity < 0 || damagedQuantity > line.receivedQuantity) {
+        throw new Error('GRN quantities must be non-negative whole numbers and damaged quantity cannot exceed received quantity');
       }
-      if (line.damagedQuantity !== undefined && line.damagedQuantity < 0) {
-        throw new Error('Damaged quantity cannot be negative');
+      if (line.receivedQuantity > line.orderedQuantity) throw new Error('Received quantity cannot exceed ordered quantity');
+      const purchaseOrderLine = purchaseOrder.items.find((item) => item.partId === line.partId);
+      if (!purchaseOrderLine) throw new Error(`Part ${line.partId} is not included in the purchase order`);
+      if (line.orderedQuantity > purchaseOrderLine.quantity - purchaseOrderLine.receivedQty) {
+        throw new Error(`GRN quantity exceeds the outstanding order quantity for part ${line.partId}`);
       }
-      if (line.unitCost < 0) {
+      if (line.unitCost != null && line.unitCost < 0 || line.unitCostUSD != null && line.unitCostUSD < 0) {
         throw new Error('Unit cost cannot be negative');
       }
+      if (line.unitCost == null && line.unitCostUSD == null) throw new Error('Unit cost is required in USD or SYP');
 
       // Validate parts in lines
-      if (line.partId) {
-        const part = await prisma.part.findFirst({
-          where: { id: line.partId, tenantId },
-        });
-        if (!part) {
-          throw new Error(`Part with ID ${line.partId} not found`);
-        }
-      }
+      const part = await prisma.part.findFirst({ where: { id: line.partId, tenantId } });
+      if (!part) throw new Error(`Part with ID ${line.partId} not found`);
     }
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const normalizedLines = data.lines.map((line) => {
+      const unitCostUSD = line.unitCostUSD != null
+        ? Number(line.unitCostUSD)
+        : Math.round((Number(line.unitCost) / exchangeRate) * 100) / 100;
+      const unitCostSYP = line.unitCostUSD != null
+        ? Math.round(unitCostUSD * exchangeRate)
+        : Number(line.unitCost);
+      return {
+        ...line,
+        unitCost: unitCostSYP,
+        unitCostUSD,
+        totalCost: line.receivedQuantity * unitCostSYP,
+        totalCostUSD: Math.round(line.receivedQuantity * unitCostUSD * 100) / 100,
+      };
+    });
 
     // Generate GRN number
     const grnNumber = await this.generateGRNNumber(tenantId);
@@ -95,18 +113,20 @@ export class GRNService {
         grnNumber,
         receivedDate,
         status: 'DRAFT' as any,
-        receivedBy: 'SYSTEM', // Should be passed from auth context
+        receivedBy: userId || 'SYSTEM',
         notes: data.notes,
         lines: {
-          create: data.lines?.map((line) => ({
+          create: normalizedLines.map((line) => ({
             tenantId,
             partId: line.partId,
-            orderedQuantity: line.orderedQuantity || 0,
+            orderedQuantity: line.orderedQuantity,
             receivedQuantity: line.receivedQuantity,
             damagedQuantity: line.damagedQuantity || 0,
-            unitCost: line.unitCost || 0,
-            totalCost: (line.receivedQuantity * (line.unitCost || 0)),
-          })) || [],
+            unitCost: line.unitCost,
+            unitCostUSD: line.unitCostUSD,
+            totalCost: line.totalCost,
+            totalCostUSD: line.totalCostUSD,
+          })),
         },
       },
       include: {
@@ -356,8 +376,8 @@ export class GRNService {
       throw new Error('Goods Receipt Note not found');
     }
 
-    if (existingGRN.status === 'COMPLETED') {
-      throw new Error('Cannot delete completed GRN');
+    if (existingGRN.status !== 'DRAFT' && existingGRN.status !== 'PENDING') {
+      throw new Error('Cannot delete completed or cancelled GRN');
     }
 
     await prisma.goodsReceiptNote.delete({
@@ -374,10 +394,24 @@ export class GRNService {
       throw new Error('Goods Receipt Note not found');
     }
 
-    if (grn.status === 'COMPLETED') {
-      throw new Error('Cannot add lines to completed GRN');
+    if (grn.status !== 'DRAFT' && grn.status !== 'PENDING') {
+      throw new Error('Cannot add lines to completed or cancelled GRN');
     }
 
+    const part = await prisma.part.findFirst({ where: { id: data.partId, tenantId } });
+    if (!part) throw new Error('Part not found');
+    const damagedQuantity = data.damagedQuantity ?? 0;
+    if (!Number.isInteger(data.orderedQuantity) || !Number.isInteger(data.receivedQuantity) || !Number.isInteger(damagedQuantity) ||
+        data.orderedQuantity < 0 || data.receivedQuantity < 0 || data.receivedQuantity > data.orderedQuantity || damagedQuantity < 0 || damagedQuantity > data.receivedQuantity) {
+      throw new Error('GRN quantities must be non-negative whole numbers and received quantity cannot exceed ordered quantity');
+    }
+    if (data.unitCost == null && data.unitCostUSD == null) throw new Error('Unit cost is required in USD or SYP');
+    if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) throw new Error('Unit cost cannot be negative');
+    const rate = await settingsService.getRequiredExchangeRate(tenantId);
+    const unitCostUSD = data.unitCostUSD != null
+      ? Number(data.unitCostUSD)
+      : Math.round((Number(data.unitCost) / rate) * 100) / 100;
+    const unitCost = data.unitCostUSD != null ? Math.round(unitCostUSD * rate) : Number(data.unitCost);
     await prisma.goodsReceiptNoteLine.create({
       data: {
         tenantId,
@@ -386,8 +420,10 @@ export class GRNService {
         orderedQuantity: data.orderedQuantity,
         receivedQuantity: data.receivedQuantity,
         damagedQuantity: data.damagedQuantity || 0,
-        unitCost: data.unitCost,
-        totalCost: data.receivedQuantity * data.unitCost,
+        unitCost,
+        unitCostUSD,
+        totalCost: data.receivedQuantity * unitCost,
+        totalCostUSD: Math.round(data.receivedQuantity * unitCostUSD * 100) / 100,
       },
     });
 
@@ -410,22 +446,47 @@ export class GRNService {
       throw new Error('GRN does not belong to tenant');
     }
 
-    if (existingLine.grn.status === 'COMPLETED') {
-      throw new Error('Cannot modify completed GRN');
+    if (existingLine.grn.status !== 'DRAFT' && existingLine.grn.status !== 'PENDING') {
+      throw new Error('Cannot modify lines in completed or cancelled GRN');
     }
 
     const receivedQuantity = data.receivedQuantity ?? existingLine.receivedQuantity;
-    const unitCost = data.unitCost ?? Number(existingLine.unitCost);
+    const damagedQuantity = data.damagedQuantity ?? existingLine.damagedQuantity;
+    const orderedQuantity = data.orderedQuantity ?? existingLine.orderedQuantity;
+    if (!Number.isInteger(receivedQuantity) || !Number.isInteger(damagedQuantity) || !Number.isInteger(orderedQuantity) ||
+        receivedQuantity < 0 || damagedQuantity < 0 || damagedQuantity > receivedQuantity || receivedQuantity > orderedQuantity) {
+      throw new Error('GRN quantities must be non-negative whole numbers and damaged quantity cannot exceed received quantity');
+    }
+
+    if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
+      throw new Error('Unit cost cannot be negative');
+    }
+    let unitCost = Number(existingLine.unitCost);
+    let unitCostUSD = existingLine.unitCostUSD != null
+      ? Number(existingLine.unitCostUSD)
+      : Math.round((unitCost / await settingsService.getRequiredExchangeRate(tenantId)) * 100) / 100;
+    if (data.unitCostUSD != null) {
+      const rate = await settingsService.getRequiredExchangeRate(tenantId);
+      unitCostUSD = Number(data.unitCostUSD);
+      unitCost = Math.round(unitCostUSD * rate);
+    } else if (data.unitCost != null) {
+      const rate = await settingsService.getRequiredExchangeRate(tenantId);
+      unitCost = Number(data.unitCost);
+      unitCostUSD = Math.round((unitCost / rate) * 100) / 100;
+    }
     const totalCost = receivedQuantity * unitCost;
+    const totalCostUSD = Math.round(receivedQuantity * unitCostUSD * 100) / 100;
 
     await prisma.goodsReceiptNoteLine.update({
       where: { id: lineId },
       data: {
-        orderedQuantity: data.orderedQuantity,
+        orderedQuantity,
         receivedQuantity,
-        damagedQuantity: data.damagedQuantity,
+        damagedQuantity,
         unitCost,
+        unitCostUSD,
         totalCost,
+        totalCostUSD,
       },
     });
 
@@ -448,8 +509,8 @@ export class GRNService {
       throw new Error('GRN does not belong to tenant');
     }
 
-    if (existingLine.grn.status === 'COMPLETED') {
-      throw new Error('Cannot modify completed GRN');
+    if (existingLine.grn.status !== 'DRAFT' && existingLine.grn.status !== 'PENDING') {
+      throw new Error('Cannot remove lines from completed or cancelled GRN');
     }
 
     await prisma.goodsReceiptNoteLine.delete({
@@ -460,83 +521,117 @@ export class GRNService {
   }
 
   async completeGRN(id: string, tenantId: string, userId: string): Promise<GoodsReceiptNote> {
-    const grn = await prisma.goodsReceiptNote.findFirst({
-      where: { id, tenantId },
-      include: {
-        lines: {
-          include: {
-            part: true,
-          },
-        },
-        supplier: true,
-      },
-    });
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    const grn = await prisma.$transaction(async (tx) => {
+      const current = await tx.goodsReceiptNote.findFirst({
+        where: { id, tenantId },
+        include: { lines: { include: { part: true } }, supplier: true },
+      });
+      if (!current) throw new Error('Goods Receipt Note not found');
+      if (current.status !== 'DRAFT' && current.status !== 'PENDING') {
+        throw new Error('Only draft or pending GRNs can be completed');
+      }
+      if (current.lines.length === 0) throw new Error('Cannot complete GRN without lines');
 
-    if (!grn) {
-      throw new Error('Goods Receipt Note not found');
-    }
+      const claim = await tx.goodsReceiptNote.updateMany({
+        where: { id, tenantId, status: current.status },
+        data: { status: 'COMPLETED', receivedBy: userId },
+      });
+      if (claim.count !== 1) throw new Error('GRN status changed; reload and retry');
+      await ensureDefaultAccounts(tenantId, tx);
 
-    if (grn.status === 'COMPLETED') {
-      throw new Error('GRN is already completed');
-    }
+      for (const line of current.lines) {
+        const netQuantity = line.receivedQuantity - Number(line.damagedQuantity || 0);
+        const unitCostSYP = Number(line.unitCost);
+        const unitCostUSD = line.unitCostUSD != null
+          ? Number(line.unitCostUSD)
+          : Math.round((unitCostSYP / exchangeRate) * 100) / 100;
 
-    const updated = await prisma.goodsReceiptNote.update({
-      where: { id },
-      data: {
-        status: 'COMPLETED',
-        receivedBy: userId,
-      },
-    });
-
-    // Create inventory transactions for each line (STOCK_IN)
-    for (const line of grn.lines) {
-      const netQuantity = line.receivedQuantity - (line.damagedQuantity || 0);
-
-      if (netQuantity > 0) {
-        // Create STOCK_IN transaction
-        await prisma.inventoryTransaction.create({
-          data: {
-            tenantId,
-            partId: line.partId,
-            type: 'STOCK_IN',
-            quantity: netQuantity,
-            costSYP: line.unitCost,
-            reference: grn.grnNumber,
-            notes: `Received via GRN ${grn.grnNumber}`,
-          },
-        });
-
-        // Update part quantity
-        await prisma.part.update({
-          where: { id: line.partId },
-          data: {
-            quantity: {
-              increment: netQuantity,
+        if (netQuantity > 0) {
+          const part = line.part;
+          const currentQuantity = part.quantity;
+          const newQuantity = currentQuantity + netQuantity;
+          const currentCostUSD = part.costUSD != null
+            ? Number(part.costUSD)
+            : Math.round((Number(part.costSYP || 0) / exchangeRate) * 100) / 100;
+          const currentCostSYP = part.costUSD != null
+            ? Math.round(currentCostUSD * exchangeRate)
+            : Number(part.costSYP || 0);
+          const updatedPart = await tx.part.updateMany({
+            where: { id: part.id, tenantId, quantity: currentQuantity },
+            data: {
+              quantity: { increment: netQuantity },
+              costSYP: currentQuantity > 0
+                ? (currentCostSYP * currentQuantity + unitCostSYP * netQuantity) / newQuantity
+                : unitCostSYP,
+              costUSD: currentQuantity > 0
+                ? (currentCostUSD * currentQuantity + unitCostUSD * netQuantity) / newQuantity
+                : unitCostUSD,
             },
-          },
+          });
+          if (updatedPart.count !== 1) throw new Error(`Stock changed concurrently for part ${part.name}`);
+
+          await tx.inventoryTransaction.create({
+            data: {
+              tenantId,
+              partId: line.partId,
+              type: 'STOCK_IN',
+              quantity: netQuantity,
+              costSYP: unitCostSYP,
+              costUSD: unitCostUSD,
+              reference: current.grnNumber,
+              notes: `Received via GRN ${current.grnNumber}`,
+              createdBy: userId,
+            },
+          });
+        }
+
+        const purchaseOrderLine = await tx.purchaseOrderItem.findFirst({
+          where: { purchaseOrderId: current.purchaseOrderId, partId: line.partId },
+        });
+        if (purchaseOrderLine) {
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderLine.id },
+            data: { receivedQty: { increment: line.receivedQuantity } },
+          });
+        }
+      }
+
+      const purchaseOrderLines = await tx.purchaseOrderItem.findMany({
+        where: { purchaseOrderId: current.purchaseOrderId },
+        select: { quantity: true, receivedQty: true },
+      });
+      if (purchaseOrderLines.length > 0 && purchaseOrderLines.every((line) => line.receivedQty >= line.quantity)) {
+        await tx.purchaseOrder.update({
+          where: { id: current.purchaseOrderId },
+          data: { status: 'RECEIVED' },
         });
       }
-    }
 
-    // Create auto-journal entry for GRN
-    try {
-      const grnWithDetails = await prisma.goodsReceiptNote.findUnique({
-        where: { id },
+      const journalGRN = {
+        ...current,
+        status: 'COMPLETED',
+        lines: current.lines.map((line) => ({
+          ...line,
+          unitCostUSD: line.unitCostUSD != null
+            ? Number(line.unitCostUSD)
+            : Math.round((Number(line.unitCost) / exchangeRate) * 100) / 100,
+        })),
+      };
+      await createGRNJournalEntry(journalGRN, tenantId, userId, tx);
+      return tx.goodsReceiptNote.findFirst({
+        where: { id, tenantId },
         include: {
-          lines: true,
-          supplier: true,
+          supplier: { select: { id: true, name: true, phone: true } },
+          warehouse: { select: { id: true, name: true, code: true } },
+          purchaseOrder: { select: { id: true, orderNumber: true, status: true } },
+          lines: { include: { part: { select: { id: true, partNumber: true, name: true } } } },
         },
       });
+    }, { isolationLevel: 'Serializable' });
 
-      if (grnWithDetails) {
-        await createGRNJournalEntry(grnWithDetails, tenantId, userId);
-      }
-    } catch (error) {
-      Logger.error('Error creating journal entry for GRN:', error);
-      throw new Error('GRN completed but journal entry creation failed. Please check the chart of accounts setup.');
-    }
-
-    return this.getGRNById(id, tenantId) as Promise<GoodsReceiptNote>;
+    if (!grn) throw new Error('GRN not found after completion');
+    return this.mapToGRNResponse(grn);
   }
 
   async getPendingGRNs(
@@ -603,29 +698,14 @@ export class GRNService {
     };
   }
 
-  private async generateGRNNumber(tenantId: string): Promise<string> {
-    const prefix = 'GRN';
+  private async generateGRNNumber(_tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
-    
-    const lastGRN = await prisma.goodsReceiptNote.findFirst({
-      where: {
-        tenantId,
-        grnNumber: {
-          startsWith: `${prefix}-${year}`,
-        },
-      },
-      orderBy: {
-        grnNumber: 'desc',
-      },
+    const sequence = await prisma.goodsReceiptNoteNumberSequence.upsert({
+      where: { year },
+      create: { year, lastValue: 1 },
+      update: { lastValue: { increment: 1 } },
     });
-
-    let sequence = 1;
-    if (lastGRN) {
-      const lastSequence = parseInt(lastGRN.grnNumber.split('-')[2] || '0');
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}-${year}-${sequence.toString().padStart(4, '0')}`;
+    return `GRN-${year}-${String(sequence.lastValue).padStart(4, '0')}`;
   }
 
   private mapToGRNResponse(grn: any): GoodsReceiptNote {
@@ -653,7 +733,9 @@ export class GRNService {
         receivedQuantity: line.receivedQuantity,
         damagedQuantity: line.damagedQuantity,
         unitCost: Number(line.unitCost),
+        unitCostUSD: line.unitCostUSD == null ? null : Number(line.unitCostUSD),
         totalCost: Number(line.totalCost),
+        totalCostUSD: line.totalCostUSD == null ? null : Number(line.totalCostUSD),
         createdAt: line.createdAt,
         part: line.part,
       })),

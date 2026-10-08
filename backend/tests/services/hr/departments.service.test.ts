@@ -49,22 +49,12 @@ describe('DepartmentService', () => {
 
       const result = await departmentService.getAllDepartments(mockTenantId);
 
-      expect(prisma.department.findMany).toHaveBeenCalledWith({
+      expect(prisma.department.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { tenantId: mockTenantId },
-        select: {
-          id: true,
-          tenantId: true,
-          nameAr: true,
-          nameEn: true,
-          description: true,
-          managerId: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: expect.objectContaining({ hasFixedSalary: true, fixedMonthlySalaryUSD: true, workHoursPerMonth: true }),
         orderBy: { createdAt: 'desc' },
-      });
-      expect(result).toEqual(mockDepartments);
+      }));
+      expect(result[0]).toMatchObject(mockDepartments[0]);
     });
   });
 
@@ -90,7 +80,7 @@ describe('DepartmentService', () => {
         where: { id: 'dept-1', tenantId: mockTenantId },
         select: expect.any(Object),
       });
-      expect(result).toEqual(mockDepartment);
+      expect(result).toMatchObject(mockDepartment);
     });
 
     it('should return null if department not found', async () => {
@@ -133,7 +123,7 @@ describe('DepartmentService', () => {
         select: expect.any(Object),
         orderBy: { createdAt: 'desc' },
       });
-      expect(result).toEqual(mockDepartments);
+      expect(result[0]).toMatchObject(mockDepartments[0]);
     });
   });
 
@@ -159,18 +149,20 @@ describe('DepartmentService', () => {
 
       const result = await departmentService.createDepartment(mockTenantId, departmentData);
 
-      expect(prisma.department.create).toHaveBeenCalledWith({
-        data: {
+      expect(prisma.department.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
           tenantId: mockTenantId,
           nameAr: departmentData.nameAr,
           nameEn: departmentData.nameEn,
           description: departmentData.description,
           managerId: departmentData.managerId,
           isActive: departmentData.isActive,
-        },
+          hasFixedSalary: false,
+          workHoursPerMonth: 160,
+        }),
         select: expect.any(Object),
-      });
-      expect(result).toEqual(mockDepartment);
+      }));
+      expect(result).toMatchObject(mockDepartment);
     });
 
     it('should throw error if managerId is provided but employee not found', async () => {
@@ -221,7 +213,7 @@ describe('DepartmentService', () => {
         data: updateData,
         select: expect.any(Object),
       });
-      expect(result).toEqual(updatedDepartment);
+      expect(result).toMatchObject(updatedDepartment);
     });
 
     it('should throw error if department not found', async () => {

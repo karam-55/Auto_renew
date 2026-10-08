@@ -8,6 +8,7 @@ jest.mock('../../../src/config/database', () => ({
     attendance: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -49,20 +50,22 @@ describe('AttendanceService', () => {
       ];
 
       (prisma.attendance.findMany as jest.Mock).mockResolvedValue(mockAttendance);
+      (prisma.attendance.count as jest.Mock).mockResolvedValue(1);
 
       const result = await attendanceService.getAllAttendance(mockTenantId);
 
-      expect(prisma.attendance.findMany).toHaveBeenCalledWith({
+      expect(prisma.attendance.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { tenantId: mockTenantId },
         select: expect.any(Object),
         orderBy: { date: 'desc' },
-      });
-      expect(result).toEqual(
-        mockAttendance.map(a => ({
-          ...a,
-          hoursWorked: a.hoursWorked ? Number(a.hoursWorked) : null,
-        }))
-      );
+        skip: 0,
+        take: 50,
+      }));
+      expect(result.attendance).toEqual(mockAttendance.map(a => ({
+        ...a,
+        hoursWorked: a.hoursWorked ? Number(a.hoursWorked) : null,
+      })));
+      expect(result.total).toBe(1);
     });
   });
 

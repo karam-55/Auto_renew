@@ -5,11 +5,15 @@ import { PartService } from '../../src/modules/parts/service';
 import { PurchaseOrderService } from '../../src/modules/purchase-orders/service';
 import { InventoryTransactionService } from '../../src/modules/inventory-transactions/service';
 import { GRNService } from '../../src/modules/grn/service';
-import { PurchaseOrderStatus } from '../../src/modules/purchase-orders/types';
-import { GRNStatus } from '../../src/modules/grn/types';
-import { TransactionType } from '../../src/modules/inventory-transactions/types';
+import { GRNStatus, OrderStatus as PurchaseOrderStatus, TransactionType } from '@prisma/client';
 
-describe('Inventory Integration Tests', () => {
+const databaseUrl = process.env.TEST_DATABASE_URL || '';
+const runDatabaseIntegrationTests = process.env.RUN_DATABASE_INTEGRATION_TESTS === 'true' &&
+  /@(localhost|127\.0\.0\.1|postgres|postgres-test)(:|\/)/.test(databaseUrl) &&
+  !databaseUrl.includes('178.105.209.59');
+const integrationDescribe = runDatabaseIntegrationTests ? describe : describe.skip;
+
+integrationDescribe('Inventory Integration Tests', () => {
   let supplierService: SupplierService;
   let partService: PartService;
   let purchaseOrderService: PurchaseOrderService;
@@ -153,7 +157,7 @@ describe('Inventory Integration Tests', () => {
       expect(purchaseOrder.orderNumber).toBeTruthy();
       expect(purchaseOrder.status).toBe(PurchaseOrderStatus.PENDING);
       expect(purchaseOrder.items).toHaveLength(1);
-      expect(purchaseOrder.items[0].quantity).toBe(100);
+      expect(purchaseOrder.items?.[0].quantity).toBe(100);
 
       // Step 4: Approve Purchase Order
       const mockApprovedPO = {
@@ -486,8 +490,8 @@ describe('Inventory Integration Tests', () => {
         'po-integration-2',
         mockTenantId
       );
-      expect(purchaseOrder?.items[0].quantity).toBe(100);
-      expect(purchaseOrder?.items[0].unitCost).toBe(50000);
+      expect(purchaseOrder?.items?.[0].quantity).toBe(100);
+      expect(purchaseOrder?.items?.[0].unitCost).toBe(50000);
 
       // Step 2: Create GRN with matching quantities
       const grnData = {
@@ -556,23 +560,23 @@ describe('Inventory Integration Tests', () => {
       jest.spyOn(grnService as any, 'getGRNById').mockResolvedValue(mockGRN);
 
       const grn = await grnService.getGRNById('grn-integration-2', mockTenantId);
-      expect(grn?.lines[0].orderedQuantity).toBe(100);
-      expect(grn?.lines[0].receivedQuantity).toBe(100);
-      expect(grn?.lines[0].unitCost).toBe(50000);
+      expect(grn?.lines?.[0].orderedQuantity).toBe(100);
+      expect(grn?.lines?.[0].receivedQuantity).toBe(100);
+      expect(grn?.lines?.[0].unitCost).toBe(50000);
 
       // Step 3: Verify three-way match
       // PO quantity = GRN ordered quantity = GRN received quantity
-      const poQuantity = purchaseOrder?.items[0].quantity;
-      const grnOrderedQuantity = grn?.lines[0].orderedQuantity;
-      const grnReceivedQuantity = grn?.lines[0].receivedQuantity;
+      const poQuantity = purchaseOrder?.items?.[0].quantity;
+      const grnOrderedQuantity = grn?.lines?.[0].orderedQuantity;
+      const grnReceivedQuantity = grn?.lines?.[0].receivedQuantity;
 
       expect(poQuantity).toBe(grnOrderedQuantity);
       expect(grnOrderedQuantity).toBe(grnReceivedQuantity);
       expect(poQuantity).toBe(100);
 
       // Verify unit costs match
-      const poUnitCost = purchaseOrder?.items[0].unitCost;
-      const grnUnitCost = grn?.lines[0].unitCost;
+      const poUnitCost = purchaseOrder?.items?.[0].unitCost;
+      const grnUnitCost = grn?.lines?.[0].unitCost;
 
       expect(poUnitCost).toBe(grnUnitCost);
       expect(poUnitCost).toBe(50000);

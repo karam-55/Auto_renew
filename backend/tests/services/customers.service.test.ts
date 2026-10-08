@@ -15,6 +15,12 @@ jest.mock('../../src/config/database', () => ({
     },
   },
 }));
+jest.mock('../../src/modules/whatsapp/service', () => ({
+  WhatsAppService: jest.fn().mockImplementation(() => ({ sendWelcomeMessage: jest.fn().mockResolvedValue(undefined) })),
+}));
+jest.mock('../../src/modules/notifications/telegram-admin-notification.service', () => ({
+  TelegramAdminNotificationService: jest.fn().mockImplementation(() => ({ notifyCustomerRegistered: jest.fn().mockResolvedValue(undefined) })),
+}));
 
 describe('CustomerService', () => {
   let customerService: CustomerService;
@@ -47,8 +53,8 @@ describe('CustomerService', () => {
 
       const result = await customerService.getAllCustomers(mockTenantId);
 
-      expect(prisma.customer.findMany).toHaveBeenCalledWith({
-        where: { tenantId: mockTenantId },
+      expect(prisma.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { tenantId: mockTenantId, deletedAt: null },
         select: {
           id: true,
           tenantId: true,
@@ -63,7 +69,7 @@ describe('CustomerService', () => {
           updatedAt: true,
         },
         orderBy: { createdAt: 'desc' },
-      });
+      }));
       expect(result).toEqual(mockCustomers);
     });
   });
@@ -97,7 +103,7 @@ describe('CustomerService', () => {
       const result = await customerService.createCustomer(mockTenantId, customerData);
 
       expect(prisma.customer.findFirst).toHaveBeenCalledWith({
-        where: { tenantId: mockTenantId, phone: customerData.phone },
+        where: { tenantId: mockTenantId, phone: customerData.phone, deletedAt: null },
       });
       expect(prisma.customer.create).toHaveBeenCalled();
       expect(result).toEqual(mockCustomer);

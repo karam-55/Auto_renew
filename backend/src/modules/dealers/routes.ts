@@ -32,6 +32,9 @@ router.get('/', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SA
 router.get('/search', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.searchDealers);
 router.put('/warranties/:warrantyId', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminUpdateWarranty);
 router.delete('/warranties/:warrantyId', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminDeleteWarranty);
+router.get('/warranties/:warrantyId/receipts', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.adminGetWarrantyReceipts);
+router.post('/warranties/:warrantyId/receipts', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminRecordWarrantyReceipt);
+router.delete('/warranty-receipts/:receiptId', authenticate, authorize(['OWNER', 'MANAGER']), dealerController.adminVoidWarrantyReceipt);
 router.get('/:id/warranties', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerWarranties);
 router.get('/:id/stats', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerStatsAdmin);
 router.get('/:id', authenticate, authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), dealerController.getDealerById);

@@ -72,6 +72,10 @@ describe('Reports API Tests', () => {
 
     // Setup routes
     const router = express.Router();
+    router.use((req: any, res, next) => {
+      req.user = { id: 'user-123', tenantId: 'tenant-123', role: 'OWNER' };
+      next();
+    });
     router.get('/balance-sheet', reportController.getBalanceSheet);
     router.get('/balance-sheet/export/pdf', reportController.exportBalanceSheetPDF);
     router.get('/balance-sheet/export/excel', reportController.exportBalanceSheetExcel);

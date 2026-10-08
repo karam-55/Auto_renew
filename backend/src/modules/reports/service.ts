@@ -322,26 +322,18 @@ export class ReportService {
       },
     });
 
-    // Get beginning cash balance (cash account balance before fromDate)
-    const cashAccount = await prisma.account.findFirst({
-      where: {
-        tenantId,
-        code: { contains: '1000' }, // Assuming cash account code starts with 1000
-        isActive: true,
-      },
+    // Get beginning cash and bank balance before fromDate
+    const cashAccounts = await prisma.account.findMany({
+      where: { tenantId, code: { in: ['1110', '1120'] }, isActive: true },
+      select: { id: true },
     });
 
     let beginningCash = 0;
-    if (cashAccount) {
+    if (cashAccounts.length > 0) {
       const beginningJournalLines = await prisma.journalLine.findMany({
         where: {
-          accountId: cashAccount.id,
-          entry: {
-            tenantId,
-            entryDate: {
-              lt: fromDate,
-            },
-          },
+          accountId: { in: cashAccounts.map((account) => account.id) },
+          entry: { tenantId, entryDate: { lt: fromDate }, isReversed: false },
         },
       });
 
@@ -379,23 +371,21 @@ export class ReportService {
       where: {
         entry: {
           tenantId,
-          entryDate: {
-            gte: fromDate,
-            lte: toDate,
-          },
+          isReversed: false,
+          entryDate: { gte: fromDate, lte: toDate },
         },
-        account: {
-          accountType: 'EXPENSE',
-          code: { contains: '1000' }, // Cash-related expense accounts
-        },
+        accountId: { in: cashAccounts.map((account) => account.id) },
+        creditSYP: { gt: 0 },
       },
       include: {
-        entry: true,
+        entry: { include: { lines: { select: { accountId: true, debitSYP: true } } } },
       },
     });
 
-    expenseJournalLines.forEach((line) => {
-      const amount = Number(line.debitSYP);
+    expenseJournalLines
+      .filter((line) => !line.entry.lines.some((other) => cashAccounts.some((account) => account.id === other.accountId) && Number(other.debitSYP) > 0))
+      .forEach((line) => {
+      const amount = Number(line.creditSYP);
       if (amount > 0) {
         const item: CashFlowItem = {
           id: line.id,

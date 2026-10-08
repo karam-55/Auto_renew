@@ -85,18 +85,13 @@ describe('UserService', () => {
         updatedAt: new Date(),
       };
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
       (prisma.user.create as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await userService.createUser(mockTenantId, userData);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: {
-          tenantId_username: {
-            tenantId: mockTenantId,
-            username: userData.username,
-          },
-        },
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { tenantId: mockTenantId, username: userData.username, deletedAt: null },
       });
       expect(prisma.user.create).toHaveBeenCalled();
       expect(result).toEqual(mockUser);
@@ -111,7 +106,7 @@ describe('UserService', () => {
         role: 'MECHANIC' as const,
       };
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'existing-user' });
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: 'existing-user' });
 
       await expect(userService.createUser(mockTenantId, userData)).rejects.toThrow(
         'Username already exists in this tenant'

@@ -16,6 +16,8 @@ router.use(authenticate);
 // Add audit context middleware after authentication
 router.use(auditContextMiddleware);
 
+router.get('/exchange-rate', settingsController.getExchangeRate.bind(settingsController));
+
 // Protected endpoints - require manage_settings permission
 const manageSettings = requirePermission('manage_settings');
 

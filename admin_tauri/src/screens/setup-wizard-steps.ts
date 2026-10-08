@@ -99,8 +99,8 @@ export const step2Template = `
       <h3 class="font-headline-sm text-on-surface">أسعار الصرف والضرائب</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block font-label-sm text-text-tertiary mb-2">سعر صرف العملة الأساسية <span class="text-error">*</span></label>
-          <input id="step2-rate" type="number" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="15000" value="15000" dir="ltr" />
+          <label class="block font-label-sm text-text-tertiary mb-2">سعر السوق: عدد الليرات السورية لكل 1 دولار <span class="text-error">*</span></label>
+          <input id="step2-rate" type="number" min="0.01" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" placeholder="أدخل سعر السوق الحالي" dir="ltr" />
         </div>
         <div>
           <label class="block font-label-sm text-text-tertiary mb-2">نسبة الضريبة (%)</label>

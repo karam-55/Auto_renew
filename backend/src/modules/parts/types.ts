@@ -79,6 +79,8 @@ export interface StockIntakeDto {
   packageCostUSD?: number;
   unitCostSYP?: number;
   unitCostUSD?: number;
+  settlementAccount: 'CASH' | 'BANK' | 'PAYABLE';
+  idempotencyKey: string;
   notes?: string;
 }
 

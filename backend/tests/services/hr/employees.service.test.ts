@@ -64,21 +64,24 @@ describe('EmployeeService', () => {
       ];
 
       (prisma.employee.findMany as jest.Mock).mockResolvedValue(mockEmployees);
+      (prisma.employee.count as jest.Mock).mockResolvedValue(1);
 
       const result = await employeeService.getAllEmployees(mockTenantId);
 
-      expect(prisma.employee.findMany).toHaveBeenCalledWith({
+      expect(prisma.employee.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { tenantId: mockTenantId },
         select: expect.any(Object),
         orderBy: { createdAt: 'desc' },
-      });
-      expect(result).toEqual(
-        mockEmployees.map(e => ({
-          ...e,
-          salarySYP: Number(e.salarySYP),
-          salaryUSD: e.salaryUSD ? Number(e.salaryUSD) : undefined,
-        }))
-      );
+        skip: 0,
+        take: 50,
+      }));
+      expect(result.employees).toEqual(mockEmployees.map(e => ({
+        ...e,
+        salarySYP: Number(e.salarySYP),
+        salaryUSD: e.salaryUSD ? Number(e.salaryUSD) : undefined,
+        departmentHasFixedSalary: false,
+      })));
+      expect(result.total).toBe(1);
     });
   });
 

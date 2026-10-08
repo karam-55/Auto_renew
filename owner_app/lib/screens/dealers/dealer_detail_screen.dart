@@ -206,6 +206,10 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
     );
   }
 
+  double _totalCompanyShareUSD() {
+    return _warranties.fold(0.0, (sum, w) => sum + (w.companyShareUSD ?? 0));
+  }
+
   Map<String, double> _calculateTotalsByCurrency() {
     final totals = <String, double>{};
     for (final w in _warranties) {
@@ -238,7 +242,7 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
                 Icon(Icons.account_balance_wallet, color: AppColors.primary),
                 const SizedBox(width: 8),
                 const Text(
-                  'إجمالي المبالغ المدفوعة',
+                  'إجمالي المبالغ المدفوعة للوكيل',
                   style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 ),
               ],
@@ -267,6 +271,22 @@ class _DealerDetailScreenState extends State<DealerDetailScreen>
                 _formatAmount(0, 'SYP'),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'حصة الشركة المستحقة',
+                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                ),
+                Text(
+                  _formatAmount(_totalCompanyShareUSD(), 'USD'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+              ],
+            ),
           ],
         ),
       ),

@@ -19,6 +19,17 @@ export class SettingsController {
     }
   }
 
+  // GET /api/settings/exchange-rate - Get the non-sensitive tenant market rate
+  async getExchangeRate(req: AuthRequest, res: Response) {
+    try {
+      const settings = await settingsService.getSettings(req.user!.tenantId);
+      res.json({ success: true, data: { currency: settings.currency, exchangeRate: settings.exchangeRate, taxRate: settings.taxRate } });
+    } catch (error) {
+      Logger.error('Get exchange rate error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get exchange rate' });
+    }
+  }
+
   // PUT /api/settings - Update settings (protected)
   async updateSettings(req: AuthRequest, res: Response) {
     try {

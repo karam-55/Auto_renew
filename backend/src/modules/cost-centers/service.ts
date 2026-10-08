@@ -270,7 +270,7 @@ export class CostCenterService {
     estimatedMaterialMoves: number = 1,
     profitPercent: number = 0,
     profitAmountSYP: number = 0,
-    exchangeRate: number = 15000
+    exchangeRate: number
   ): Promise<ServiceCostBreakdownResponse> {
     const settings = await prisma.companySettings.findFirst({ where: { tenantId } });
     const monthlyWorkingHours = settings?.monthlyWorkingHours || 600;

@@ -1,5 +1,12 @@
 import prisma from '../../config/database';
+import settingsService from '../../services/settings.service';
 import { CreateServiceInput, UpdateServiceInput, ServiceResponse } from './types';
+
+function fillCurrencyPair(syp: number, usd: number, exchangeRate: number): { syp: number; usd: number } {
+  if (usd > 0) syp = Math.round(usd * exchangeRate);
+  else if (syp > 0) usd = Math.round((syp / exchangeRate) * 100) / 100;
+  return { syp, usd };
+}
 
 export class ServiceService {
   async getAllServices(tenantId: string, includeInactive: boolean = false, skip?: number, limit?: number): Promise<ServiceResponse[]> {
@@ -15,7 +22,8 @@ export class ServiceService {
       take: limit === 0 ? undefined : (limit || undefined),
     });
 
-    return services.map((service) => this.mapToServiceResponse(service));
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
+    return Promise.all(services.map((service) => this.mapToServiceResponse(service, exchangeRate)));
   }
 
   async getServicesCount(tenantId: string, includeInactive: boolean = false): Promise<number> {
@@ -58,7 +66,8 @@ export class ServiceService {
       orderBy: { name: 'asc' },
     });
 
-    return services.map((service) => this.mapToServiceResponse(service));
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
+    return Promise.all(services.map((service) => this.mapToServiceResponse(service, exchangeRate)));
   }
 
   async searchServices(tenantId: string, query: string): Promise<ServiceResponse[]> {
@@ -74,7 +83,8 @@ export class ServiceService {
       orderBy: { name: 'asc' },
     });
 
-    return services.map((service) => this.mapToServiceResponse(service));
+    const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
+    return Promise.all(services.map((service) => this.mapToServiceResponse(service, exchangeRate)));
   }
 
   private async resolveCategoryId(tenantId: string, categoryName?: string): Promise<string | undefined> {
@@ -106,6 +116,7 @@ export class ServiceService {
 
   async createService(tenantId: string, data: CreateServiceInput): Promise<ServiceResponse> {
     const categoryId = await this.resolveCategoryId(tenantId, data.category);
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
 
     // Auto-calculate laborCost if departmentId is provided
     let laborCostSYP = data.laborCostSYP ?? 0;
@@ -128,6 +139,7 @@ export class ServiceService {
         }
       }
     }
+    ({ syp: laborCostSYP, usd: laborCostUSD } = fillCurrencyPair(laborCostSYP, laborCostUSD, exchangeRate));
 
     // Service price calculation:
     // If profitType = 'percentage': Price = (Direct Costs) × (1 + Profit Margin)
@@ -169,25 +181,29 @@ export class ServiceService {
         return sum + (p.quantity * Number((part as any)?.costSYP ?? 0));
       }, 0);
       materialCostUSD = data.parts.reduce((sum, p) => {
-        const part = partMap.get(p.partId);
-        return sum + (p.quantity * Number((part as any)?.costUSD ?? 0));
+        const part = partMap.get(p.partId) as any;
+        const costUSD = part?.costUSD != null ? Number(part.costUSD) : Number(part?.costSYP || 0) / exchangeRate;
+        return sum + (p.quantity * costUSD);
       }, 0);
+    } else {
+      ({ syp: materialCostSYP, usd: materialCostUSD } = fillCurrencyPair(materialCostSYP, materialCostUSD, exchangeRate));
     }
 
     // Recalculate with updated material cost
     const finalDirectCostSYP = laborCostSYP + materialCostSYP;
     const finalDirectCostUSD = laborCostUSD + materialCostUSD;
 
+    const profitPair = fillCurrencyPair(data.profitAmountSYP ?? 0, data.profitAmountUSD ?? 0, exchangeRate);
     let finalCalculatedPriceSYP = 0;
     let finalCalculatedPriceUSD = 0;
     let finalComputedProfitSYP = 0;
     let finalComputedProfitUSD = 0;
 
-    if (data.profitType === 'fixed' && (data.profitAmountSYP !== undefined || data.profitAmountUSD !== undefined)) {
-      finalCalculatedPriceSYP = finalDirectCostSYP + (data.profitAmountSYP ?? 0);
-      finalCalculatedPriceUSD = finalDirectCostUSD + (data.profitAmountUSD ?? 0);
-      finalComputedProfitSYP = data.profitAmountSYP ?? 0;
-      finalComputedProfitUSD = data.profitAmountUSD ?? 0;
+    if (data.profitType === 'fixed') {
+      finalCalculatedPriceSYP = finalDirectCostSYP + profitPair.syp;
+      finalCalculatedPriceUSD = finalDirectCostUSD + profitPair.usd;
+      finalComputedProfitSYP = profitPair.syp;
+      finalComputedProfitUSD = profitPair.usd;
     } else {
       const profitMargin = (data.profitMargin ?? 25) / 100;
       finalCalculatedPriceSYP = finalDirectCostSYP * (1 + profitMargin);
@@ -196,8 +212,15 @@ export class ServiceService {
       finalComputedProfitUSD = finalCalculatedPriceUSD - finalDirectCostUSD;
     }
 
-    const finalPriceSYP = data.priceSYP ?? (finalCalculatedPriceSYP > 0 ? finalCalculatedPriceSYP : 0);
-    const finalPriceUSD = data.priceUSD ?? (finalCalculatedPriceUSD > 0 ? finalCalculatedPriceUSD : undefined);
+    let finalPriceSYP = data.priceSYP ?? (finalCalculatedPriceSYP > 0 ? finalCalculatedPriceSYP : 0);
+    let finalPriceUSD = data.priceUSD ?? (finalCalculatedPriceUSD > 0 ? finalCalculatedPriceUSD : 0);
+    if (data.priceUSD != null && data.priceUSD > 0) {
+      finalPriceUSD = data.priceUSD;
+      finalPriceSYP = Math.round(data.priceUSD * exchangeRate);
+    } else if (data.priceSYP != null && data.priceSYP > 0) {
+      finalPriceSYP = data.priceSYP;
+      finalPriceUSD = Math.round((data.priceSYP / exchangeRate) * 100) / 100;
+    }
 
     const service = await prisma.service.create({
       data: {
@@ -254,6 +277,7 @@ export class ServiceService {
       throw new Error('Service not found');
     }
 
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
     const categoryId = data.category !== undefined
       ? await this.resolveCategoryId(tenantId, data.category)
       : undefined;
@@ -291,6 +315,8 @@ export class ServiceService {
       }
     }
 
+    ({ syp: laborCostSYP, usd: laborCostUSD } = fillCurrencyPair(laborCostSYP, laborCostUSD, exchangeRate));
+
     // Calculate material cost from parts if provided
     let materialCostSYP = data.materialCostSYP ?? Number(existingService.materialCostSYP || 0);
     let materialCostUSD = data.materialCostUSD ?? Number(existingService.materialCostUSD || 0);
@@ -305,9 +331,12 @@ export class ServiceService {
         return sum + (p.quantity * Number((part as any)?.costSYP ?? 0));
       }, 0);
       materialCostUSD = data.parts.reduce((sum, p) => {
-        const part = partMap.get(p.partId);
-        return sum + (p.quantity * Number((part as any)?.costUSD ?? 0));
+        const part = partMap.get(p.partId) as any;
+        const costUSD = part?.costUSD != null ? Number(part.costUSD) : Number(part?.costSYP || 0) / exchangeRate;
+        return sum + (p.quantity * costUSD);
       }, 0);
+    } else {
+      ({ syp: materialCostSYP, usd: materialCostUSD } = fillCurrencyPair(materialCostSYP, materialCostUSD, exchangeRate));
     }
 
     const costsUpdated =
@@ -332,10 +361,15 @@ export class ServiceService {
       const directCostUSD = newLaborCostUSD + newMaterialCostUSD;
 
       const profitType = data.profitType || (existingService as any).profitType || 'percentage';
+      const profitPair = fillCurrencyPair(
+        Number(data.profitAmountSYP ?? (existingService as any).profitAmountSYP ?? 0),
+        Number(data.profitAmountUSD ?? (existingService as any).profitAmountUSD ?? 0),
+        exchangeRate
+      );
 
       if (profitType === 'fixed') {
-        const profitAmountSYP = data.profitAmountSYP ?? Number((existingService as any).profitAmountSYP || 0);
-        const profitAmountUSD = data.profitAmountUSD ?? Number((existingService as any).profitAmountUSD || 0);
+        const profitAmountSYP = profitPair.syp;
+        const profitAmountUSD = profitPair.usd;
         const calculatedPriceSYP = directCostSYP + profitAmountSYP;
         const calculatedPriceUSD = directCostUSD + profitAmountUSD;
         computedProfitSYP = profitAmountSYP;
@@ -359,6 +393,14 @@ export class ServiceService {
           finalPriceUSD = calculatedPriceUSD > 0 ? calculatedPriceUSD : Number(existingService.priceUSD || 0);
         }
       }
+    }
+
+    if (data.priceUSD != null && data.priceUSD > 0) {
+      finalPriceSYP = Math.round(data.priceUSD * exchangeRate);
+      finalPriceUSD = data.priceUSD;
+    } else if (data.priceSYP != null && data.priceSYP > 0) {
+      finalPriceSYP = data.priceSYP;
+      finalPriceUSD = Math.round((data.priceSYP / exchangeRate) * 100) / 100;
     }
 
     const service = await prisma.service.update({
@@ -533,7 +575,29 @@ export class ServiceService {
     });
   }
 
-  private mapToServiceResponse(service: any): ServiceResponse {
+  private async mapToServiceResponse(service: any, exchangeRate?: number): Promise<ServiceResponse> {
+    const rate = exchangeRate ?? Number((await settingsService.getSettings(service.tenantId)).exchangeRate);
+    const moneySYP = (storedSYP: any, storedUSD: any): number | null => {
+      if (storedUSD != null && rate > 0) return Math.round(Number(storedUSD) * rate);
+      return storedSYP == null ? null : Number(storedSYP);
+    };
+    const priceUSD = service.priceUSD == null ? null : Number(service.priceUSD);
+    const priceSYP = moneySYP(service.priceSYP, service.priceUSD) ?? 0;
+    const parts = (service.serviceParts || []).map((sp: any) => {
+      const unitCostUSD = sp.part?.costUSD == null ? null : Number(sp.part.costUSD);
+      const unitCostSYP = moneySYP(sp.part?.costSYP, sp.part?.costUSD) ?? 0;
+      return {
+        id: sp.id,
+        partId: sp.partId,
+        partName: sp.part?.name || sp.part?.nameAr || 'غير مسمى',
+        quantity: sp.quantity,
+        unitCostSYP,
+        unitCostUSD,
+        totalCostSYP: sp.quantity * unitCostSYP,
+        totalCostUSD: unitCostUSD == null ? null : Math.round(sp.quantity * unitCostUSD * 100) / 100,
+      };
+    });
+
     return {
       id: service.id,
       tenantId: service.tenantId,
@@ -543,33 +607,26 @@ export class ServiceService {
       description: service.description,
       category: service.category?.name || service.categoryId || null,
       duration: service.duration,
-      basePrice: service.basePrice ? Number(service.basePrice) : null,
-      laborCostSYP: service.laborCostSYP ? Number(service.laborCostSYP) : null,
-      laborCostUSD: service.laborCostUSD ? Number(service.laborCostUSD) : null,
-      materialCostSYP: service.materialCostSYP ? Number(service.materialCostSYP) : null,
-      materialCostUSD: service.materialCostUSD ? Number(service.materialCostUSD) : null,
-      profitAmountSYP: service.profitAmountSYP ? Number(service.profitAmountSYP) : null,
-      profitAmountUSD: service.profitAmountUSD ? Number(service.profitAmountUSD) : null,
-      profitType: (service as any).profitType || null,
-      profitMargin: (service as any).profitMargin ? Number((service as any).profitMargin) : null,
+      basePrice: priceUSD != null && rate > 0 ? priceSYP : service.basePrice == null ? null : Number(service.basePrice),
+      laborCostSYP: moneySYP(service.laborCostSYP, service.laborCostUSD),
+      laborCostUSD: service.laborCostUSD == null ? null : Number(service.laborCostUSD),
+      materialCostSYP: moneySYP(service.materialCostSYP, service.materialCostUSD),
+      materialCostUSD: service.materialCostUSD == null ? null : Number(service.materialCostUSD),
+      profitAmountSYP: moneySYP(service.profitAmountSYP, service.profitAmountUSD),
+      profitAmountUSD: service.profitAmountUSD == null ? null : Number(service.profitAmountUSD),
+      profitType: service.profitType || null,
+      profitMargin: service.profitMargin == null ? null : Number(service.profitMargin),
       hasWarranty: service.hasWarranty,
       warrantyDescription: service.warrantyDescription,
       warrantyTerms: service.warrantyTerms,
       loyaltyPoints: service.loyaltyPoints,
-      priceSYP: Number(service.priceSYP),
-      priceUSD: service.priceUSD ? Number(service.priceUSD) : null,
+      priceSYP,
+      priceUSD,
       estimatedDurationMinutes: service.estimatedDurationMinutes,
       isActive: service.isActive,
-      departmentId: (service as any).departmentId || null,
-      assignedEmployeeId: (service as any).assignedEmployeeId || null,
-      parts: (service.serviceParts || []).map((sp: any) => ({
-        id: sp.id,
-        partId: sp.partId,
-        partName: sp.part?.name || sp.part?.nameAr || 'غير مسمى',
-        quantity: sp.quantity,
-        unitCostSYP: sp.part?.costSYP ? Number(sp.part.costSYP) : 0,
-        totalCostSYP: sp.quantity * (sp.part?.costSYP ? Number(sp.part.costSYP) : 0),
-      })),
+      departmentId: service.departmentId || null,
+      assignedEmployeeId: service.assignedEmployeeId || null,
+      parts,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
     };

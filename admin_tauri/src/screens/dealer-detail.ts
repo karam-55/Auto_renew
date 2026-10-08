@@ -17,9 +17,29 @@ interface Warranty {
   durationMonths: number
   amountPaid: number
   currency: string
+  engineType?: 'GASOLINE' | 'HYBRID' | 'ELECTRIC'
+  customerPaidUSD?: number | null
+  companyShareUSD?: number | null
+  dealerShareUSD?: number | null
+  receipts?: WarrantyReceipt[]
   startDate: string
   endDate: string
   pdfUrl?: string
+}
+
+interface WarrantyReceipt {
+  id: string
+  amountSYP: number
+  amountUSD: number
+  paymentDate: string
+  paymentMethod: string
+  reference?: string | null
+}
+
+const ENGINE_TYPE_LABELS: Record<string, string> = {
+  GASOLINE: 'بنزين',
+  HYBRID: 'هجين',
+  ELECTRIC: 'كهربائي',
 }
 
 export class DealerDetailScreen {
@@ -68,7 +88,7 @@ export class DealerDetailScreen {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><span class="material-symbols-outlined">people</span></div>
@@ -84,13 +104,19 @@ export class DealerDetailScreen {
           <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center"><span class="material-symbols-outlined">payments</span></div>
-              <div><p class="text-text-tertiary font-label-sm">إجمالي المدفوع (ل.س)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-syp">0</p></div>
+              <div><p class="text-text-tertiary font-label-sm">المحصّل للشركة (ل.س)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-syp">0</p></div>
             </div>
           </div>
           <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center"><span class="material-symbols-outlined">attach_money</span></div>
-              <div><p class="text-text-tertiary font-label-sm">إجمالي المدفوع ($)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-usd">0</p></div>
+              <div><p class="text-text-tertiary font-label-sm">المحصّل للشركة ($)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-amount-usd">0</p></div>
+            </div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-warning/10 text-warning flex items-center justify-center"><span class="material-symbols-outlined">account_balance_wallet</span></div>
+              <div><p class="text-text-tertiary font-label-sm">مستحق للشركة ($)</p><p class="text-on-surface font-headline-md font-semibold" id="stat-outstanding-usd">0</p></div>
             </div>
           </div>
         </div>
@@ -115,12 +141,14 @@ export class DealerDetailScreen {
                   <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">اللوحة</th>
                   <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">المدة</th>
                   <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">المبلغ</th>
+                  <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">حصة الشركة</th>
+                  <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">المحصّل</th>
                   <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary">التاريخ</th>
                   <th class="px-4 py-3 text-center font-label-sm text-label-sm text-text-tertiary">إجراءات</th>
                 </tr>
               </thead>
               <tbody id="warranties-tbody">
-                <tr><td colspan="7" class="px-6 py-8 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>
+                <tr><td colspan="9" class="px-6 py-8 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -199,6 +227,7 @@ export class DealerDetailScreen {
       el.querySelector('#stat-warranties')!.textContent = String(stats?.totalWarranties ?? warranties.length)
       el.querySelector('#stat-amount-syp')!.textContent = Number(stats?.totalRevenueSYP ?? totalSYP).toLocaleString('ar-SY') + ' ل.س'
       el.querySelector('#stat-amount-usd')!.textContent = Number(stats?.totalRevenueUSD ?? totalUSD).toLocaleString('en-US') + ' $'
+      el.querySelector('#stat-outstanding-usd')!.textContent = Number(stats?.outstandingCompanyShareUSD ?? 0).toLocaleString('en-US') + ' $'
 
       this.renderWarranties(el, warranties)
 
@@ -224,18 +253,28 @@ export class DealerDetailScreen {
   private renderWarranties(el: HTMLElement, warranties: Warranty[]) {
     const wTbody = el.querySelector('#warranties-tbody')!
     if (warranties.length === 0) {
-      wTbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد كفالات</td></tr>'
+      wTbody.innerHTML = '<tr><td colspan="9" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد كفالات</td></tr>'
     } else {
-      wTbody.innerHTML = warranties.map((w: Warranty) => `
+      wTbody.innerHTML = warranties.map((w: Warranty) => {
+        const collectedUSD = (w.receipts || []).reduce((s: number, r: WarrantyReceipt) => s + (Number(r.amountUSD) || 0), 0)
+        const shareUSD = Number(w.companyShareUSD) || 0
+        const fullyPaid = shareUSD > 0 && collectedUSD >= shareUSD - 0.005
+        return `
         <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
-          <td class="px-4 py-3 font-body-md text-on-surface">${w.customerName || '-'}</td>
+          <td class="px-4 py-3 font-body-md text-on-surface">${w.customerName || '-'}<div class="font-body-sm text-text-tertiary">${w.engineType ? ENGINE_TYPE_LABELS[w.engineType] || w.engineType : ''}</div></td>
           <td class="px-4 py-3 font-body-md text-on-surface">${w.manufacturer || ''} ${w.vehicleModel || ''}</td>
           <td class="px-4 py-3 font-body-md text-on-surface" dir="ltr">${w.plateNumber || '-'}</td>
           <td class="px-4 py-3 font-body-md text-on-surface">${w.durationMonths || '-'} شهر</td>
           <td class="px-4 py-3 font-body-md text-on-surface">${(Number(w.amountPaid) || 0).toLocaleString('ar-SY')} ${w.currency === 'USD' ? '$' : 'ل.س'}</td>
+          <td class="px-4 py-3 font-body-md text-on-surface">${shareUSD > 0 ? `$${shareUSD.toLocaleString('en-US')}` : '-'}</td>
+          <td class="px-4 py-3 font-body-md ${fullyPaid ? 'text-success' : 'text-warning'}">${collectedUSD > 0 ? `$${collectedUSD.toLocaleString('en-US')}` : '$0'}</td>
           <td class="px-4 py-3 font-body-md text-text-secondary">${w.startDate ? new Date(w.startDate).toLocaleDateString('ar-SY') : '-'}</td>
           <td class="px-4 py-3 text-center">
             <div class="flex items-center justify-center gap-1">
+              ${shareUSD > collectedUSD - 0.005 ? `
+              <button class="w-8 h-8 rounded-lg bg-surface-subtle text-on-surface hover:bg-success/10 hover:text-success transition-colors flex items-center justify-center" data-receipt-warranty="${w.id}" title="تسجيل قبض من الوكيل">
+                <span class="material-symbols-outlined text-[18px]">payments</span>
+              </button>` : ''}
               <button class="w-8 h-8 rounded-lg bg-surface-subtle text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center" data-edit-warranty="${w.id}" title="تعديل">
                 <span class="material-symbols-outlined text-[18px]">edit</span>
               </button>
@@ -245,7 +284,7 @@ export class DealerDetailScreen {
             </div>
           </td>
         </tr>
-      `).join('')
+      `}).join('')
 
       // Attach event listeners
       el.querySelectorAll('[data-edit-warranty]').forEach(btn => {
@@ -253,6 +292,13 @@ export class DealerDetailScreen {
           const id = (btn as HTMLElement).dataset.editWarranty!
           const w = this.warranties.find(x => x.id === id)
           if (w) this.openWarrantyModal(el, w)
+        })
+      })
+      el.querySelectorAll('[data-receipt-warranty]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = (btn as HTMLElement).dataset.receiptWarranty!
+          const w = this.warranties.find(x => x.id === id)
+          if (w) this.openReceiptModal(el, w)
         })
       })
       el.querySelectorAll('[data-delete-warranty]').forEach(btn => {
@@ -338,6 +384,19 @@ export class DealerDetailScreen {
                 <option value="USD" ${w.currency === 'USD' ? 'selected' : ''}>$</option>
               </select>
             </div>
+            <div>
+              <label class="block font-label-sm text-text-tertiary mb-1">نوع المحرك *</label>
+              <select id="w-engineType" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary">
+                <option value="" ${!w.engineType ? 'selected' : ''} disabled>اختر نوع المحرك</option>
+                <option value="GASOLINE" ${w.engineType === 'GASOLINE' ? 'selected' : ''}>بنزين (حصة الشركة $600)</option>
+                <option value="HYBRID" ${w.engineType === 'HYBRID' ? 'selected' : ''}>هجين (حصة الشركة $300)</option>
+                <option value="ELECTRIC" ${w.engineType === 'ELECTRIC' ? 'selected' : ''}>كهربائي (حصة الشركة $300)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-sm text-text-tertiary mb-1">حصة الشركة المخصوصة ($) — اختياري</label>
+              <input type="number" id="w-companyShareUSD" value="${w.companyShareUSD ?? ''}" placeholder="يُحسب تلقائياً من نوع المحرك" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary" />
+            </div>
           </div>
           <div id="modal-error" class="hidden p-3 bg-error/10 border border-error/20 rounded-lg text-error font-body-sm"></div>
           <div class="flex items-center justify-end gap-3 pt-2">
@@ -374,7 +433,10 @@ export class DealerDetailScreen {
         durationMonths: parseInt((modal.querySelector('#w-durationMonths') as HTMLInputElement).value, 10),
         amountPaid: parseFloat((modal.querySelector('#w-amountPaid') as HTMLInputElement).value) || 0,
         currency: (modal.querySelector('#w-currency') as HTMLSelectElement).value,
+        engineType: (modal.querySelector('#w-engineType') as HTMLSelectElement).value,
       }
+      const shareOverride = parseFloat((modal.querySelector('#w-companyShareUSD') as HTMLInputElement).value)
+      if (Number.isFinite(shareOverride)) data.companyShareUSD = shareOverride
 
       // Validate required fields
       const required: [string, string][] = [
@@ -410,6 +472,11 @@ export class DealerDetailScreen {
       }
       if (!Number.isFinite(data.amountPaid) || data.amountPaid < 0) {
         errEl.textContent = 'المبلغ غير صحيح'
+        errEl.classList.remove('hidden')
+        return
+      }
+      if (!data.engineType) {
+        errEl.textContent = 'نوع المحرك مطلوب'
         errEl.classList.remove('hidden')
         return
       }
@@ -486,6 +553,104 @@ export class DealerDetailScreen {
         btn.disabled = false
         btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span> حذف'
         alert('حدث خطأ أثناء الحذف: ' + (err.message || ''))
+      }
+    })
+  }
+
+  private openReceiptModal(el: HTMLElement, warranty: Warranty) {
+    document.getElementById('receipt-modal')?.remove()
+    const shareUSD = Number(warranty.companyShareUSD) || 0
+    const collectedUSD = (warranty.receipts || []).reduce((s: number, r: WarrantyReceipt) => s + (Number(r.amountUSD) || 0), 0)
+    const outstandingUSD = Math.max(0, shareUSD - collectedUSD)
+
+    const modal = document.createElement('div')
+    modal.id = 'receipt-modal'
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50'
+    modal.innerHTML = `
+      <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-subtle w-full max-w-md m-4">
+        <div class="flex items-center justify-between p-6 border-b border-outline-variant/10">
+          <h3 class="font-headline-md text-lg text-on-surface font-semibold flex items-center gap-2">
+            <span class="material-symbols-outlined text-success">payments</span>
+            تسجيل قبض من الوكيل
+          </h3>
+          <button class="w-8 h-8 rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center" id="receipt-close">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="p-3 bg-primary/5 border border-primary/20 rounded-lg font-body-sm text-on-surface">
+            ${warranty.customerName} — ${warranty.vehicleModel || ''}
+            <div class="font-label-sm text-text-tertiary mt-1">حصة الشركة: $${shareUSD.toLocaleString('en-US')} · المحصّل: $${collectedUSD.toLocaleString('en-US')} · المتبقي: $${outstandingUSD.toLocaleString('en-US')}</div>
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">المبلغ *</label>
+            <input type="number" id="r-amount" min="0" step="0.01" value="${outstandingUSD}" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">العملة</label>
+            <select id="r-currency" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary">
+              <option value="USD">دولار $</option>
+              <option value="SYP">ليرة ل.س</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">طريقة الدفع</label>
+            <select id="r-paymentMethod" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary">
+              <option value="CASH">نقدي</option>
+              <option value="BANK_TRANSFER">تحويل بنكي</option>
+              <option value="CHECK">شيك</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-label-sm text-text-tertiary mb-1">المرجع / ملاحظات</label>
+            <input type="text" id="r-reference" class="w-full h-[44px] px-3 bg-surface-subtle border border-border rounded-lg font-body-md text-on-surface focus:outline-none focus:border-primary" />
+          </div>
+          <div id="receipt-error" class="hidden p-3 bg-error/10 border border-error/20 rounded-lg text-error font-body-sm"></div>
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <button class="h-[44px] px-5 bg-surface-subtle text-on-surface font-body-md rounded-lg border border-border hover:bg-surface-container-low transition-colors" id="receipt-cancel">إلغاء</button>
+            <button class="h-[44px] px-5 bg-success text-on-primary font-body-md rounded-lg hover:bg-success/90 transition-colors flex items-center gap-2" id="receipt-save">
+              <span class="material-symbols-outlined text-[20px]">check</span>
+              تسجيل القبض
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+
+    const close = () => modal.remove()
+    modal.querySelector('#receipt-close')?.addEventListener('click', close)
+    modal.querySelector('#receipt-cancel')?.addEventListener('click', close)
+    modal.addEventListener('click', (e) => { if (e.target === modal) close() })
+
+    modal.querySelector('#receipt-save')?.addEventListener('click', async () => {
+      const errEl = modal.querySelector('#receipt-error')! as HTMLElement
+      errEl.classList.add('hidden')
+      const amount = parseFloat((modal.querySelector('#r-amount') as HTMLInputElement).value)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        errEl.textContent = 'المبلغ غير صحيح'
+        errEl.classList.remove('hidden')
+        return
+      }
+      const btn = modal.querySelector('#receipt-save') as HTMLButtonElement
+      btn.disabled = true
+      btn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> جاري التسجيل...'
+      try {
+        const res = await this.api.post<any>(`/api/dealers/warranties/${warranty.id}/receipts`, {
+          amount,
+          currency: (modal.querySelector('#r-currency') as HTMLSelectElement).value,
+          paymentMethod: (modal.querySelector('#r-paymentMethod') as HTMLSelectElement).value,
+          reference: (modal.querySelector('#r-reference') as HTMLInputElement).value.trim() || undefined,
+          idempotencyKey: `wr-${warranty.id}-${Date.now()}`,
+        })
+        if (!res.success) throw new Error(res.message || 'Failed to record receipt')
+        modal.remove()
+        this.loadData(el)
+      } catch (err: any) {
+        errEl.textContent = err.message || 'حدث خطأ أثناء تسجيل القبض'
+        errEl.classList.remove('hidden')
+        btn.disabled = false
+        btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check</span> تسجيل القبض'
       }
     })
   }

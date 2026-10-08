@@ -13,6 +13,9 @@ class DealerWarranty {
   final int durationMonths;
   final double amountPaid;
   final String currency;
+  final String? engineType;
+  final double? companyShareUSD;
+  final double? dealerShareUSD;
   final DateTime? startDate;
   final DateTime? endDate;
   final Map<String, dynamic>? dealer;
@@ -32,6 +35,9 @@ class DealerWarranty {
     required this.durationMonths,
     required this.amountPaid,
     this.currency = 'SYP',
+    this.engineType,
+    this.companyShareUSD,
+    this.dealerShareUSD,
     this.startDate,
     this.endDate,
     this.dealer,
@@ -53,6 +59,9 @@ class DealerWarranty {
       durationMonths: json['durationMonths'] != null ? int.tryParse(json['durationMonths'].toString()) ?? 0 : 0,
       amountPaid: json['amountPaid'] != null ? double.tryParse(json['amountPaid'].toString()) ?? 0 : 0,
       currency: json['currency']?.toString() ?? 'SYP',
+      engineType: json['engineType']?.toString(),
+      companyShareUSD: json['companyShareUSD'] != null ? double.tryParse(json['companyShareUSD'].toString()) : null,
+      dealerShareUSD: json['dealerShareUSD'] != null ? double.tryParse(json['dealerShareUSD'].toString()) : null,
       startDate: json['startDate'] != null ? DateTime.tryParse(json['startDate'].toString()) : null,
       endDate: json['endDate'] != null ? DateTime.tryParse(json['endDate'].toString()) : null,
       dealer: json['dealer'] is Map<String, dynamic> ? json['dealer'] as Map<String, dynamic> : null,

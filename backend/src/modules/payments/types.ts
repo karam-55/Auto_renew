@@ -18,9 +18,9 @@ export interface Payment {
 
 export interface CreatePaymentDto {
   invoiceId: string;
-  amountSYP: number;
+  amountSYP?: number;
   amountUSD?: number;
-  paymentDate: Date;
+  paymentDate?: Date;
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;

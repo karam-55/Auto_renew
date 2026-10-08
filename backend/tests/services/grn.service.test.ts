@@ -1,44 +1,38 @@
 import { GRNService } from '../../src/modules/grn/service';
-import { GRNStatus } from '../../src/modules/grn/types';
+import { GRNStatus } from '@prisma/client';
 import prisma from '../../src/config/database';
 
 // Mock Prisma
 jest.mock('../../src/config/database', () => ({
   __esModule: true,
   default: {
-    supplier: {
-      findFirst: jest.fn(),
-    },
-    purchaseOrder: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
-    warehouse: {
-      findFirst: jest.fn(),
-    },
+    supplier: { findFirst: jest.fn() },
+    purchaseOrder: { findFirst: jest.fn(), update: jest.fn() },
+    purchaseOrderItem: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    warehouse: { findFirst: jest.fn() },
+    companySettings: { findFirst: jest.fn(), findUnique: jest.fn() },
+    account: { upsert: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    fiscalPeriod: { findFirst: jest.fn() },
+    journalEntry: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    journalLine: { createMany: jest.fn() },
     goodsReceiptNote: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(),
+      update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), count: jest.fn(),
     },
-    goodsReceiptNoteLine: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    part: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
-    inventoryTransaction: {
-      create: jest.fn(),
-    },
+    goodsReceiptNoteNumberSequence: { upsert: jest.fn() },
+    goodsReceiptNoteLine: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    part: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    inventoryTransaction: { create: jest.fn() },
+    $transaction: jest.fn(),
   },
+}));
+jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
+  createGRNJournalEntry: jest.fn().mockResolvedValue({ id: 'journal-entry-1' }),
+  ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../src/services/settings.service', () => ({
+  __esModule: true,
+  default: { getRequiredExchangeRate: jest.fn().mockResolvedValue(139) },
 }));
 
 describe('GRNService', () => {
@@ -48,6 +42,15 @@ describe('GRNService', () => {
   beforeEach(() => {
     grnService = new GRNService();
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
+    (prisma.goodsReceiptNoteNumberSequence.upsert as jest.Mock).mockResolvedValue({ lastValue: 1 });
+    (prisma.companySettings.findUnique as jest.Mock).mockResolvedValue({ exchangeRate: 139 });
+    (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.purchaseOrderItem.findFirst as jest.Mock).mockResolvedValue({ id: 'po-line-1', quantity: 1000, receivedQty: 0 });
+    (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.purchaseOrderItem.update as jest.Mock).mockResolvedValue({});
+    (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({ id: 'stock-in-1' });
   });
 
   describe('createGRN', () => {
@@ -75,6 +78,7 @@ describe('GRNService', () => {
         orderNumber: 'PO-2024-00001',
         supplierId: 'supplier-1',
         status: 'APPROVED',
+        items: [{ partId: 'part-1', quantity: 100, receivedQty: 0 }],
       };
 
       const mockSupplier = {
@@ -113,12 +117,14 @@ describe('GRNService', () => {
       (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(mockPurchaseOrder);
       (prisma.supplier.findFirst as jest.Mock).mockResolvedValue(mockSupplier);
       (prisma.warehouse.findFirst as jest.Mock).mockResolvedValue(mockWarehouse);
+      (prisma.part.findFirst as jest.Mock).mockResolvedValue({ id: 'part-1', tenantId: mockTenantId });
       (prisma.goodsReceiptNote.create as jest.Mock).mockResolvedValue(mockGRN);
 
       const result = await grnService.createGRN(mockTenantId, grnData);
 
       expect(prisma.purchaseOrder.findFirst).toHaveBeenCalledWith({
         where: { id: grnData.purchaseOrderId, tenantId: mockTenantId },
+        include: { items: { select: { partId: true, quantity: true, receivedQty: true } } },
       });
       expect(prisma.goodsReceiptNote.create).toHaveBeenCalled();
       expect(result.status).toBe(GRNStatus.DRAFT);
@@ -304,7 +310,7 @@ describe('GRNService', () => {
         damagedQuantity: 0,
         unitCost: 50000,
         totalCost: 5000000,
-        goodsReceiptNote: {
+        grn: {
           id: 'grn-1',
           tenantId: mockTenantId,
           status: GRNStatus.DRAFT,
@@ -319,11 +325,17 @@ describe('GRNService', () => {
 
       (prisma.goodsReceiptNoteLine.findFirst as jest.Mock).mockResolvedValue(mockLine);
       (prisma.goodsReceiptNoteLine.update as jest.Mock).mockResolvedValue(mockUpdatedLine);
+      (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue({
+        id: 'grn-1', tenantId: mockTenantId, status: GRNStatus.DRAFT, lines: [mockUpdatedLine],
+      });
 
       const result = await grnService.updateGRNLine(lineId, mockTenantId, updateData);
 
-      expect(prisma.goodsReceiptNoteLine.update).toHaveBeenCalled();
-      expect(result.receivedQuantity).toBe(updateData.receivedQuantity);
+      expect(prisma.goodsReceiptNoteLine.update).toHaveBeenCalledWith({
+        where: { id: lineId },
+        data: expect.objectContaining({ receivedQuantity: updateData.receivedQuantity }),
+      });
+      expect(result.lines?.[0].receivedQuantity).toBe(updateData.receivedQuantity);
     });
 
     it('should throw error if line item not found', async () => {
@@ -333,7 +345,7 @@ describe('GRNService', () => {
       (prisma.goodsReceiptNoteLine.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(grnService.updateGRNLine(lineId, mockTenantId, updateData)).rejects.toThrow(
-        'Line item not found'
+        'GRN line not found'
       );
     });
 
@@ -343,7 +355,7 @@ describe('GRNService', () => {
 
       const mockLine = {
         id: lineId,
-        goodsReceiptNote: {
+        grn: {
           id: 'grn-1',
           tenantId: mockTenantId,
           status: GRNStatus.COMPLETED,
@@ -365,7 +377,7 @@ describe('GRNService', () => {
       const mockLine = {
         id: lineId,
         grnId: 'grn-1',
-        goodsReceiptNote: {
+        grn: {
           id: 'grn-1',
           tenantId: mockTenantId,
           status: GRNStatus.DRAFT,
@@ -388,7 +400,7 @@ describe('GRNService', () => {
       (prisma.goodsReceiptNoteLine.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(grnService.removeGRNLine(lineId, mockTenantId)).rejects.toThrow(
-        'Line item not found'
+        'GRN line not found'
       );
     });
 
@@ -397,7 +409,7 @@ describe('GRNService', () => {
 
       const mockLine = {
         id: lineId,
-        goodsReceiptNote: {
+        grn: {
           id: 'grn-1',
           tenantId: mockTenantId,
           status: GRNStatus.COMPLETED,
@@ -457,21 +469,21 @@ describe('GRNService', () => {
         quantity: 150,
       };
 
-      (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
-      (prisma.goodsReceiptNote.update as jest.Mock).mockResolvedValue(mockUpdatedGRN);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockGRN.lines[0].part);
-      (prisma.part.update as jest.Mock).mockResolvedValue(mockPart);
+      (prisma.goodsReceiptNote.findFirst as jest.Mock)
+        .mockResolvedValueOnce(mockGRN)
+        .mockResolvedValueOnce(mockUpdatedGRN);
+      (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({});
-      (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({});
 
       const result = await grnService.completeGRN(grnId, mockTenantId, userId);
 
-      expect(prisma.goodsReceiptNote.update).toHaveBeenCalledWith({
-        where: { id: grnId },
-        data: { status: GRNStatus.COMPLETED },
+      expect(prisma.goodsReceiptNote.updateMany).toHaveBeenCalledWith({
+        where: { id: grnId, tenantId: mockTenantId, status: GRNStatus.DRAFT },
+        data: { status: GRNStatus.COMPLETED, receivedBy: userId },
       });
       expect(prisma.inventoryTransaction.create).toHaveBeenCalled();
-      expect(prisma.part.update).toHaveBeenCalled();
+      expect(prisma.part.updateMany).toHaveBeenCalled();
       expect(result.status).toBe(GRNStatus.COMPLETED);
     });
 
@@ -499,7 +511,7 @@ describe('GRNService', () => {
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
 
       await expect(grnService.completeGRN(grnId, mockTenantId, userId)).rejects.toThrow(
-        'Only draft GRNs can be completed'
+        'Only draft or pending GRNs can be completed'
       );
     });
 
@@ -561,11 +573,9 @@ describe('GRNService', () => {
       };
 
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
-      (prisma.goodsReceiptNote.update as jest.Mock).mockResolvedValue(mockUpdatedGRN);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockGRN.lines[0].part);
-      (prisma.part.update as jest.Mock).mockResolvedValue({});
+      (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({});
-      (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({});
 
       await grnService.completeGRN(grnId, mockTenantId, userId);
 
@@ -601,19 +611,20 @@ describe('GRNService', () => {
       };
 
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
-      (prisma.goodsReceiptNote.update as jest.Mock).mockResolvedValue(mockUpdatedGRN);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockGRN.lines[0].part);
-      (prisma.part.update as jest.Mock).mockResolvedValue({});
+      (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({});
-      (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({});
 
       await grnService.completeGRN(grnId, mockTenantId, userId);
 
-      // Should only add the received quantity (95), not the damaged quantity (5)
-      expect(prisma.part.update).toHaveBeenCalledWith({
-        where: { id: 'part-1' },
-        data: { quantity: { increment: 95 } },
-      });
+      // Should only add the undamaged quantity to inventory
+      expect(prisma.part.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'part-1', tenantId: mockTenantId, quantity: 50 },
+        data: expect.objectContaining({ quantity: { increment: 90 } }),
+      }));
+      expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ type: 'STOCK_IN', quantity: 90 }),
+      }));
     });
   });
 
@@ -652,18 +663,16 @@ describe('GRNService', () => {
       };
 
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
-      (prisma.goodsReceiptNote.update as jest.Mock).mockResolvedValue(mockUpdatedGRN);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockGRN.lines[0].part);
-      (prisma.part.update as jest.Mock).mockResolvedValue(mockUpdatedPart);
+      (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({});
-      (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({});
 
       await grnService.completeGRN(grnId, mockTenantId, userId);
 
-      expect(prisma.part.update).toHaveBeenCalledWith({
-        where: { id: 'part-1' },
-        data: { quantity: { increment: 100 } },
-      });
+      expect(prisma.part.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'part-1', tenantId: mockTenantId, quantity: 50 },
+        data: expect.objectContaining({ quantity: { increment: 100 } }),
+      }));
     });
   });
 
@@ -697,11 +706,11 @@ describe('GRNService', () => {
       };
 
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(mockGRN);
-      (prisma.goodsReceiptNote.update as jest.Mock).mockResolvedValue(mockUpdatedGRN);
-      (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockGRN.lines[0].part);
-      (prisma.part.update as jest.Mock).mockResolvedValue({});
+      (prisma.goodsReceiptNote.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({});
-      (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({});
+      (prisma.purchaseOrderItem.findFirst as jest.Mock).mockResolvedValue({ id: 'po-line-1', quantity: 100, receivedQty: 0 });
+      (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([{ quantity: 100, receivedQty: 100 }]);
 
       await grnService.completeGRN(grnId, mockTenantId, userId);
 

@@ -14,7 +14,8 @@ export class GRNController {
     try {
       const grn = await this.grnService.createGRN(
         req.user!.tenantId,
-        req.body
+        req.body,
+        req.user!.id
       );
       res.status(201).json({ grn });
     } catch (error: any) {
