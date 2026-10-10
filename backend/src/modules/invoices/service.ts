@@ -566,6 +566,93 @@ export class InvoiceService {
   }
 
   /**
+   * Rebuild a DRAFT invoice's items from its booking's current services.
+   * Keeps the workflow simple: add services to the booking during the job,
+   * then sync the draft invoice once before issuing — preserving discount
+   * and notes while replacing only the item lines.
+   */
+  async syncInvoiceFromBooking(tenantId: string, invoiceId: string): Promise<Invoice> {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      include: { items: true },
+    });
+    if (!invoice) throw new Error('Invoice not found');
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new Error('Only draft invoices can be synced from the booking');
+    }
+    if (!invoice.bookingId) throw new Error('Invoice is not linked to a booking');
+
+    const bookingServices = await prisma.bookingService.findMany({
+      where: { bookingId: invoice.bookingId, deletedAt: null },
+      include: { service: true },
+    });
+    if (bookingServices.length === 0) {
+      throw new Error('Booking has no services to sync');
+    }
+
+    const settings = await settingsService.getSettings(tenantId);
+    const taxRate = invoice.taxRateId
+      ? Number((await prisma.taxRate.findFirst({ where: { id: invoice.taxRateId, tenantId } }))?.rate || 0)
+      : Number(settings.taxRate || 0) / 100;
+
+    let subtotalSYP = 0;
+    let subtotalUSD = 0;
+    const itemInputs = bookingServices.map((bs) => {
+      const priceSYP = Number(bs.priceSYP);
+      const priceUSD = bs.priceUSD != null ? Number(bs.priceUSD) : null;
+      subtotalSYP += priceSYP;
+      if (priceUSD) subtotalUSD += priceUSD;
+      return {
+        serviceId: bs.serviceId,
+        partId: null,
+        description: bs.service.name,
+        quantity: 1,
+        priceSYP,
+        priceUSD,
+        totalSYP: priceSYP,
+        totalUSD: priceUSD,
+      };
+    });
+
+    const taxSYP = Math.round(subtotalSYP * taxRate * 100) / 100;
+    const taxUSD = subtotalUSD > 0 ? Math.round(subtotalUSD * taxRate * 100) / 100 : null;
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+
+    const discountType = invoice.discountType || 'FIXED';
+    let discountSYP = Number(invoice.discountSYP || 0);
+    let discountUSD = invoice.discountUSD != null ? Number(invoice.discountUSD) : null;
+    if (discountType === 'PERCENTAGE') {
+      const percent = Number(invoice.discountPercent || 0);
+      discountSYP = Math.round(subtotalSYP * (percent / 100));
+      discountUSD = Math.round(subtotalUSD * (percent / 100) * 100) / 100;
+    } else if (discountUSD != null && discountUSD > 0) {
+      discountSYP = Math.round(discountUSD * exchangeRate);
+    } else if (discountSYP > 0) {
+      discountUSD = Math.round((discountSYP / exchangeRate) * 100) / 100;
+    }
+    if (discountSYP < 0 || (discountUSD != null && discountUSD < 0) || discountSYP > subtotalSYP) {
+      throw new Error('Discount cannot be negative or exceed the invoice subtotal');
+    }
+
+    const totalSYP = subtotalSYP + taxSYP - discountSYP;
+    const totalUSD = subtotalUSD > 0 ? subtotalUSD + (taxUSD || 0) - (discountUSD || 0) : null;
+
+    const { updatedInvoice, items } = await prisma.$transaction(async (tx) => {
+      await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { subtotalSYP, subtotalUSD, taxSYP, taxUSD, discountSYP, discountUSD, totalSYP, totalUSD },
+      });
+      const items = await Promise.all(
+        itemInputs.map((item) => tx.invoiceItem.create({ data: { invoiceId, ...item } }))
+      );
+      return { updatedInvoice, items };
+    });
+
+    return this.mapToInvoiceResponse(updatedInvoice, items);
+  }
+
+  /**
    * Delete invoice
    * Only allowed if status is DRAFT
    */

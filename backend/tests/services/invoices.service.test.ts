@@ -10,6 +10,7 @@ jest.mock('../../src/config/database', () => {
     customer: { findFirst: jest.fn() },
     vehicle: { findFirst: jest.fn() },
     booking: { findFirst: jest.fn() },
+    bookingService: { findMany: jest.fn() },
     taxRate: { findFirst: jest.fn() },
     part: { findFirst: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
     inventoryTransaction: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
@@ -166,5 +167,45 @@ describe('InvoiceService accounting and stock lifecycle', () => {
     expect(result.status).toBe(InvoiceStatus.CANCELLED);
     await expect(service.cancelInvoice(tenantId, invoice.id, 'user-1')).rejects.toThrow('CANNOT_CANCEL_INVOICE');
     expect(prisma.inventoryTransaction.create).toHaveBeenCalledTimes(1);
+  });
+
+  describe('syncInvoiceFromBooking', () => {
+    it('rebuilds draft items from booking services and recalculates totals', async () => {
+      const invoice = {
+        id: 'invoice-1', tenantId, invoiceNumber: 'INV-2026-00001', status: InvoiceStatus.DRAFT,
+        bookingId: 'booking-1', taxRateId: null, discountType: 'FIXED',
+        discountSYP: 0, discountUSD: 0, discountPercent: 0, items: [],
+      };
+      (prisma.invoice.findFirst as jest.Mock).mockResolvedValue(invoice);
+      (prisma.bookingService.findMany as jest.Mock).mockResolvedValue([
+        { serviceId: 'svc-1', priceSYP: 1000, priceUSD: 10, service: { name: 'تغيير زيت' } },
+        { serviceId: 'svc-2', priceSYP: 2000, priceUSD: null, service: { name: 'فحص' } },
+      ]);
+      (prisma.invoice.update as jest.Mock).mockImplementation(({ data }: any) => Promise.resolve({ ...invoice, ...data }));
+
+      const result = await service.syncInvoiceFromBooking(tenantId, invoice.id);
+
+      // taxRate from settings = 10% → tax = 3000 * 0.10 = 300
+      expect(prisma.invoiceItem.deleteMany).toHaveBeenCalledWith({ where: { invoiceId: invoice.id } });
+      expect(prisma.invoice.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ subtotalSYP: 3000, taxSYP: 300, totalSYP: 3300 }),
+      }));
+      expect(prisma.invoiceItem.create).toHaveBeenCalledTimes(2);
+      expect(result.totalSYP).toBe(3300);
+    });
+
+    it('rejects non-draft invoices and invoices without a booking', async () => {
+      (prisma.invoice.findFirst as jest.Mock).mockResolvedValue({
+        id: 'i-issued', tenantId, status: InvoiceStatus.ISSUED, bookingId: 'b-1', items: [],
+      });
+      await expect(service.syncInvoiceFromBooking(tenantId, 'i-issued'))
+        .rejects.toThrow('Only draft invoices can be synced from the booking');
+
+      (prisma.invoice.findFirst as jest.Mock).mockResolvedValue({
+        id: 'i-nobk', tenantId, status: InvoiceStatus.DRAFT, bookingId: null, items: [],
+      });
+      await expect(service.syncInvoiceFromBooking(tenantId, 'i-nobk'))
+        .rejects.toThrow('Invoice is not linked to a booking');
+    });
   });
 });

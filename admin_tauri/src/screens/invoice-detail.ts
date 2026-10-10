@@ -61,6 +61,8 @@ export class InvoiceDetailScreen {
     content.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('#apply-discount-btn')
       if (btn) this.applyDiscount(content)
+      const syncBtn = (e.target as HTMLElement).closest('#sync-booking-btn')
+      if (syncBtn) this.syncFromBooking(content)
     })
     this.loadInvoice(content)
     return layout.render(content)
@@ -98,6 +100,22 @@ export class InvoiceDetailScreen {
       ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">discount</span> تطبيق الخصم` }
+    }
+  }
+
+  private async syncFromBooking(el: HTMLElement) {
+    if (!confirm('سيتم استبدال بنود المسودة الحالية بخدمات الحجز الحالية. متابعة؟')) return
+    try {
+      const res = await this.api.post<any>(`/api/invoices/${this.invoiceId}/sync-from-booking`, {})
+      if (res.success) {
+        ;(window as any).toast?.show?.({ message: 'تمت مزامنة البنود من الحجز', type: 'success' })
+        this.api.clearCache()
+        this.loadInvoice(el)
+      } else {
+        ;(window as any).toast?.show?.({ message: res.message || 'فشلت المزامنة', type: 'error' })
+      }
+    } catch (err: any) {
+      ;(window as any).toast?.show?.({ message: 'حدث خطأ: ' + (err.message || 'فشل الاتصال'), type: 'error' })
     }
   }
 
@@ -175,6 +193,17 @@ export class InvoiceDetailScreen {
               <p class="text-financial-data ${(inv.totalSYP || 0) - (inv.paidSYP || 0) > 0 ? 'text-error' : 'text-success'} mt-1 font-bold">${((inv.totalSYP || 0) - (inv.paidSYP || 0)).toLocaleString('ar-SA')} ل.س</p>
             </div>
           </div>
+
+          ${inv.status === 'DRAFT' && inv.bookingId ? `
+          <div class="border-t border-border pt-6 mb-6">
+            <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-2">خدمات الحجز</h3>
+            <p class="text-body-md text-on-surface-variant mb-4">هذه الفاتورة مرتبطة بحجز — يمكنك سحب الخدمات الحالية من الحجز لتحديث بنود المسودة قبل الإصدار.</p>
+            <button id="sync-booking-btn" class="h-[48px] px-6 bg-secondary/10 text-secondary border border-secondary/20 rounded-xl font-body-md hover:bg-secondary/20 transition-all flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px]">sync</span>
+              مزامنة البنود من الحجز
+            </button>
+          </div>
+          ` : ''}
 
           ${inv.status === 'DRAFT' || inv.status === 'ISSUED' ? `
           <div class="border-t border-border pt-6">

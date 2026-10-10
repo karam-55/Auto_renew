@@ -46,6 +46,9 @@ router.put('/:id', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('I
 // Finalize invoice (change from DRAFT to ISSUED) - OWNER, MANAGER, ACCOUNTANT only
 router.post('/:id/finalize', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().finalizeInvoice(req, res));
 
+// Sync draft invoice items from its booking's services - OWNER, MANAGER, ACCOUNTANT only
+router.post('/:id/sync-from-booking', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().syncFromBooking(req, res));
+
 // Cancel invoice (change from SENT/ISSUED to CANCELLED) - OWNER, MANAGER, ACCOUNTANT only
 router.post('/:id/cancel', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().cancelInvoice(req, res));
 

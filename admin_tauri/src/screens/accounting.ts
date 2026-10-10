@@ -23,6 +23,7 @@ export class AccountingScreen {
           ${this.navCard('الميزانية العمومية', 'balance', 'تقرير الأصول والخصوم وحقوق الملكية', '/accounting/balance-sheet', 'primary')}
           ${this.navCard('قائمة الدخل', 'trending_up', 'تقرير الإيرادات والمصروفات والأرباح', '/accounting/income-statement', 'secondary')}
           ${this.navCard('التدفقات النقدية', 'payments', 'تحليل حركات النقد الداخلة والخارجة', '/accounting/cash-flow', 'info')}
+          ${this.navCard('المصاريف', 'shopping_bag', 'تسجيل المصاريف العامة ومشتريات المهمات', '/expenses', 'tertiary')}
         </div>
       </div>
     `

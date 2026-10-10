@@ -52,6 +52,7 @@ import { SetupWizardScreen } from './screens/setup-wizard'
 import { WorkshopMapScreen } from './screens/workshop-map'
 import { ServicesScreen } from './screens/services'
 import { CostCentersScreen } from './screens/cost-centers'
+import { ExpensesScreen } from './screens/expenses'
 import { AssetsScreen } from './screens/assets'
 
 function extractId(path: string, prefix: string): string | null {
@@ -224,6 +225,7 @@ export class Router {
       case '/workshop-map': return new WorkshopMapScreen(this.auth, this.api, this)
       case '/services': return new ServicesScreen(this.auth, this.api, this)
       case '/cost-centers': return new CostCentersScreen(this.auth, this.api, this)
+      case '/expenses': return new ExpensesScreen(this.auth, this.api, this)
       case '/assets': return new AssetsScreen(this.auth, this.api, this)
     }
     // Dynamic routes

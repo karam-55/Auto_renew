@@ -205,6 +205,26 @@ export class InvoiceController {
     }
   };
 
+  syncFromBooking = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.user!.tenantId;
+      const { id } = req.params;
+
+      const invoice = await this.invoiceService.syncInvoiceFromBooking(tenantId, id);
+
+      res.status(200).json({
+        success: true,
+        data: invoice,
+      });
+    } catch (error) {
+      Logger.error('Sync invoice from booking error:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to sync invoice from booking',
+      });
+    }
+  };
+
   payInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const tenantId = req.user!.tenantId;

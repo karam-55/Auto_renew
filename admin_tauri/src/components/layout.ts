@@ -39,6 +39,7 @@ const BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
   '/accounting/income-statement': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'قائمة الدخل', route: '/accounting/income-statement', isRoot: true }],
   '/accounting/cash-flow': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'التدفقات النقدية', route: '/accounting/cash-flow', isRoot: true }],
   '/cost-centers': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'مراكز التكلفة', route: '/cost-centers', isRoot: true }],
+  '/expenses': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'المحاسبة', route: '/accounting' }, { label: 'المصاريف', route: '/expenses', isRoot: true }],
   '/assets': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الأصول والاستهلاك', route: '/assets', isRoot: true }],
   '/hr': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'الموارد البشرية', route: '/hr', isRoot: true }],
   '/workshop-map': [{ label: 'الرئيسية', route: '/dashboard' }, { label: 'خريطة الورشة', route: '/workshop-map', isRoot: true }],
@@ -89,6 +90,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { route: '/accounting/balance-sheet', label: 'الميزانية العمومية', icon: 'balance' },
       { route: '/accounting/income-statement', label: 'قائمة الدخل', icon: 'trending_up' },
       { route: '/accounting/cash-flow', label: 'التدفقات النقدية', icon: 'payments' },
+      { route: '/expenses', label: 'المصاريف', icon: 'shopping_bag' },
       { route: '/cost-centers', label: 'مراكز التكلفة', icon: 'account_tree' },
       { route: '/assets', label: 'الأصول والاستهلاك', icon: 'precision_manufacturing' },
     ]

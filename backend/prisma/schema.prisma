@@ -2527,6 +2527,7 @@ model Expense {
   paymentMethod      String
   reference          String?
   notes              String?
+  bookingId          String?
   approvedBy         String?
   approvedAt         DateTime?
   isRecurring        Boolean   @default(false)
@@ -2539,6 +2540,7 @@ model Expense {
   @@index([category])
   @@index([expenseDate])
   @@index([isRecurring])
+  @@index([bookingId])
 }
 
 enum ScheduleStatus {
