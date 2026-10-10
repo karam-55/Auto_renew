@@ -44,6 +44,53 @@ export class BookingService {
   }
 
   /**
+   * Build the nested-create payload for one BookingService line, including
+   * type-specific validation (CUSTOM needs a name, OIL_* needs an oil part,
+   * PANELS needs selected panels) and per-line pricing rules.
+   */
+  private buildBookingServiceCreate(input: BookingServiceInput, svc: Service): any {
+    const type = (svc as any).serviceType || 'STANDARD';
+
+    let priceSYP = input.priceSYP !== undefined ? Number(input.priceSYP) : Number(svc.priceSYP ?? svc.basePrice ?? 0);
+    let priceUSD = input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD != null ? Number(svc.priceUSD) : null);
+
+    // Free/jo-b services carry no price at booking; job-priced lines start at 0
+    // and get their price from job purchases + profit at invoice sync.
+    if (type === 'OIL_WARRANTY' || type === 'JOB_BASED' || type === 'PANELS' || type === 'CUSTOM') {
+      priceSYP = 0;
+      priceUSD = 0;
+    }
+
+    const data: any = {
+      serviceId: input.serviceId,
+      priceSYP,
+      priceUSD,
+      customName: input.customName || undefined,
+      panels: Array.isArray(input.panels) ? input.panels.join(', ') : (input.panels || undefined),
+    };
+
+    if (type === 'CUSTOM' && !input.customName?.trim()) {
+      throw new Error('Custom service requires a name');
+    }
+    if (type === 'PANELS' && (!input.panels || (Array.isArray(input.panels) && input.panels.length === 0))) {
+      throw new Error('Denting service requires selecting at least one panel');
+    }
+    if ((type === 'OIL_WARRANTY' || type === 'OIL_PAID') && (!input.materials || input.materials.length === 0)) {
+      throw new Error('Oil change requires selecting an oil part and quantity');
+    }
+
+    if (input.materials && input.materials.length > 0) {
+      data.materials = {
+        create: input.materials
+          .filter((m) => m.partId && Number(m.quantity) > 0)
+          .map((m) => ({ partId: m.partId, quantity: Number(m.quantity) })),
+      };
+    }
+
+    return data;
+  }
+
+  /**
    * Map a Prisma booking row (with bookingServices + relations included) to the
    * BookingResponse shape, including per-line prices and booking totals.
    */
@@ -51,7 +98,14 @@ export class BookingService {
     const services = booking.bookingServices
       ? booking.bookingServices.map((bs: any) => ({
           id: bs.service.id,
-          name: bs.service.name,
+          name: bs.customName || bs.service.name,
+          serviceType: bs.service.serviceType || 'STANDARD',
+          panels: bs.panels || undefined,
+          materials: (bs.materials || []).map((m: any) => ({
+            partId: m.partId,
+            quantity: Number(m.quantity),
+            partName: m.part?.name || m.part?.nameAr || undefined,
+          })),
           category:
             typeof bs.service.category === 'object' && bs.service.category
               ? bs.service.category.name
@@ -150,9 +204,15 @@ export class BookingService {
               select: {
                 id: true,
                 name: true,
+                serviceType: true,
                 category: true,
                 duration: true,
                 basePrice: true,
+              },
+            },
+            materials: {
+              include: {
+                part: { select: { id: true, name: true, nameAr: true } },
               },
             },
           },
@@ -253,9 +313,15 @@ export class BookingService {
               select: {
                 id: true,
                 name: true,
+                serviceType: true,
                 category: true,
                 duration: true,
                 basePrice: true,
+              },
+            },
+            materials: {
+              include: {
+                part: { select: { id: true, name: true, nameAr: true } },
               },
             },
           },
@@ -306,9 +372,15 @@ export class BookingService {
               select: {
                 id: true,
                 name: true,
+                serviceType: true,
                 category: true,
                 duration: true,
                 basePrice: true,
+              },
+            },
+            materials: {
+              include: {
+                part: { select: { id: true, name: true, nameAr: true } },
               },
             },
           },
@@ -404,15 +476,9 @@ export class BookingService {
         publicToken: this.generatePublicToken(),
         bookingServices: serviceInputs.length > 0
           ? {
-              // For each requested service, use the custom price if provided,
-              // otherwise fall back to the service's default price.
               create: serviceInputs.map((input) => {
                 const svc = services.find((s) => s.id === input.serviceId)!;
-                return {
-                  serviceId: input.serviceId,
-                  priceSYP: input.priceSYP !== undefined ? Number(input.priceSYP) : (svc.priceSYP ?? svc.basePrice ?? 0),
-                  priceUSD: input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD ?? 0),
-                };
+                return this.buildBookingServiceCreate(input, svc);
               }),
             }
           : undefined,
@@ -440,9 +506,15 @@ export class BookingService {
               select: {
                 id: true,
                 name: true,
+                serviceType: true,
                 category: true,
                 duration: true,
                 basePrice: true,
+              },
+            },
+            materials: {
+              include: {
+                part: { select: { id: true, name: true, nameAr: true } },
               },
             },
           },
@@ -662,11 +734,7 @@ export class BookingService {
               deleteMany: {},
               create: updateServiceInputs.map((input) => {
                 const svc = services.find((s) => s.id === input.serviceId)!;
-                return {
-                  serviceId: input.serviceId,
-                  priceSYP: input.priceSYP !== undefined ? Number(input.priceSYP) : (svc.priceSYP ?? svc.basePrice ?? 0),
-                  priceUSD: input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD ?? 0),
-                };
+                return this.buildBookingServiceCreate(input, svc);
               }),
             }
           : undefined,
@@ -694,9 +762,15 @@ export class BookingService {
               select: {
                 id: true,
                 name: true,
+                serviceType: true,
                 category: true,
                 duration: true,
                 basePrice: true,
+              },
+            },
+            materials: {
+              include: {
+                part: { select: { id: true, name: true, nameAr: true } },
               },
             },
           },

@@ -363,6 +363,8 @@ model Service {
   warrantyTerms            String?
   loyaltyPoints            Int                      @default(0)
   duration                 Int?
+  // Pricing behaviour: FIXED | EDITABLE | VARIABLE | OIL_WARRANTY | OIL_PAID | JOB_BASED | PANELS | CUSTOM
+  serviceType              String                   @default("STANDARD")
   bookingServices          BookingService[]         @relation("BookingServices")
   invoiceItems             InvoiceItem[]            @relation("InvoiceItems")
   maintenancePackageItems  MaintenancePackageItem[]
@@ -439,21 +441,41 @@ model Booking {
 }
 
 model BookingService {
-  id        String    @id @default(uuid())
-  bookingId String
-  serviceId String
-  priceSYP  Decimal   @db.Decimal(12, 2)
-  priceUSD  Decimal?  @db.Decimal(12, 2)
-  notes     String?
-  createdAt DateTime  @default(now())
-  booking   Booking   @relation("BookingServices", fields: [bookingId], references: [id], onDelete: Cascade)
-  service   Service   @relation("BookingServices", fields: [serviceId], references: [id], onDelete: Cascade)
-  deletedAt DateTime?
-  updatedAt DateTime  @updatedAt
+  id            String                   @id @default(uuid())
+  bookingId     String
+  serviceId     String
+  priceSYP      Decimal                  @db.Decimal(12, 2)
+  priceUSD      Decimal?                 @db.Decimal(12, 2)
+  notes         String?
+  // Free-text name for CUSTOM services (e.g. خدمة مخصصة)
+  customName    String?
+  // Comma-separated selected panels for PANELS services (تصويج)
+  panels        String?
+  createdAt     DateTime                 @default(now())
+  booking       Booking                  @relation("BookingServices", fields: [bookingId], references: [id], onDelete: Cascade)
+  service       Service                  @relation("BookingServices", fields: [serviceId], references: [id], onDelete: Cascade)
+  materials     BookingServiceMaterial[]
+  deletedAt     DateTime?
+  updatedAt     DateTime                 @updatedAt
 
   @@unique([bookingId, serviceId])
   @@index([bookingId])
   @@index([serviceId])
+}
+
+// Stock materials attached to a booking service (oil litres, wash consumables).
+// On invoice sync they become part-priced invoice items that consume stock.
+model BookingServiceMaterial {
+  id              String         @id @default(uuid())
+  bookingServiceId String
+  partId          String
+  quantity        Decimal        @db.Decimal(12, 3)
+  bookingService  BookingService @relation(fields: [bookingServiceId], references: [id], onDelete: Cascade)
+  part            Part           @relation(fields: [partId], references: [id])
+  createdAt       DateTime       @default(now())
+
+  @@index([bookingServiceId])
+  @@index([partId])
 }
 
 model MechanicAssignment {
@@ -568,6 +590,7 @@ model Part {
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   attachments             Attachment[]
+  bookingServiceMaterials BookingServiceMaterial[]
   grnLines                GoodsReceiptNoteLine[]
   inventoryCountItems     InventoryCountItem[]
   inventoryTransactions   InventoryTransaction[]

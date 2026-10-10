@@ -584,7 +584,7 @@ export class InvoiceService {
 
     const bookingServices = await prisma.bookingService.findMany({
       where: { bookingId: invoice.bookingId, deletedAt: null },
-      include: { service: true },
+      include: { service: true, materials: { include: { part: true } } },
     });
     if (bookingServices.length === 0) {
       throw new Error('Booking has no services to sync');
@@ -595,24 +595,70 @@ export class InvoiceService {
       ? Number((await prisma.taxRate.findFirst({ where: { id: invoice.taxRateId, tenantId } }))?.rate || 0)
       : Number(settings.taxRate || 0) / 100;
 
+    // Job-priced services (بخ/صيانة/PPF/مخصص/تصويج) start from the total of
+    // job purchases recorded for this booking — the user then adds profit.
+    const jobPurchases = await prisma.expense.aggregate({
+      where: { tenantId, bookingId: invoice.bookingId, category: 'JOB_PURCHASE', deletedAt: null },
+      _sum: { amountSYP: true, amountUSD: true },
+    });
+    const jobCostSYP = Number(jobPurchases._sum.amountSYP || 0);
+    const jobCostUSD = jobPurchases._sum.amountUSD != null ? Number(jobPurchases._sum.amountUSD) : null;
+    let jobCostAssigned = false;
+
     let subtotalSYP = 0;
     let subtotalUSD = 0;
-    const itemInputs = bookingServices.map((bs) => {
-      const priceSYP = Number(bs.priceSYP);
-      const priceUSD = bs.priceUSD != null ? Number(bs.priceUSD) : null;
+    const itemInputs: any[] = [];
+    for (const bs of bookingServices) {
+      const type = (bs.service as any).serviceType || 'STANDARD';
+      const isJobPriced = ['JOB_BASED', 'PANELS', 'CUSTOM'].includes(type);
+
+      let priceSYP = Number(bs.priceSYP);
+      let priceUSD = bs.priceUSD != null ? Number(bs.priceUSD) : null;
+      if (isJobPriced && !jobCostAssigned) {
+        // Prefill the first job-priced line with the booking's job-purchase total.
+        priceSYP = jobCostSYP > 0 ? jobCostSYP : priceSYP;
+        priceUSD = jobCostUSD != null && jobCostUSD > 0 ? jobCostUSD : priceUSD;
+        jobCostAssigned = true;
+      }
+
+      const name = bs.customName || bs.service.name;
+      const panelsLabel = bs.panels ? ` (${bs.panels})` : '';
       subtotalSYP += priceSYP;
       if (priceUSD) subtotalUSD += priceUSD;
-      return {
+      itemInputs.push({
         serviceId: bs.serviceId,
         partId: null,
-        description: bs.service.name,
+        description: `${name}${panelsLabel}`,
         quantity: 1,
         priceSYP,
         priceUSD,
         totalSYP: priceSYP,
         totalUSD: priceUSD,
-      };
-    });
+      });
+
+      // Materials (oil litres, wash consumables) become part items that
+      // consume stock on finalization. Warranty oil is priced 0; paid oil and
+      // consumables bill at the part's sale price.
+      for (const m of (bs as any).materials || []) {
+        const qty = Number(m.quantity);
+        if (!(qty > 0)) continue;
+        const part = (m as any).part;
+        const matPriceSYP = type === 'OIL_WARRANTY' ? 0 : Number(part?.sellingPriceSYP || 0);
+        const matPriceUSD = type === 'OIL_WARRANTY' ? 0 : (part?.sellingPriceUSD != null ? Number(part.sellingPriceUSD) : null);
+        subtotalSYP += matPriceSYP * qty;
+        if (matPriceUSD) subtotalUSD += matPriceUSD * qty;
+        itemInputs.push({
+          serviceId: null,
+          partId: m.partId,
+          description: part?.nameAr || part?.name || 'مادة',
+          quantity: qty,
+          priceSYP: matPriceSYP,
+          priceUSD: matPriceUSD,
+          totalSYP: matPriceSYP * qty,
+          totalUSD: matPriceUSD != null ? matPriceUSD * qty : null,
+        });
+      }
+    }
 
     const taxSYP = Math.round(subtotalSYP * taxRate * 100) / 100;
     const taxUSD = subtotalUSD > 0 ? Math.round(subtotalUSD * taxRate * 100) / 100 : null;

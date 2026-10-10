@@ -8,6 +8,12 @@ export interface BookingServiceInput {
   serviceId: string;
   priceSYP?: number;
   priceUSD?: number;
+  /** Free-text service name — required for CUSTOM services */
+  customName?: string;
+  /** Selected panels for PANELS services (تصويج) — comma-separated or array */
+  panels?: string[] | string;
+  /** Stock materials consumed by this service (oil litres, wash supplies) */
+  materials?: Array<{ partId: string; quantity: number }>;
 }
 
 export interface CreateBookingInput {
