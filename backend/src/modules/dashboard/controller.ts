@@ -15,7 +15,10 @@ export class DashboardController {
 
   getKPIs = async (req: AuthRequest, res: Response) => {
     const tenantId = req.user!.tenantId;
-    const cacheKey = CacheService.generateKey('dashboard', tenantId, 'kpis');
+    const userRole = (req.user!.role || '').toUpperCase();
+    // Reception sees an operational dashboard only: bookings + staff, no financial figures.
+    const isRestricted = userRole === 'RECEPTIONIST';
+    const cacheKey = CacheService.generateKey('dashboard', tenantId, isRestricted ? 'kpis:restricted' : 'kpis:full');
     const cacheTtl = 60; // 1 minute - dashboard data changes frequently
 
     try {
@@ -180,33 +183,28 @@ export class DashboardController {
           createdAt: b.createdAt,
           entityId: b.id,
         })),
-        ...recentInvoices.map(i => ({
+        ...(isRestricted ? [] : recentInvoices.map(i => ({
           type: 'invoice',
           description: `فاتورة ${i.invoiceNumber ?? ''} - ${i.customer?.fullName ?? 'عميل'} - ${i.totalSYP ? Number(i.totalSYP).toLocaleString() + ' ل.س' : ''}`,
           userName: i.customer?.fullName ?? 'النظام',
           createdAt: i.createdAt,
           entityId: i.id,
-        })),
-        ...recentPayments.map(p => ({
+        }))),
+        ...(isRestricted ? [] : recentPayments.map(p => ({
           type: 'payment',
           description: `دفعة ${p.amountSYP ? Number(p.amountSYP).toLocaleString() + ' ل.س' : ''} - ${p.invoice?.customer?.fullName ?? 'عميل'}`,
           userName: p.invoice?.customer?.fullName ?? 'النظام',
           createdAt: p.createdAt,
           entityId: p.id,
-        })),
+        }))),
       ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 10);
 
-      const result = {
+      const result: Record<string, unknown> = {
         bookingsToday,
         carsInWorkshop,
         activeMechanics,
         totalMechanics,
-        openInvoicesCount,
-        todayRevenue,
-        todayRevenueUSD,
         newCustomers,
-        pendingPayments,
-        overdueInvoices,
         totalBookings,
         totalCustomers,
         totalVehicles,
@@ -216,7 +214,6 @@ export class DashboardController {
           status: s.status,
           count: s._count.id,
         })),
-        revenueByDay,
         bookingsByDay,
         recentActivities: recentActivities.map(a => ({
           description: a.description,
@@ -226,6 +223,17 @@ export class DashboardController {
           entityId: a.entityId,
         })),
       };
+
+      if (!isRestricted) {
+        result.openInvoicesCount = openInvoicesCount;
+        result.todayRevenue = todayRevenue;
+        result.todayRevenueUSD = todayRevenueUSD;
+        result.pendingPayments = pendingPayments;
+        result.overdueInvoices = overdueInvoices;
+        result.revenueByDay = revenueByDay;
+      } else {
+        result.restricted = true;
+      }
 
       // Store in cache
       await CacheService.set(cacheKey, result, cacheTtl);

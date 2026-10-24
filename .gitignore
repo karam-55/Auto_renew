@@ -52,6 +52,8 @@ dist/
 build/
 out/
 admin_tauri/src-tauri/target/
+admin_tauri/src-tauri/src-tauri/
+*.code-workspace
 
 # IDE & Tools
 .windsurf/

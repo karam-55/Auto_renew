@@ -2,6 +2,7 @@ import prisma from '../../config/database';
 import settingsService from '../../services/settings.service';
 import { Prisma, TransactionType as PrismaTransactionType } from '@prisma/client';
 import { Logger } from '../../infrastructure/logging/logger';
+import { isValidQuantity } from '../../utils/quantity';
 import {
   InventoryTransaction,
   CreateInventoryTransactionDto,
@@ -16,8 +17,36 @@ import {
   createInventoryAdjustmentJournalEntry,
   createStockConsumptionJournalEntry,
   createStockIntakeJournalEntry,
+  createStockRevaluationJournalEntry,
   ensureDefaultAccounts,
 } from '../accounting/automatic-journal-entries';
+
+const movementRelations = {
+  part: true,
+  warehouse: true,
+  supplier: { select: { id: true, name: true } },
+  service: { select: { id: true, name: true, nameAr: true } },
+  bookingService: {
+    include: { service: { select: { id: true, name: true, nameAr: true } } },
+  },
+  booking: {
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true } },
+      vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+    },
+  },
+};
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  PURCHASE: 'شراء مادة',
+  SALE: 'بيع مادة',
+  ADJUSTMENT: 'تسوية رصيد المخزون',
+  TRANSFER: 'نقل بين المستودعات',
+  RETURN: 'مرتجع',
+  CONSUMPTION: 'استهلاك في عمل',
+  STOCK_IN: 'إدخال إلى المخزون',
+  STOCK_OUT: 'إخراج من المخزون',
+};
 
 export class InventoryTransactionService {
   async createInventoryTransaction(
@@ -25,7 +54,7 @@ export class InventoryTransactionService {
     data: CreateInventoryTransactionDto,
     createdBy?: string
   ): Promise<InventoryTransaction> {
-    if (!Number.isInteger(data.quantity) || data.quantity <= 0) throw new Error('Quantity must be a positive whole number');
+    if (!isValidQuantity(data.quantity)) throw new Error('Quantity must be positive and use at most three decimal places');
     if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
       throw new Error('Unit cost cannot be negative');
     }
@@ -69,6 +98,11 @@ export class InventoryTransactionService {
         const supplier = await tx.supplier.findFirst({ where: { id: data.supplierId, tenantId } });
         if (!supplier) throw new Error('Supplier not found');
       }
+      const bookingId = data.referenceType?.toUpperCase() === 'BOOKING' ? data.referenceId : undefined;
+      if (bookingId) {
+        const booking = await tx.booking.findFirst({ where: { id: bookingId, tenantId } });
+        if (!booking) throw new Error('Booking not found in this tenant');
+      }
 
       const created = await tx.inventoryTransaction.create({
         data: {
@@ -82,28 +116,25 @@ export class InventoryTransactionService {
           costSYP: unitCost,
           costUSD: unitCostUSD,
           reference: data.referenceType && data.referenceId ? `${data.referenceType}:${data.referenceId}` : null,
+          bookingId,
           notes: data.notes,
         },
-        include: { part: true },
+        include: movementRelations,
       });
 
       await this.updatePartQuantity(data.partId, data.transactionType, data.quantity, tenantId, tx);
+      let previousQuantity = 0;
+      let previousCostSYP = 0;
+      let previousCostUSD = 0;
       if (data.transactionType === 'PURCHASE' || data.transactionType === 'STOCK_IN') {
-        const currentCostSYP = Number(part.costSYP || 0);
-        const currentCostUSD = part.costUSD != null
+        previousQuantity = Number(part.quantity);
+        previousCostSYP = Number(part.costSYP || 0);
+        previousCostUSD = part.costUSD != null
           ? Number(part.costUSD)
-          : Math.round((currentCostSYP / exchangeRate) * 100) / 100;
-        const resultingQuantity = part.quantity + data.quantity;
+          : Math.round((previousCostSYP / exchangeRate) * 100) / 100;
         await tx.part.update({
           where: { id: part.id },
-          data: {
-            costSYP: part.quantity > 0
-              ? (currentCostSYP * part.quantity + unitCost * data.quantity) / resultingQuantity
-              : unitCost,
-            costUSD: part.quantity > 0
-              ? (currentCostUSD * part.quantity + unitCostUSD * data.quantity) / resultingQuantity
-              : unitCostUSD,
-          },
+          data: { costSYP: unitCost, costUSD: unitCostUSD },
         });
       }
       if (data.transactionType === 'CONSUMPTION' || data.transactionType === 'SALE') {
@@ -114,6 +145,11 @@ export class InventoryTransactionService {
         if (!settlement) throw new Error('A settlement account is required for stock intake');
         await ensureDefaultAccounts(tenantId, tx);
         await createStockIntakeJournalEntry(created, tenantId, settlement, createdBy || null, tx);
+        if (previousQuantity > 0) {
+          await createStockRevaluationJournalEntry(
+            created, tenantId, previousQuantity, previousCostSYP, previousCostUSD, unitCost, unitCostUSD, createdBy || null, tx
+          );
+        }
       }
       if (data.transactionType === 'ADJUSTMENT' || data.transactionType === 'STOCK_OUT') {
         await ensureDefaultAccounts(tenantId, tx);
@@ -182,8 +218,7 @@ export class InventoryTransactionService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          part: true,
-          warehouse: true,
+          ...movementRelations,
         },
       }),
       prisma.inventoryTransaction.count({ where }),
@@ -204,10 +239,7 @@ export class InventoryTransactionService {
   ): Promise<InventoryTransaction | null> {
     const transaction = await prisma.inventoryTransaction.findFirst({
       where: { id, tenantId },
-      include: {
-        part: true,
-        warehouse: true,
-      },
+      include: movementRelations,
     });
 
     if (!transaction) {
@@ -227,7 +259,7 @@ export class InventoryTransactionService {
 
     if (data.partId !== undefined && data.partId !== existing.partId ||
         data.transactionType !== undefined && data.transactionType !== existing.type ||
-        data.quantity !== undefined && data.quantity !== existing.quantity ||
+        data.quantity !== undefined && Number(data.quantity) !== Number(existing.quantity) ||
         data.unitCost !== undefined && data.unitCost !== Number(existing.costSYP) ||
         data.unitCostUSD !== undefined && data.unitCostUSD !== Number(existing.costUSD || 0)) {
       throw new Error('Posted inventory movements are immutable; record a compensating movement instead');
@@ -253,7 +285,7 @@ export class InventoryTransactionService {
         reference,
         notes: data.notes,
       },
-      include: { part: true, warehouse: true },
+        include: movementRelations,
     });
     return this.mapToInventoryTransactionResponse(transaction);
   }
@@ -292,8 +324,7 @@ export class InventoryTransactionService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          part: true,
-          warehouse: true,
+          ...movementRelations,
         },
       }),
       prisma.inventoryTransaction.count({ where }),
@@ -333,8 +364,7 @@ export class InventoryTransactionService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          part: true,
-          warehouse: true,
+          ...movementRelations,
         },
       }),
       prisma.inventoryTransaction.count({ where }),
@@ -383,13 +413,13 @@ export class InventoryTransactionService {
     destinationWarehouseId: string,
     notes?: string
   ): Promise<{ outTransaction: InventoryTransaction; inTransaction: InventoryTransaction }> {
-    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('Transfer quantity must be a positive whole number');
+    if (!isValidQuantity(quantity)) throw new Error('Transfer quantity must be positive and use at most three decimal places');
     if (sourceWarehouseId === destinationWarehouseId) throw new Error('Source and destination warehouses cannot be the same');
 
     const result = await prisma.$transaction(async (tx) => {
       const part = await tx.part.findFirst({ where: { id: partId, tenantId } });
       if (!part) throw new Error('Part not found');
-      if (part.quantity < quantity) throw new Error('Insufficient part quantity for transfer');
+      if (Number(part.quantity) < quantity) throw new Error('Insufficient part quantity for transfer');
 
       const [sourceWarehouse, destinationWarehouse] = await Promise.all([
         tx.warehouse.findFirst({ where: { id: sourceWarehouseId, tenantId } }),
@@ -406,6 +436,7 @@ export class InventoryTransactionService {
             type: 'TRANSFER', quantity, costSYP: part.costSYP, costUSD: part.costUSD,
             reference, notes: notes || `Transfer to ${destinationWarehouse.name}`,
           },
+          include: movementRelations,
         }),
         tx.inventoryTransaction.create({
           data: {
@@ -413,6 +444,7 @@ export class InventoryTransactionService {
             type: 'STOCK_IN', quantity, costSYP: part.costSYP, costUSD: part.costUSD,
             reference, notes: notes || `Transfer from ${sourceWarehouse.name}`,
           },
+          include: movementRelations,
         }),
       ]);
       return { outTransaction, inTransaction };
@@ -437,7 +469,7 @@ export class InventoryTransactionService {
     const increasesStock = transactionType === 'PURCHASE' || transactionType === 'STOCK_IN' ||
       transactionType === 'RETURN' || transactionType === 'ADJUSTMENT';
     const quantityChange = increasesStock ? quantity : -quantity;
-    if (part.quantity + quantityChange < 0) throw new Error('Insufficient part quantity');
+    if (Number(part.quantity) + quantityChange < 0) throw new Error('Insufficient part quantity');
 
     const result = await tx.part.updateMany({
       where: { id: partId, tenantId, quantity: part.quantity },
@@ -451,22 +483,126 @@ export class InventoryTransactionService {
       ? transaction.reference.split(':')
       : [null, null];
 
+    const booking = transaction.booking
+    const customerName = booking?.customer?.fullName || null
+    const vehicle = booking?.vehicle
+    const vehicleDescription = vehicle
+      ? [vehicle.make, vehicle.model, vehicle.licensePlate ? `(${vehicle.licensePlate})` : ''].filter(Boolean).join(' ')
+      : null
+    const serviceName = transaction.bookingService?.service?.nameAr
+      || transaction.bookingService?.service?.name
+      || transaction.service?.nameAr
+      || transaction.service?.name
+      || null
+    const bookingDestination = booking
+      ? [
+          customerName ? `العميل ${customerName}` : 'حجز',
+          vehicleDescription ? `السيارة ${vehicleDescription}` : '',
+          serviceName ? `خدمة ${serviceName}` : '',
+        ].filter(Boolean).join(' · ')
+      : null
+    const referenceDescription = this.describeReference(referenceType, transaction)
+    const supplierDestination = transaction.supplier?.name
+      ? `استلام من المورد ${transaction.supplier.name}${referenceDescription ? ` · ${referenceDescription}` : ''}`
+      : null
+    const noteDescription = this.describeNotes(transaction.notes)
+    const warehouseDescription = transaction.warehouse?.name ? `مستودع ${transaction.warehouse.name}` : null
+    const destinationDescription = bookingDestination
+      || supplierDestination
+      || referenceDescription
+      || noteDescription
+      || warehouseDescription
+      || 'حركة مخزون مسجلة'
+    const transferNotes = String(transaction.notes || '')
+    const transferReference = String(transaction.reference || '')
+    const direction = ['PURCHASE', 'RETURN', 'STOCK_IN'].includes(transaction.type)
+      ? 'IN'
+      : ['SALE', 'CONSUMPTION', 'STOCK_OUT'].includes(transaction.type)
+        ? 'OUT'
+        : transaction.type === 'TRANSFER'
+          ? /صرف التحويل|transfer\s+out/i.test(`${transferNotes} ${transferReference}`)
+            ? 'OUT'
+            : /استلام التحويل|transfer\s+in/i.test(`${transferNotes} ${transferReference}`)
+              ? 'IN'
+              : 'TRANSFER'
+          : transaction.type === 'ADJUSTMENT'
+            ? /نقص|عجز|تخفيض/.test(transferNotes) ? 'OUT' : /زيادة|فائض/.test(transferNotes) ? 'IN' : 'ADJUSTMENT'
+            : 'ADJUSTMENT'
+
     return {
       id: transaction.id,
       tenantId: transaction.tenantId,
       partId: transaction.partId,
       warehouseId: transaction.warehouseId,
       transactionType: transaction.type as TransactionType,
-      quantity: transaction.quantity,
+      quantity: Math.abs(Number(transaction.quantity)),
       unitCost: Number(transaction.costSYP),
       unitCostUSD: transaction.costUSD == null ? null : Number(transaction.costUSD),
-      totalCost: Number(transaction.costSYP) * transaction.quantity,
-      totalCostUSD: transaction.costUSD == null ? null : Number(transaction.costUSD) * transaction.quantity,
+      totalCost: Number(transaction.costSYP) * Math.abs(Number(transaction.quantity)),
+      totalCostUSD: transaction.costUSD == null ? null : Number(transaction.costUSD) * Math.abs(Number(transaction.quantity)),
       referenceType,
       referenceId,
       notes: transaction.notes,
+      partName: transaction.part?.nameAr || transaction.part?.name || undefined,
+      unitName: transaction.part?.baseUnitName || null,
+      warehouseName: transaction.warehouse?.name || null,
+      supplierName: transaction.supplier?.name || null,
+      bookingId: transaction.bookingId || booking?.id || null,
+      customerName,
+      vehicleDescription,
+      serviceName,
+      destinationDescription,
+      transactionLabel: MOVEMENT_LABELS[transaction.type] || 'حركة مخزون',
+      direction,
       createdAt: transaction.createdAt,
       updatedAt: transaction.updatedAt,
     };
+  }
+
+  private describeReference(referenceType: string | null, transaction: any): string | null {
+    if (!referenceType) return null;
+    const type = referenceType.toUpperCase();
+    const referenceId = String(transaction.reference || '').split(':').slice(1).join(':');
+    if (type === 'BOOKING' || type === 'WORKORDER') return transaction.booking ? 'أمر شغل' : 'حجز مرتبط';
+    if (type === 'INVOICE') {
+      const notes = String(transaction.notes || '');
+      if (/[\u0600-\u06ff]/.test(notes)) return notes;
+      return referenceId ? `فاتورة مبيعات رقم ${referenceId}` : 'فاتورة مبيعات';
+    }
+    if (type === 'GRN') {
+      const grnNumber = String(transaction.reference || '').split(':').slice(1).join(':');
+      return grnNumber ? `سند استلام ${grnNumber}` : 'استلام بضاعة من مورد';
+    }
+    if (type === 'PO') return referenceId ? `طلب شراء ${referenceId}` : 'استلام بموجب طلب شراء';
+    if (type === 'COUNT') {
+      const notes = String(transaction.notes || '');
+      if (/[\u0600-\u06ff]/.test(notes)) return notes;
+      return referenceId ? `جرد مخزون ${referenceId}` : 'تسوية ناتجة عن جرد المخزون';
+    }
+    if (type === 'CANCEL') return null;
+    if (type === 'RETURN') return referenceId ? `مرتجع من الفاتورة ${referenceId}` : 'مرتجع إلى المخزون';
+    if (type.startsWith('TRANSFER OUT')) return 'صرف تحويل من المستودع';
+    if (type.startsWith('TRANSFER IN')) return 'استلام تحويل إلى المستودع';
+    if (type === 'TRANSFER') {
+      const notes = String(transaction.notes || '');
+      if (/[\u0600-\u06ff]/.test(notes)) return notes;
+      return 'نقل بين المستودعات';
+    }
+    if (type === 'INTAKE') return 'استلام مخزون';
+    return 'مرجع حركة مخزون';
+  }
+
+  private describeNotes(notes: string | null | undefined): string | null {
+    const text = String(notes || '').trim();
+    if (!text) return null;
+    if (/[\u0600-\u06ff]/.test(text)) return text;
+    if (/^material issued for work order/i.test(text)) return 'مواد مصروفة لأمر الشغل';
+    if (/^consumed for booking/i.test(text)) return 'مواد مستهلكة لحجز';
+    if (/^stock intake/i.test(text)) return 'استلام مواد إلى المخزون';
+    if (/^transfer to/i.test(text)) return 'نقل إلى مستودع آخر';
+    if (/^transfer from/i.test(text)) return 'نقل من مستودع آخر';
+    if (/^inventory adjustment/i.test(text)) return 'تسوية كمية المخزون';
+    if (/^stock out/i.test(text)) return 'إخراج مواد من المخزون';
+    return 'تفاصيل إضافية مسجلة للحركة';
   }
 }

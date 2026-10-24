@@ -23,6 +23,8 @@ export class DashboardScreen {
     const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
     const monthNames = ['يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
     const dateStr = `${dayNames[today.getDay()]}، ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`
+    const userRole = (this.auth.getUser()?.role || '').toUpperCase()
+    const isReception = userRole === 'RECEPTIONIST'
 
     content.innerHTML = `
       <div class="space-y-stack-lg">
@@ -67,7 +69,22 @@ export class DashboardScreen {
               <span class="text-on-surface-variant">مقارنة بالأمس</span>
             </div>
           </div>
-          <!-- KPI 2: Revenue -->
+          <!-- KPI 2: Revenue (hidden for reception) / Bookings today for reception -->
+          ${isReception ? `
+          <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-secondary hover-lift-8 cursor-pointer stagger-entry stagger-entry-2" data-route="/bookings">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="font-label-sm text-on-surface-variant mb-1">حجوزات اليوم</p>
+                <h3 class="font-headline-lg text-on-surface" id="kpi-bookings-today"><span class="skeleton skeleton-text-lg inline-block w-16"></span></h3>
+              </div>
+              <div class="w-14 h-14 rounded-2xl bg-secondary-container/10 flex items-center justify-center text-secondary">
+                <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">today</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-sm mt-4">
+              <span class="text-on-surface-variant">حجوزات مجدولة لهذا اليوم</span>
+            </div>
+          </div>` : `
           <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-secondary hover-lift-8 cursor-pointer stagger-entry stagger-entry-2" data-route="/invoices">
             <div class="flex justify-between items-start mb-4">
               <div>
@@ -86,7 +103,7 @@ export class DashboardScreen {
               </span>
               <span class="text-on-surface-variant">مقارنة بالأمس</span>
             </div>
-          </div>
+          </div>`}
           <!-- KPI 3: Technicians -->
           <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-info hover-lift-8 cursor-pointer stagger-entry stagger-entry-3" data-route="/hr">
             <div class="flex justify-between items-start mb-4">
@@ -103,7 +120,24 @@ export class DashboardScreen {
             </div>
             <p class="text-xs text-on-surface-variant mt-2" id="kpi-mechanics-trend">-- نسبة التشغيل</p>
           </div>
-          <!-- KPI 4: Overdue -->
+          <!-- KPI 4: Overdue (hidden for reception) / Cars in workshop for reception -->
+          ${isReception ? `
+          <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-warning hover-lift-8 cursor-pointer stagger-entry stagger-entry-4" data-route="/work-orders">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="font-label-sm text-on-surface-variant mb-1">سيارات قيد العمل</p>
+                <h3 class="font-headline-lg text-on-surface" id="kpi-cars-workshop"><span class="skeleton skeleton-text-lg inline-block w-12"></span></h3>
+              </div>
+              <div class="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center text-warning">
+                <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">directions_car</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-sm mt-4">
+              <button class="text-warning font-semibold hover:underline flex items-center gap-1 transition-all" data-route="/work-orders">
+                أوامر الشغل <span class="material-symbols-outlined text-[16px]">arrow_left_alt</span>
+              </button>
+            </div>
+          </div>` : `
           <div class="glass-card p-card-padding rounded-2xl border-t-[3px] border-error hover-lift-8 cursor-pointer stagger-entry stagger-entry-4" data-route="/invoices">
             <div class="flex justify-between items-start mb-4">
               <div>
@@ -119,7 +153,7 @@ export class DashboardScreen {
                 مراجعة الآن <span class="material-symbols-outlined text-[16px]">arrow_left_alt</span>
               </button>
             </div>
-          </div>
+          </div>`}
         </div>
         <!-- Row 2: Live Workshop Status -->
         <div class="glass-card p-card-padding rounded-2xl stagger-entry stagger-entry-5" id="workshop-status-card">
@@ -161,8 +195,9 @@ export class DashboardScreen {
           </div>
         </div>
         <!-- Row 3: Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Main Chart -->
+        <div class="grid grid-cols-1 ${isReception ? '' : 'lg:grid-cols-3'} gap-6">
+          <!-- Main Chart (revenue hidden for reception) -->
+          ${isReception ? '' : `
           <div class="lg:col-span-2 glass-card p-card-padding rounded-2xl flex flex-col stagger-entry stagger-entry-5">
             <div class="flex justify-between items-center mb-6">
               <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">إيرادات آخر 7 أيام</h3>
@@ -173,7 +208,7 @@ export class DashboardScreen {
             <div class="flex-1 relative w-full h-72">
               <canvas id="revenueChart"></canvas>
             </div>
-          </div>
+          </div>`}
           <!-- Donut Chart -->
           <div class="glass-card p-card-padding rounded-2xl flex flex-col stagger-entry stagger-entry-6">
             <div class="flex justify-between items-center mb-6">
@@ -238,7 +273,16 @@ export class DashboardScreen {
             </div>
           </div>
         </div>
-        <!-- Row 3: Advanced Trend Chart -->
+        <!-- Row 3: Advanced Trend Chart (hidden for reception - contains revenue) -->
+        ${isReception ? `
+        <div class="glass-card p-card-padding rounded-2xl stagger-entry stagger-entry-7">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">الحجوزات - 7 أيام</h3>
+          </div>
+          <div class="relative w-full h-72">
+            <canvas id="bookingsTrendChart"></canvas>
+          </div>
+        </div>` : `
         <div class="glass-card p-card-padding rounded-2xl stagger-entry stagger-entry-7">
           <div class="flex justify-between items-center mb-6">
             <h3 class="font-headline-md text-[18px] text-on-surface font-beVietnamPro">الحجوزات والإيرادات - 7 أيام</h3>
@@ -249,7 +293,7 @@ export class DashboardScreen {
           <div class="relative w-full h-72">
             <canvas id="trendChart"></canvas>
           </div>
-        </div>
+        </div>`}
         <!-- Row 4: Quick Actions -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/bookings/new">
@@ -258,24 +302,38 @@ export class DashboardScreen {
             </div>
             <span class="font-label-sm text-on-surface font-semibold">حجز جديد</span>
           </button>
+          ${isReception ? `
+          <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/pos">
+            <div class="w-14 h-14 rounded-2xl bg-secondary-container/10 group-hover:bg-secondary-container/20 flex items-center justify-center transition-all text-secondary group-hover:scale-110">
+              <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0">point_of_sale</span>
+            </div>
+            <span class="font-label-sm text-on-surface font-semibold">نقاط البيع</span>
+          </button>` : `
           <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/invoices">
             <div class="w-14 h-14 rounded-2xl bg-secondary-container/10 group-hover:bg-secondary-container/20 flex items-center justify-center transition-all text-secondary group-hover:scale-110">
               <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0">receipt_long</span>
             </div>
             <span class="font-label-sm text-on-surface font-semibold">فاتورة جديدة</span>
-          </button>
+          </button>`}
           <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/customers">
             <div class="w-14 h-14 rounded-2xl bg-info/10 group-hover:bg-info/20 flex items-center justify-center transition-all text-info group-hover:scale-110">
               <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0">person_add</span>
             </div>
             <span class="font-label-sm text-on-surface font-semibold">عميل جديد</span>
           </button>
+          ${isReception ? `
+          <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/expenses">
+            <div class="w-14 h-14 rounded-2xl bg-tertiary/10 group-hover:bg-tertiary/20 flex items-center justify-center transition-all text-tertiary group-hover:scale-110">
+              <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0">receipt</span>
+            </div>
+            <span class="font-label-sm text-on-surface font-semibold">تسجيل مصروف</span>
+          </button>` : `
           <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center justify-center gap-3 group" data-route="/inventory">
             <div class="w-14 h-14 rounded-2xl bg-tertiary/10 group-hover:bg-tertiary/20 flex items-center justify-center transition-all text-tertiary group-hover:scale-110">
               <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0">build</span>
             </div>
             <span class="font-label-sm text-on-surface font-semibold">تحديث المخزون</span>
-          </button>
+          </button>`}
         </div>
         <!-- Row 4: Two Columns -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -329,7 +387,7 @@ export class DashboardScreen {
 
     content.querySelector('#revenue-more')?.addEventListener('click', () => this.router.navigate('/reports/revenue'))
     content.querySelector('#status-more')?.addEventListener('click', () => this.router.navigate('/bookings'))
-    content.querySelector('#view-all-activity')?.addEventListener('click', () => this.router.navigate('/notifications'))
+    content.querySelector('#view-all-activity')?.addEventListener('click', () => this.router.navigate(isReception ? '/bookings' : '/notifications'))
     content.querySelector('#error-retry-btn')?.addEventListener('click', () => this.loadData(content))
     content.querySelector('#dashboard-retry')?.addEventListener('click', () => this.loadData(content))
     content.querySelector('#dashboard-fab')?.addEventListener('click', () => this.router.navigate('/bookings/new'))
@@ -364,8 +422,10 @@ export class DashboardScreen {
 
       const d = kpiRes.data
 
-      // KPI: Revenue
+      // KPI: Revenue (absent for reception)
       this.setText(el, 'kpi-revenue', this.fmtNumber(d.todayRevenue || 0))
+      this.setText(el, 'kpi-bookings-today', d.bookingsToday?.toString() || '0')
+      this.setText(el, 'kpi-cars-workshop', d.carsInWorkshop?.toString() || '0')
 
       // KPI: Bookings
       this.setText(el, 'kpi-bookings', d.totalBookings?.toString() || '0')
@@ -492,15 +552,14 @@ export class DashboardScreen {
   }
 
   private initCharts(d: any) {
-    const revCanvas = document.getElementById('revenueChart') as HTMLCanvasElement
-    const statusCanvas = document.getElementById('statusChart') as HTMLCanvasElement
-    if (!revCanvas || !statusCanvas) return
+    const revCanvas = document.getElementById('revenueChart') as HTMLCanvasElement | null
+    const statusCanvas = document.getElementById('statusChart') as HTMLCanvasElement | null
 
     const Chart = (window as any).Chart
     if (!Chart) return
 
-    // Revenue Bar Chart
-    new Chart(revCanvas.getContext('2d'), {
+    // Revenue Bar Chart (not rendered for reception)
+    if (revCanvas) new Chart(revCanvas.getContext('2d'), {
       type: 'bar',
       data: {
         labels: d.revenueByDay?.map((r: any) => {
@@ -577,7 +636,7 @@ export class DashboardScreen {
       total += knownKeys.has(key) ? 0 : (count || 0)
     })
 
-    new Chart(statusCanvas.getContext('2d'), {
+    if (statusCanvas) new Chart(statusCanvas.getContext('2d'), {
       type: 'doughnut',
       data: {
         labels: chartLabels,
@@ -663,6 +722,42 @@ export class DashboardScreen {
               grid: { display: false },
               ticks: { font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' }
             }
+          }
+        }
+      })
+    }
+
+    // Bookings-only trend chart (reception view - no revenue data)
+    const bookingsTrendCanvas = document.getElementById('bookingsTrendChart') as HTMLCanvasElement | null
+    if (bookingsTrendCanvas) {
+      const labels = d.bookingsByDay?.map((b: any) => {
+        const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+        const date = b.date ? new Date(b.date) : null
+        return date && !isNaN(date.getTime()) ? dayNames[date.getDay()] : ''
+      }) || []
+      const bookingsData = d.bookingsByDay?.map((b: any) => b.count || 0) || []
+      new Chart(bookingsTrendCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'الحجوزات',
+            data: bookingsData,
+            borderColor: '#003594',
+            backgroundColor: 'rgba(0, 53, 148, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'top', labels: { font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' } } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#E2E8F0', borderDash: [5, 5] }, ticks: { font: { family: 'JetBrains Mono' }, color: '#94A3B8' } },
+            x: { grid: { display: false }, ticks: { font: { family: 'IBM Plex Sans Arabic' }, color: '#475569' } }
           }
         }
       })

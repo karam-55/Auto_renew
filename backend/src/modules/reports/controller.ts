@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { ReportService } from './service';
 import { AuthRequest } from '../../shared/middlewares/auth';
-import { CacheService } from '../../api/services/cache.service';
 import { Logger } from '../../infrastructure/logging/logger';
+import { ProfitabilityService } from './profitability.service';
 import {
   BalanceSheetRequest,
   ProfitLossRequest,
@@ -12,11 +12,22 @@ import {
   AgedPayablesRequest,
 } from './types';
 
+function parseReportDate(value: unknown, fallback: Date, endOfDay = false): Date {
+  if (value == null || value === '') return fallback;
+  const raw = String(value);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  return new Date(dateOnly
+    ? `${raw}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`
+    : raw);
+}
+
 export class ReportController {
   private reportService: ReportService;
+  private profitabilityService: ProfitabilityService;
 
   constructor() {
     this.reportService = new ReportService();
+    this.profitabilityService = new ProfitabilityService();
   }
 
   // ============================================
@@ -28,13 +39,9 @@ export class ReportController {
       const tenantId = req.user!.tenantId;
 
       // Handle date parameters with defaults
-      const fromDate = req.query.fromDate
-        ? new Date(req.query.fromDate as string)
-        : new Date(new Date().getFullYear(), 0, 1); // Start of current year
-
-      const toDate = req.query.toDate
-        ? new Date(req.query.toDate as string)
-        : new Date(); // Current date
+      const now = new Date();
+      const fromDate = parseReportDate(req.query.fromDate, new Date(Date.UTC(now.getUTCFullYear(), 0, 1)));
+      const toDate = parseReportDate(req.query.toDate, now, true);
 
       // Validate dates
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
@@ -51,11 +58,7 @@ export class ReportController {
         currency: req.query.currency as string,
       };
 
-      // Cache key includes date range for cache invalidation
-      const cacheKey = CacheService.generateKey('reports', tenantId, `balance-sheet:${fromDate.toISOString()}:${toDate.toISOString()}`);
-      const report = await CacheService.getOrSet(cacheKey, 300, async () => {
-        return this.reportService.generateBalanceSheet(tenantId, request);
-      });
+      const report = await this.reportService.generateBalanceSheet(tenantId, request);
 
       res.status(200).json({
         success: true,
@@ -74,8 +77,8 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: BalanceSheetRequest = {
-        fromDate: new Date(req.query.fromDate as string),
-        toDate: new Date(req.query.toDate as string),
+        fromDate: parseReportDate(req.query.fromDate, new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1))),
+        toDate: parseReportDate(req.query.toDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -97,8 +100,8 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: BalanceSheetRequest = {
-        fromDate: new Date(req.query.fromDate as string),
-        toDate: new Date(req.query.toDate as string),
+        fromDate: parseReportDate(req.query.fromDate, new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1))),
+        toDate: parseReportDate(req.query.toDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -125,13 +128,9 @@ export class ReportController {
       const tenantId = req.user!.tenantId;
       
       // Handle date parameters with defaults
-      const fromDate = req.query.fromDate 
-        ? new Date(req.query.fromDate as string) 
-        : new Date(new Date().getFullYear(), 0, 1); // Start of current year
-      
-      const toDate = req.query.toDate 
-        ? new Date(req.query.toDate as string) 
-        : new Date(); // Current date
+      const now = new Date();
+      const fromDate = parseReportDate(req.query.fromDate, new Date(Date.UTC(now.getUTCFullYear(), 0, 1)));
+      const toDate = parseReportDate(req.query.toDate, now, true);
       
       // Validate dates
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
@@ -171,8 +170,8 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: CashFlowRequest = {
-        fromDate: new Date(req.query.fromDate as string),
-        toDate: new Date(req.query.toDate as string),
+        fromDate: parseReportDate(req.query.fromDate, new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1))),
+        toDate: parseReportDate(req.query.toDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -199,8 +198,8 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: TrialBalanceRequest = {
-        fromDate: new Date(req.query.fromDate as string),
-        toDate: new Date(req.query.toDate as string),
+        fromDate: parseReportDate(req.query.fromDate, new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1))),
+        toDate: parseReportDate(req.query.toDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -227,7 +226,7 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: AgedReceivablesRequest = {
-        asOfDate: req.query.asOfDate ? new Date(req.query.asOfDate as string) : new Date(),
+        asOfDate: parseReportDate(req.query.asOfDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -254,7 +253,7 @@ export class ReportController {
     try {
       const tenantId = req.user!.tenantId;
       const request: AgedPayablesRequest = {
-        asOfDate: req.query.asOfDate ? new Date(req.query.asOfDate as string) : new Date(),
+        asOfDate: parseReportDate(req.query.asOfDate, new Date(), true),
         currency: req.query.currency as string,
       };
 
@@ -270,6 +269,36 @@ export class ReportController {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to generate aged payables report',
       });
+    }
+  };
+
+  getCustomerStatement = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const from = parseReportDate(req.query.from, new Date(0));
+      const to = parseReportDate(req.query.to, new Date(), true);
+      const data = await this.reportService.getCustomerStatement(
+        req.user!.tenantId,
+        req.params.customerId,
+        req.query.from ? from : undefined,
+        req.query.to ? to : undefined,
+      );
+      res.json({ success: true, data });
+    } catch (error: any) {
+      Logger.error('Get customer statement error', error);
+      res.status(400).json({ success: false, message: error.message || 'Failed to load customer statement' });
+    }
+  };
+
+  getCashBankMovement = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const role = req.query.account === 'BANK' ? 'BANK' : 'CASH';
+      const from = parseReportDate(req.query.from, new Date(0));
+      const to = parseReportDate(req.query.to, new Date(), true);
+      const data = await this.reportService.getCashBankMovement(req.user!.tenantId, role, req.query.from ? from : undefined, req.query.to ? to : undefined);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      Logger.error('Get cash/bank movement error', error);
+      res.status(400).json({ success: false, message: error.message || 'Failed to load cash/bank movement' });
     }
   };
 
@@ -307,10 +336,10 @@ export class ReportController {
       const branchId = req.query.branchId as string | undefined;
       const branchContext = (req as any).branchContext;
       const effectiveBranchId = branchId || branchContext?.branchId;
-      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
-      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
+      const fromDate = parseReportDate(req.query.from, new Date(0));
+      const toDate = parseReportDate(req.query.to, new Date(), true);
 
-      const report = await this.reportService.getPartsConsumptionReport(tenantId, effectiveBranchId, fromDate, toDate);
+      const report = await this.reportService.getPartsConsumptionReport(tenantId, effectiveBranchId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined);
 
       res.status(200).json({
         success: true,
@@ -331,11 +360,11 @@ export class ReportController {
       const branchId = req.query.branchId as string | undefined;
       const branchContext = (req as any).branchContext;
       const effectiveBranchId = branchId || branchContext?.branchId;
-      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
-      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
+      const fromDate = parseReportDate(req.query.from, new Date(0));
+      const toDate = parseReportDate(req.query.to, new Date(), true);
       const type = req.query.type as string | undefined;
 
-      const report = await this.reportService.getStockMovementsReport(tenantId, effectiveBranchId, fromDate, toDate, type);
+      const report = await this.reportService.getStockMovementsReport(tenantId, effectiveBranchId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined, type);
 
       res.status(200).json({
         success: true,
@@ -356,10 +385,10 @@ export class ReportController {
       const branchId = req.query.branchId as string | undefined;
       const branchContext = (req as any).branchContext;
       const effectiveBranchId = branchId || branchContext?.branchId;
-      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
-      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
+      const fromDate = parseReportDate(req.query.from, new Date(0));
+      const toDate = parseReportDate(req.query.to, new Date(), true);
 
-      const report = await this.reportService.getServiceCostReport(tenantId, effectiveBranchId, fromDate, toDate);
+      const report = await this.reportService.getServiceCostReport(tenantId, effectiveBranchId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined);
 
       res.status(200).json({
         success: true,
@@ -380,10 +409,15 @@ export class ReportController {
       const branchId = req.query.branchId as string | undefined;
       const branchContext = (req as any).branchContext;
       const effectiveBranchId = branchId || branchContext?.branchId;
-      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
-      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
+      const fromDate = parseReportDate(req.query.from, new Date(0));
+      const toDate = parseReportDate(req.query.to, new Date(), true);
 
-      const report = await this.reportService.getProfitabilityReport(tenantId, effectiveBranchId, fromDate, toDate);
+      const [services, workOrders, departments] = await Promise.all([
+        this.profitabilityService.calculateServiceProfit(tenantId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined),
+        this.profitabilityService.calculateWorkOrderProfit(tenantId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined),
+        this.profitabilityService.calculateDepartmentProfit(tenantId, req.query.from ? fromDate : undefined, req.query.to ? toDate : undefined),
+      ]);
+      const report = { services, workOrders, departments, branchId: effectiveBranchId || null };
 
       res.status(200).json({
         success: true,

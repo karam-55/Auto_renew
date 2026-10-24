@@ -10,6 +10,7 @@ jest.mock('../../src/config/database', () => {
       update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), count: jest.fn(),
     },
     inventoryTransaction: { count: jest.fn(), create: jest.fn(), findFirst: jest.fn() },
+    supplier: { findFirst: jest.fn(), update: jest.fn() },
     purchaseOrderItem: { count: jest.fn() },
     invoiceItem: { count: jest.fn() },
   };
@@ -27,6 +28,7 @@ jest.mock('../../src/services/settings.service', () => ({
 }));
 jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
   createStockIntakeJournalEntry: jest.fn().mockResolvedValue({ id: 'stock-entry' }),
+  createStockRevaluationJournalEntry: jest.fn().mockResolvedValue(null),
   createInventoryAdjustmentJournalEntry: jest.fn().mockResolvedValue({ id: 'adjustment-entry' }),
   ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
@@ -41,6 +43,8 @@ describe('PartService', () => {
     (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
     (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({ id: 'movement-1' });
+    (prisma.supplier.findFirst as jest.Mock).mockResolvedValue({ id: 'supplier-1', name: 'Supplier', isActive: true });
+    (prisma.supplier.update as jest.Mock).mockResolvedValue({});
   });
 
   describe('createPart', () => {
@@ -88,6 +92,7 @@ describe('PartService', () => {
       const partData = {
         partNumber: 'BRK-001',
         name: 'Brake Pad copy',
+        supplierId: 'supplier-1',
         costSYP: 50000,
         sellingPriceSYP: 75000,
       };
@@ -110,10 +115,21 @@ describe('PartService', () => {
       expect(prisma.part.create).not.toHaveBeenCalled();
     });
 
+    it('requires a supplier for every new material', async () => {
+      await expect(partService.createPart(mockTenantId, {
+        partNumber: 'NO-SUPPLIER',
+        name: 'Material without supplier',
+        costSYP: 100,
+        sellingPriceSYP: 150,
+      } as any)).rejects.toThrow('A supplier is required for every inventory item');
+      expect(prisma.part.create).not.toHaveBeenCalled();
+    });
+
     it('should create part with minimal required fields', async () => {
       const partData = {
         partNumber: 'OIL-001',
         name: 'Engine Oil',
+        supplierId: 'supplier-1',
         costSYP: 25000,
         sellingPriceSYP: 35000,
       };
@@ -127,7 +143,7 @@ describe('PartService', () => {
         nameEn: null,
         description: null,
         categoryId: null,
-        supplierId: null,
+        supplierId: 'supplier-1',
         costSYP: partData.costSYP,
         costUSD: 179.86,
         sellingPriceSYP: 35000,
@@ -366,7 +382,10 @@ describe('PartService', () => {
 
       expect(prisma.part.findFirst).toHaveBeenCalledWith({
         where: { id: 'part-1', tenantId: mockTenantId },
-        include: { category: { select: { id: true, name: true } } },
+        include: {
+          category: { select: { id: true, name: true } },
+          supplier: { select: { name: true } },
+        },
       });
       expect(result).toMatchObject(mockPart);
     });
@@ -391,6 +410,7 @@ describe('PartService', () => {
       const mockExistingPart = {
         id: partId,
         tenantId: mockTenantId,
+        supplierId: 'supplier-1',
         partNumber: 'BRK-001',
         name: 'Brake Pad',
         costSYP: 50000,
@@ -443,7 +463,7 @@ describe('PartService', () => {
       const partId = 'part-1';
       const updateData = { partNumber: 'BRK-002' };
       const mockExistingPart = {
-        id: partId, tenantId: mockTenantId, partNumber: 'BRK-001', name: 'Brake Pad',
+        id: partId, tenantId: mockTenantId, supplierId: 'supplier-1', partNumber: 'BRK-001', name: 'Brake Pad',
         costSYP: 0, costUSD: 0, sellingPriceSYP: 0, sellingPriceUSD: 0,
       };
       (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockExistingPart);
@@ -737,9 +757,9 @@ describe('PartService', () => {
   });
 
   describe('stockIntake', () => {
-    it('normalizes USD package costs, applies weighted average, and journals atomically', async () => {
+    it('normalizes USD package costs, applies last purchase price, and journals atomically', async () => {
       const part = {
-        id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', quantity: 0,
+        id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', supplierId: 'supplier-1', quantity: 0,
         costSYP: 0, costUSD: 0, unitsPerPackage: 10, purchaseUnitName: 'box', baseUnitName: 'piece',
         minQuantity: 1, isActive: true,
       };
@@ -770,7 +790,7 @@ describe('PartService', () => {
       }));
       expect(result.quantity).toBe(20);
       expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ idempotencyKey: 'stock-intake-1', reference: 'INTAKE:stock-intake-1:CASH:20:69.5:0.5' }),
+        data: expect.objectContaining({ idempotencyKey: 'stock-intake-1', supplierId: 'supplier-1', reference: 'INTAKE:stock-intake-1:supplier-1:CASH:20:69.5:0.5' }),
       }));
       const { createStockIntakeJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
       expect(createStockIntakeJournalEntry).toHaveBeenCalledWith(
@@ -780,13 +800,13 @@ describe('PartService', () => {
 
     it('returns the original result when a stock-intake request is retried with the same key', async () => {
       const part = {
-        id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', quantity: 0,
+        id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', supplierId: 'supplier-1', quantity: 0,
         costSYP: 0, costUSD: 0, minQuantity: 1, isActive: true,
       };
       const updatedPart = { ...part, quantity: 5, costSYP: 278, costUSD: 2 };
       const movement = {
         id: 'stock-in-1', partId: 'part-1', quantity: 5, costSYP: 278, costUSD: 2,
-        reference: 'INTAKE:key-1:BANK:5:278:2',
+        reference: 'INTAKE:key-1:supplier-1:BANK:5:278:2',
       };
       (prisma.part.findFirst as jest.Mock)
         .mockResolvedValueOnce(part)
@@ -810,6 +830,47 @@ describe('PartService', () => {
       expect(prisma.inventoryTransaction.create).toHaveBeenCalledTimes(1);
       const { createStockIntakeJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
       expect(createStockIntakeJournalEntry).toHaveBeenCalledTimes(1);
+    });
+
+    it('links the actual receipt supplier and increases payable balance for credit purchases', async () => {
+      const part = {
+        id: 'part-1', tenantId: mockTenantId, name: 'زيت محرك', supplierId: 'supplier-1',
+        quantity: 0, costSYP: 0, costUSD: 0, minQuantity: 1, isActive: true,
+      };
+      const updatedPart = { ...part, quantity: 5, costSYP: 100, costUSD: 0.72 };
+      const transaction = {
+        id: 'stock-in-payable',
+        partId: part.id,
+        supplierId: 'supplier-1',
+        quantity: 5,
+        costSYP: 100,
+        costUSD: 0.72,
+      };
+      (prisma.part.findFirst as jest.Mock)
+        .mockResolvedValueOnce(part)
+        .mockResolvedValueOnce(updatedPart);
+      (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue(transaction);
+
+      await partService.stockIntake('part-1', mockTenantId, {
+        supplierId: 'supplier-1',
+        units: 5,
+        unitCostSYP: 100,
+        settlementAccount: 'PAYABLE',
+        idempotencyKey: 'supplier-credit-receipt',
+      }, 'user-1');
+
+      expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ supplierId: 'supplier-1' }),
+      }));
+      expect(prisma.supplier.update).toHaveBeenCalledWith({
+        where: { id: 'supplier-1' },
+        data: { balance: { increment: 500 } },
+      });
+      const { createStockIntakeJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
+      expect(createStockIntakeJournalEntry).toHaveBeenCalledWith(
+        transaction, mockTenantId, 'PAYABLE', 'user-1', prisma
+      );
     });
   });
 

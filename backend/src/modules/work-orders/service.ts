@@ -1,236 +1,355 @@
+import { WorkOrderStatus } from '@prisma/client';
 import prisma from '../../config/database';
-import { Logger } from '../../infrastructure/logging/logger';
-
-export interface CreateWorkOrderDto {
-  tenantId: string;
-  title: string;
-  description?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  dueDate?: Date;
-  bookingId?: string;
-  assignedTo?: string;
-}
-
-export interface UpdateWorkOrderDto {
-  title?: string;
-  description?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  dueDate?: Date;
-  assignedTo?: string;
-}
+import settingsService from '../../services/settings.service';
+import { isValidQuantity } from '../../utils/quantity';
+import { InvoiceService } from '../invoices/service';
 
 export interface WorkOrderFilters {
-  status?: string;
-  priority?: string;
-  bookingId?: string;
-  assignedTo?: string;
+  status?: WorkOrderStatus;
   search?: string;
   page?: number;
   limit?: number;
 }
 
-export class WorkOrderService {
-  async getAllWorkOrders(tenantId: string, filters: WorkOrderFilters = {}) {
-    const { status, priority, bookingId, assignedTo, search, page = 1, limit = 20 } = filters;
+const workOrderInclude = {
+  booking: {
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true } },
+      vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true } },
+      bookingServices: {
+        where: { deletedAt: null },
+        include: {
+          service: true,
+          materials: { include: { part: true } },
+          expenses: {
+            where: { deletedAt: null, category: 'JOB_PURCHASE' },
+            include: { supplier: { select: { id: true, name: true } } },
+            orderBy: { expenseDate: 'asc' as const },
+          },
+        },
+        orderBy: { createdAt: 'asc' as const },
+      },
+      invoices: { orderBy: { createdAt: 'desc' as const }, take: 1 },
+    },
+  },
+};
 
-    const where: any = { tenantId, deletedAt: null };
+export class WorkOrderService {
+  private invoiceService = new InvoiceService();
+
+  async getAllWorkOrders(tenantId: string, filters: WorkOrderFilters = {}) {
+    const { status, search, page = 1, limit = 50 } = filters;
+    const where: any = { tenantId };
     if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (bookingId) where.bookingId = bookingId;
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      where.booking = {
+        OR: [
+          { customer: { fullName: { contains: search, mode: 'insensitive' } } },
+          { vehicle: { model: { contains: search, mode: 'insensitive' } } },
+          { vehicle: { licensePlate: { contains: search, mode: 'insensitive' } } },
+        ],
+      };
     }
 
     const skip = (page - 1) * limit;
-
     const [data, total] = await Promise.all([
-      prisma.task.findMany({
+      prisma.workOrder.findMany({
         where,
-        include: {
-          Booking: {
-            include: {
-              customer: { select: { id: true, fullName: true, phone: true } },
-              vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
-            },
-          },
-          assignments: {
-            include: {
-              User: { select: { id: true, fullName: true, phone: true } },
-            },
-          },
-        },
+        include: workOrderInclude,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.task.count({ where }),
+      prisma.workOrder.count({ where }),
     ]);
 
     return {
-      data: data.map(this.mapToWorkOrder),
+      data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async getWorkOrderById(tenantId: string, id: string) {
-    const task = await prisma.task.findFirst({
-      where: { id, tenantId, deletedAt: null },
-      include: {
-        Booking: {
-          include: {
-            customer: { select: { id: true, fullName: true, phone: true } },
-            vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
-          },
-        },
-        assignments: {
-          include: {
-            User: { select: { id: true, fullName: true, phone: true } },
-          },
-        },
-      },
+    const workOrder = await prisma.workOrder.findFirst({
+      where: { id, tenantId },
+      include: workOrderInclude,
     });
-
-    if (!task) throw new Error('Work order not found');
-    return this.mapToWorkOrder(task);
+    if (!workOrder) throw new Error('Work order not found');
+    const jobCosts = await prisma.bookingJobCost.findMany({
+      where: { tenantId, bookingId: workOrder.bookingId },
+    });
+    return { ...workOrder, jobCosts };
   }
 
-  async createWorkOrder(tenantId: string, data: CreateWorkOrderDto) {
-    const { assignedTo, ...taskData } = data;
-
-    const task = await prisma.task.create({
-      data: {
-        ...taskData,
-        priority: (taskData.priority || 'MEDIUM') as any,
-        status: (taskData.status || 'PENDING') as any,
-      },
-      include: {
-        Booking: {
-          include: {
-            customer: { select: { id: true, fullName: true, phone: true } },
-            vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
-          },
-        },
-        assignments: {
-          include: {
-            User: { select: { id: true, fullName: true, phone: true } },
-          },
-        },
-      },
+  async getWorkOrderByBooking(tenantId: string, bookingId: string) {
+    const workOrder = await prisma.workOrder.findFirst({
+      where: { tenantId, bookingId },
+      include: workOrderInclude,
     });
+    if (!workOrder) throw new Error('Work order not found');
+    const jobCosts = await prisma.bookingJobCost.findMany({ where: { tenantId, bookingId } });
+    return { ...workOrder, jobCosts };
+  }
 
-    if (assignedTo) {
-      await prisma.taskAssignment.create({
-        data: { taskId: task.id, userId: assignedTo },
-      });
+  async ensureForBooking(tenantId: string, bookingId: string, createdById?: string) {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!booking) throw new Error('Booking not found');
+
+    return prisma.workOrder.upsert({
+      where: { bookingId },
+      create: { tenantId, bookingId, createdById: createdById || null },
+      update: {},
+      include: workOrderInclude,
+    });
+  }
+
+  async createWorkOrder(tenantId: string, data: { bookingId: string; createdById?: string }) {
+    if (!data.bookingId) throw new Error('A booking is required for a work order');
+    return this.ensureForBooking(tenantId, data.bookingId, data.createdById);
+  }
+
+  async setServicePrice(
+    tenantId: string,
+    workOrderId: string,
+    bookingServiceId: string,
+    input: { priceSYP?: number; priceUSD?: number; quantity?: number }
+  ) {
+    const workOrder = await prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, bookingId: true, status: true },
+    });
+    if (!workOrder) throw new Error('Work order not found');
+    if (['COMPLETED', 'CANCELLED'].includes(workOrder.status)) {
+      throw new Error('A closed work order cannot be repriced');
     }
 
-    return this.mapToWorkOrder(task);
+    const line = await prisma.bookingService.findFirst({
+      where: { id: bookingServiceId, bookingId: workOrder.bookingId, deletedAt: null },
+      select: { id: true, quantity: true },
+    });
+    if (!line) throw new Error('Service is not part of this work order');
+
+    const quantity = input.quantity == null ? Number(line.quantity) : Number(input.quantity);
+    if (!isValidQuantity(quantity)) throw new Error('Service quantity must be positive and use at most three decimals');
+    let priceSYP = Number(input.priceSYP ?? 0);
+    let priceUSD = input.priceUSD == null ? null : Number(input.priceUSD);
+    if (!Number.isFinite(priceSYP) || priceSYP < 0 || (priceUSD != null && (!Number.isFinite(priceUSD) || priceUSD < 0))) {
+      throw new Error('Service price cannot be negative');
+    }
+
+    const rate = await settingsService.getRequiredExchangeRate(tenantId);
+    if (priceUSD != null && priceSYP === 0 && priceUSD > 0) {
+      priceSYP = Math.round(priceUSD * rate * 100) / 100;
+    } else if (priceSYP > 0 && (priceUSD == null || priceUSD === 0)) {
+      priceUSD = Math.round((priceSYP / rate) * 100) / 100;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.bookingService.update({
+        where: { id: bookingServiceId },
+        data: { priceSYP, priceUSD, quantity, priceFinalized: true },
+      });
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: {
+          status: workOrder.status === 'OPEN' ? 'IN_PROGRESS' : workOrder.status,
+          startedAt: workOrder.status === 'OPEN' ? new Date() : undefined,
+        },
+      });
+      return tx.bookingService.findUnique({
+        where: { id: bookingServiceId },
+        include: { service: true },
+      });
+    });
+    return updated;
   }
 
-  async updateWorkOrder(tenantId: string, id: string, data: UpdateWorkOrderDto) {
-    const existing = await prisma.task.findFirst({
-      where: { id, tenantId, deletedAt: null },
+  async addInventoryMaterial(
+    tenantId: string,
+    workOrderId: string,
+    input: { bookingServiceId: string; partId: string; quantity: number; quantityUnit?: 'BASE' | 'PACKAGE' }
+  ) {
+    const workOrder = await prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, bookingId: true, status: true },
     });
+    if (!workOrder) throw new Error('Work order not found');
+    if (['COMPLETED', 'CANCELLED'].includes(workOrder.status)) {
+      throw new Error('Materials cannot be added to a closed work order');
+    }
+
+    const bookingService = await prisma.bookingService.findFirst({
+      where: { id: input.bookingServiceId, bookingId: workOrder.bookingId, deletedAt: null },
+      select: { id: true, service: { select: { serviceType: true } } },
+    });
+    if (!bookingService) throw new Error('Service is not part of this work order');
+
+    const part = await prisma.part.findFirst({
+      where: { id: input.partId, tenantId, isActive: true, deletedAt: null },
+      select: { id: true, quantity: true, unitsPerPackage: true, purchaseUnitName: true, baseUnitName: true },
+    });
+    if (!part) throw new Error('Inventory item not found or inactive');
+
+    const enteredQuantity = Number(input.quantity);
+    if (!isValidQuantity(enteredQuantity)) throw new Error('Enter a positive quantity with at most three decimals');
+    const baseQuantity = input.quantityUnit === 'PACKAGE'
+      ? enteredQuantity * Number(part.unitsPerPackage || 0)
+      : enteredQuantity;
+    if (!isValidQuantity(baseQuantity)) throw new Error('Package conversion is not configured for this item');
+
+    const planned = await prisma.bookingServiceMaterial.findMany({
+      where: {
+        partId: part.id,
+        bookingService: { bookingId: workOrder.bookingId },
+      },
+      select: { quantity: true, issuedQuantity: true },
+    });
+    const alreadyPlanned = planned.reduce(
+      (sum, material) => sum + Math.max(0, Number(material.quantity) - Number(material.issuedQuantity || 0)),
+      0,
+    );
+    if (baseQuantity + alreadyPlanned > Number(part.quantity)) {
+      throw new Error(`Available stock is ${Number(part.quantity).toFixed(3)} ${part.baseUnitName || ''}`.trim());
+    }
+
+    const material = await prisma.$transaction(async (tx) => {
+      const createdMaterial = await tx.bookingServiceMaterial.create({
+        data: {
+          bookingServiceId: bookingService.id,
+          partId: part.id,
+          quantity: baseQuantity,
+        },
+        include: { part: true },
+      });
+      if (['OIL_PAID', 'OIL_WARRANTY'].includes(bookingService.service.serviceType)) {
+        await tx.bookingService.update({
+          where: { id: bookingService.id },
+          data: { priceSYP: 0, priceUSD: 0, priceFinalized: true },
+        });
+      }
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: {
+          status: workOrder.status === 'OPEN' ? 'IN_PROGRESS' : workOrder.status,
+          startedAt: workOrder.status === 'OPEN' ? new Date() : undefined,
+        },
+      });
+      return createdMaterial;
+    });
+    return material;
+  }
+
+  async updateWorkOrder(tenantId: string, id: string, data: { status?: string; notes?: string }) {
+    const existing = await prisma.workOrder.findFirst({ where: { id, tenantId } });
     if (!existing) throw new Error('Work order not found');
-
-    const { assignedTo, ...updateData } = data;
-
-    const task = await prisma.task.update({
+    if (data.status === 'COMPLETED') {
+      throw new Error('Use the finish-work-order action to create the invoice and close the order');
+    }
+    const updated = await prisma.workOrder.update({
       where: { id },
       data: {
-        ...updateData,
-        ...(updateData.priority && { priority: updateData.priority as any }),
-        ...(updateData.status && { status: updateData.status as any }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.status && { status: data.status as WorkOrderStatus }),
+        ...(data.status === 'IN_PROGRESS' && !existing.startedAt && { startedAt: new Date() }),
       },
-      include: {
-        Booking: {
-          include: {
-            customer: { select: { id: true, fullName: true, phone: true } },
-            vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
-          },
-        },
-        assignments: {
-          include: {
-            User: { select: { id: true, fullName: true, phone: true } },
-          },
-        },
-      },
+      include: workOrderInclude,
     });
+    return updated;
+  }
 
-    if (assignedTo) {
-      await prisma.taskAssignment.create({
-        data: { taskId: task.id, userId: assignedTo },
+  async completeWorkOrder(tenantId: string, id: string, userId: string) {
+    const workOrder = await prisma.workOrder.findFirst({
+      where: { id, tenantId },
+      include: { booking: { select: { id: true } } },
+    });
+    if (!workOrder) throw new Error('Work order not found');
+    if (workOrder.status === 'CANCELLED') throw new Error('A cancelled work order cannot be completed');
+
+    const serviceLines = await prisma.bookingService.findMany({
+      where: { bookingId: workOrder.bookingId, deletedAt: null },
+      include: { service: { select: { serviceType: true, priceSYP: true, priceUSD: true } } },
+    });
+    for (const line of serviceLines) {
+      if (line.priceFinalized || line.service.serviceType !== 'FIXED') continue;
+      const priceSYP = Number(line.service.priceSYP || 0);
+      const priceUSD = line.service.priceUSD == null ? 0 : Number(line.service.priceUSD);
+      if (priceSYP <= 0 && priceUSD <= 0) {
+        throw new Error('Set a sale price on the service catalog before completing this fixed-price operation');
+      }
+      const rate = await settingsService.getRequiredExchangeRate(tenantId);
+      await prisma.bookingService.update({
+        where: { id: line.id },
+        data: {
+          priceSYP: priceSYP > 0 ? priceSYP : Math.round(priceUSD * rate * 100) / 100,
+          priceUSD: priceUSD > 0 ? priceUSD : Math.round((priceSYP / rate) * 100) / 100,
+          priceFinalized: true,
+        },
       });
     }
 
-    return this.getWorkOrderById(tenantId, task.id);
+    const plannedMaterials = await prisma.bookingServiceMaterial.findMany({
+      where: { bookingService: { bookingId: workOrder.bookingId } },
+      select: { id: true, quantity: true, issuedQuantity: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      for (const material of plannedMaterials) {
+        const issuedQuantity = Number(material.issuedQuantity || 0);
+        if (issuedQuantity <= 0) {
+          await tx.bookingServiceMaterial.delete({ where: { id: material.id } });
+        } else if (issuedQuantity < Number(material.quantity)) {
+          await tx.bookingServiceMaterial.update({
+            where: { id: material.id },
+            data: { quantity: issuedQuantity },
+          });
+        }
+      }
+    });
+
+    const invoice = await this.invoiceService.createAndFinalizeWorkOrderInvoice(
+      tenantId,
+      workOrder.bookingId,
+      userId,
+    );
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { status: 'COMPLETED', completedAt: workOrder.completedAt || new Date() },
+      });
+      await tx.booking.update({
+        where: { id: workOrder.bookingId },
+        data: {
+          status: 'COMPLETED',
+          actualCompletionDate: new Date(),
+        },
+      });
+      return updatedOrder;
+    });
+    return { workOrder: updated, invoice };
   }
 
   async deleteWorkOrder(tenantId: string, id: string) {
-    const existing = await prisma.task.findFirst({
+    const existing = await prisma.workOrder.findFirst({
       where: { id, tenantId },
+      select: { id: true, status: true },
     });
     if (!existing) throw new Error('Work order not found');
-
-    await prisma.task.delete({
-      where: { id },
-    });
-
-    return { success: true };
+    if (existing.status === 'COMPLETED') throw new Error('Completed work orders cannot be deleted');
+    return prisma.workOrder.update({ where: { id }, data: { status: 'CANCELLED' } });
   }
 
   async getWorkOrderStats(tenantId: string) {
-    const [
-      total,
-      pending,
-      inProgress,
-      completed,
-      overdue,
-    ] = await Promise.all([
-      prisma.task.count({ where: { tenantId, deletedAt: null } }),
-      prisma.task.count({ where: { tenantId, deletedAt: null, status: 'PENDING' } }),
-      prisma.task.count({ where: { tenantId, deletedAt: null, status: 'IN_PROGRESS' } }),
-      prisma.task.count({ where: { tenantId, deletedAt: null, status: 'COMPLETED' } }),
-      prisma.task.count({
-        where: {
-          tenantId,
-          deletedAt: null,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
-          dueDate: { lt: new Date() },
-        },
-      }),
+    const [total, open, inProgress, ready, completed] = await Promise.all([
+      prisma.workOrder.count({ where: { tenantId } }),
+      prisma.workOrder.count({ where: { tenantId, status: 'OPEN' } }),
+      prisma.workOrder.count({ where: { tenantId, status: 'IN_PROGRESS' } }),
+      prisma.workOrder.count({ where: { tenantId, status: 'READY' } }),
+      prisma.workOrder.count({ where: { tenantId, status: 'COMPLETED' } }),
     ]);
-
-    return { total, pending, inProgress, completed, overdue };
-  }
-
-  private mapToWorkOrder(task: any) {
-    return {
-      id: task.id,
-      tenantId: task.tenantId,
-      title: task.title,
-      description: task.description,
-      priority: task.priority,
-      status: task.status,
-      dueDate: task.dueDate,
-      bookingId: task.bookingId,
-      booking: task.Booking
-        ? {
-            id: task.Booking.id,
-            customer: task.Booking.customer,
-            vehicle: task.Booking.vehicle,
-          }
-        : null,
-      assignedTo: task.assignments?.[0]?.User || null,
-      assignedAt: task.assignments?.[0]?.assignedAt || null,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-    };
+    return { total, open, inProgress, ready, completed };
   }
 }
 

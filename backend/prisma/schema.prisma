@@ -18,7 +18,9 @@ model Tenant {
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   accounts                 Account[]
+  accountPostingMaps       AccountPostingMap[]
   bookings                 Booking[]
+  workOrders               WorkOrder[]
   companySettings          CompanySettings?
   customers                Customer[]
   dealers                  Dealer[]
@@ -31,6 +33,7 @@ model Tenant {
   invoiceNumberSequences   InvoiceNumberSequence[]
   journalEntries           JournalEntry[]
   suppliers                Supplier[]
+  supplierPayments         SupplierPayment[]
   users                    User[]
   Vehicle                  Vehicle[]
   vehicleCategories        VehicleCategory[]
@@ -105,6 +108,7 @@ model Customer {
   bookings                 Booking[]
   tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices                 Invoice[]
+  journalLines             JournalLine[]
   vehicles                 Vehicle[]
   customerMemberships      CustomerMembership[]
   loyaltyPointTransactions LoyaltyPointTransaction[]
@@ -319,30 +323,43 @@ model VehicleRecommendation {
 }
 
 model ServiceCategory {
-  id          String    @id @default(uuid())
-  tenantId    String
-  name        String
-  nameAr      String
-  nameEn      String?
-  description String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  services    Service[]
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deletedAt   DateTime?
+  id               String      @id @default(uuid())
+  tenantId         String
+  name             String
+  nameAr           String
+  nameEn           String?
+  description      String?
+  revenueAccountId String?
+  costCenterId     String?
+  costAccountId    String?
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  services         Service[]
+  revenueAccount   Account?    @relation("ServiceCategoryRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
+  costCenter       CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  costAccount      Account?    @relation("ServiceCategoryCostAccount", fields: [costAccountId], references: [id], onDelete: SetNull)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deletedAt        DateTime?
 
   @@index([tenantId])
+  @@index([revenueAccountId])
+  @@index([costCenterId])
+  @@index([costAccountId])
 }
 
 model Service {
   id                       String                   @id @default(uuid())
   tenantId                 String
   categoryId               String?
+  code                     String?
   name                     String
   nameAr                   String?
   nameEn                   String?
   description              String?
+  pricingUnit              String?
+  vehicleType              String?
+  specification            String?
   priceSYP                 Decimal                  @db.Decimal(12, 2)
   priceUSD                 Decimal?                 @db.Decimal(12, 2)
   estimatedDurationMinutes Int?
@@ -374,19 +391,29 @@ model Service {
   department               Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   deletedAt                DateTime?
   serviceCosts             ServiceCostDetail[]
+  expenses                 Expense[]                @relation("ExpenseService")
+  revenueAccountId         String?
+  costAccountId            String?
+  revenueAccount           Account?                 @relation("ServiceRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
+  costAccount              Account?                 @relation("ServiceCostAccount", fields: [costAccountId], references: [id], onDelete: SetNull)
+  journalLines             JournalLine[]
+  inventoryTransactions    InventoryTransaction[]
   departmentId             String?
   assignedEmployeeId       String?
 
+  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([categoryId])
   @@index([departmentId])
+  @@index([revenueAccountId])
+  @@index([costAccountId])
 }
 
 model ServicePart {
   id        String    @id @default(uuid())
   serviceId String
   partId    String
-  quantity  Int
+  quantity  Decimal   @db.Decimal(12, 3)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   service   Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -399,30 +426,32 @@ model ServicePart {
 }
 
 model Booking {
-  id                      String               @id @default(uuid())
+  id                      String                 @id @default(uuid())
   tenantId                String
   branchId                String?
   customerId              String
   vehicleId               String
-  status                  BookingStatus        @default(PENDING)
-  publicToken             String               @unique
+  status                  BookingStatus          @default(PENDING)
+  publicToken             String                 @unique
   notes                   String?
   estimatedCompletionDate DateTime?
   actualCompletionDate    DateTime?
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
   priority                String?
-  paymentMethod           BookingPaymentMethod @default(CASH)
+  paymentMethod           BookingPaymentMethod   @default(CASH)
   scheduledDate           DateTime
   scheduledTime           String?
   appointmentLog          AppointmentLog?
   attachments             Attachment[]
-  customer                Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  tenant                  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch                  Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  vehicle                 Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  customer                Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                  Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  vehicle                 Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   bookingExtraCharges     BookingExtraCharge[]
-  bookingServices         BookingService[]     @relation("BookingServices")
+  bookingServices         BookingService[]       @relation("BookingServices")
+  inventoryTransactions   InventoryTransaction[]
+  journalLines            JournalLine[]
   electronicSignature     ElectronicSignature?
   invoices                Invoice[]
   mechanicAssignments     MechanicAssignment[]
@@ -431,6 +460,7 @@ model Booking {
   tasks                   Task[]
   schedules               TechnicianSchedule[]
   deletedAt               DateTime?
+  workOrder               WorkOrder?
 
   @@index([tenantId])
   @@index([branchId])
@@ -441,22 +471,28 @@ model Booking {
 }
 
 model BookingService {
-  id            String                   @id @default(uuid())
-  bookingId     String
-  serviceId     String
-  priceSYP      Decimal                  @db.Decimal(12, 2)
-  priceUSD      Decimal?                 @db.Decimal(12, 2)
-  notes         String?
+  id                    String                   @id @default(uuid())
+  bookingId             String
+  serviceId             String
+  priceSYP              Decimal                  @db.Decimal(12, 2)
+  priceUSD              Decimal?                 @db.Decimal(12, 2)
+  priceFinalized        Boolean                  @default(false)
+  quantity              Decimal                  @default(1) @db.Decimal(12, 3)
+  notes                 String?
   // Free-text name for CUSTOM services (e.g. خدمة مخصصة)
-  customName    String?
+  customName            String?
   // Comma-separated selected panels for PANELS services (تصويج)
-  panels        String?
-  createdAt     DateTime                 @default(now())
-  booking       Booking                  @relation("BookingServices", fields: [bookingId], references: [id], onDelete: Cascade)
-  service       Service                  @relation("BookingServices", fields: [serviceId], references: [id], onDelete: Cascade)
-  materials     BookingServiceMaterial[]
-  deletedAt     DateTime?
-  updatedAt     DateTime                 @updatedAt
+  panels                String?
+  createdAt             DateTime                 @default(now())
+  booking               Booking                  @relation("BookingServices", fields: [bookingId], references: [id], onDelete: Cascade)
+  service               Service                  @relation("BookingServices", fields: [serviceId], references: [id], onDelete: Cascade)
+  materials             BookingServiceMaterial[]
+  expenses              Expense[]                @relation("ExpenseBookingService")
+  invoiceItems          InvoiceItem[]
+  journalLines          JournalLine[]
+  inventoryTransactions InventoryTransaction[]
+  deletedAt             DateTime?
+  updatedAt             DateTime                 @updatedAt
 
   @@unique([bookingId, serviceId])
   @@index([bookingId])
@@ -466,13 +502,19 @@ model BookingService {
 // Stock materials attached to a booking service (oil litres, wash consumables).
 // On invoice sync they become part-priced invoice items that consume stock.
 model BookingServiceMaterial {
-  id              String         @id @default(uuid())
-  bookingServiceId String
-  partId          String
-  quantity        Decimal        @db.Decimal(12, 3)
-  bookingService  BookingService @relation(fields: [bookingServiceId], references: [id], onDelete: Cascade)
-  part            Part           @relation(fields: [partId], references: [id])
-  createdAt       DateTime       @default(now())
+  id                    String                 @id @default(uuid())
+  bookingServiceId      String
+  partId                String
+  quantity              Decimal                @db.Decimal(12, 3)
+  issuedQuantity        Decimal                @default(0) @db.Decimal(12, 3)
+  issuedCostSYP         Decimal                @default(0) @db.Decimal(15, 2)
+  issuedCostUSD         Decimal                @default(0) @db.Decimal(15, 2)
+  issuedAt              DateTime?
+  bookingService        BookingService         @relation(fields: [bookingServiceId], references: [id], onDelete: Cascade)
+  part                  Part                   @relation(fields: [partId], references: [id])
+  inventoryTransactions InventoryTransaction[]
+  invoiceItems          InvoiceItem[]
+  createdAt             DateTime               @default(now())
 
   @@index([bookingServiceId])
   @@index([partId])
@@ -537,6 +579,9 @@ model Supplier {
   grns                  GoodsReceiptNote[]
   parts                 Part[]
   purchaseOrders        PurchaseOrder[]
+  expenses              Expense[]
+  supplierPayments      SupplierPayment[]
+  journalLines          JournalLine[]
   inventoryTransactions InventoryTransaction[]
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deletedAt             DateTime?
@@ -546,24 +591,59 @@ model Supplier {
   @@index([isActive])
 }
 
+model SupplierPayment {
+  id               String    @id @default(uuid())
+  tenantId         String
+  supplierId       String
+  amountSYP        Decimal   @db.Decimal(15, 2)
+  amountUSD        Decimal?  @db.Decimal(15, 2)
+  paymentDate      DateTime
+  paymentMethod    String
+  reference        String?
+  notes            String?
+  originalAmount   Decimal?  @db.Decimal(15, 2)
+  originalCurrency String?
+  exchangeRateUsed Decimal?  @db.Decimal(18, 6)
+  idempotencyKey   String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier         Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, supplierId, paymentDate])
+  @@index([supplierId])
+}
+
 model PartCategory {
-  id          String         @id @default(uuid())
-  tenantId    String
-  name        String
-  nameAr      String?
-  nameEn      String?
-  parentId    String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  color       String?
-  description String?
-  icon        String?
-  parts       Part[]
-  parent      PartCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    PartCategory[] @relation("CategoryHierarchy")
-  deletedAt   DateTime?
+  id                 String         @id @default(uuid())
+  tenantId           String
+  name               String
+  nameAr             String?
+  nameEn             String?
+  parentId           String?
+  inventoryAccountId String?
+  costAccountId      String?
+  revenueAccountId   String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  color              String?
+  description        String?
+  icon               String?
+  parts              Part[]
+  parent             PartCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children           PartCategory[] @relation("CategoryHierarchy")
+  inventoryAccount   Account?       @relation("PartCategoryInventoryAccount", fields: [inventoryAccountId], references: [id], onDelete: SetNull)
+  costAccount        Account?       @relation("PartCategoryCostAccount", fields: [costAccountId], references: [id], onDelete: SetNull)
+  revenueAccount     Account?       @relation("PartCategoryRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
+  deletedAt          DateTime?
 
   @@index([tenantId])
+  @@index([inventoryAccountId])
+  @@index([costAccountId])
+  @@index([revenueAccountId])
 }
 
 model Part {
@@ -574,17 +654,20 @@ model Part {
   nameAr                  String?
   nameEn                  String?
   categoryId              String?
+  inventoryAccountId      String?
+  costAccountId           String?
+  revenueAccountId        String?
   supplierId              String?
   description             String?
   costSYP                 Decimal                  @db.Decimal(12, 2)
   costUSD                 Decimal?                 @db.Decimal(12, 2)
   sellingPriceSYP         Decimal                  @db.Decimal(12, 2)
   sellingPriceUSD         Decimal?                 @db.Decimal(12, 2)
-  quantity                Int                      @default(0)
-  minQuantity             Int                      @default(5)
+  quantity                Decimal                  @default(0) @db.Decimal(12, 3)
+  minQuantity             Decimal                  @default(5) @db.Decimal(12, 3)
   baseUnitName            String?
   purchaseUnitName        String?
-  unitsPerPackage         Int?
+  unitsPerPackage         Decimal?                @db.Decimal(12, 3)
   location                String?
   isActive                Boolean                  @default(true)
   createdAt               DateTime                 @default(now())
@@ -599,6 +682,9 @@ model Part {
   serviceParts            ServicePart[]
   transferItems           InventoryTransferItem[]
   category                PartCategory?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventoryAccount        Account?                 @relation("PartInventoryAccount", fields: [inventoryAccountId], references: [id], onDelete: SetNull)
+  costAccount             Account?                 @relation("PartCostAccount", fields: [costAccountId], references: [id], onDelete: SetNull)
+  revenueAccount          Account?                 @relation("PartRevenueAccount", fields: [revenueAccountId], references: [id], onDelete: SetNull)
   supplier                Supplier?                @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   purchaseOrderItems      PurchaseOrderItem[]
   deletedAt               DateTime?
@@ -606,6 +692,9 @@ model Part {
   @@index([tenantId])
   @@index([partNumber])
   @@index([categoryId])
+  @@index([inventoryAccountId])
+  @@index([costAccountId])
+  @@index([revenueAccountId])
   @@index([name])
 }
 
@@ -640,28 +729,38 @@ model Warehouse {
 }
 
 model InventoryTransaction {
-  id             String          @id @default(uuid())
-  tenantId       String
-  branchId       String?
-  partId         String
-  warehouseId    String?
-  supplierId     String?
-  type           TransactionType
-  quantity       Int
-  costSYP        Decimal         @db.Decimal(12, 2)
-  costUSD        Decimal?        @db.Decimal(12, 2)
-  reference      String?
-  notes          String?
-  invoiceId      String?
-  idempotencyKey String?
-  createdBy      String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  part           Part            @relation(fields: [partId], references: [id], onDelete: Cascade)
-  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  supplier       Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  deletedAt      DateTime?
+  id                       String                  @id @default(uuid())
+  tenantId                 String
+  branchId                 String?
+  partId                   String
+  warehouseId              String?
+  supplierId               String?
+  type                     TransactionType
+  quantity                 Decimal                 @db.Decimal(12, 3)
+  costSYP                  Decimal                 @db.Decimal(12, 2)
+  costUSD                  Decimal?                @db.Decimal(12, 2)
+  reference                String?
+  notes                    String?
+  invoiceId                String?
+  bookingId                String?
+  serviceId                String?
+  bookingServiceId         String?
+  bookingServiceMaterialId String?
+  costCenterId             String?
+  idempotencyKey           String?
+  createdBy                String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  part                     Part                    @relation(fields: [partId], references: [id], onDelete: Cascade)
+  warehouse                Warehouse?              @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  branch                   Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  supplier                 Supplier?               @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  booking                  Booking?                @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  service                  Service?                @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  bookingService           BookingService?         @relation(fields: [bookingServiceId], references: [id], onDelete: SetNull)
+  bookingServiceMaterial   BookingServiceMaterial? @relation(fields: [bookingServiceMaterialId], references: [id], onDelete: SetNull)
+  costCenter               CostCenter?             @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  deletedAt                DateTime?
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId])
@@ -672,6 +771,11 @@ model InventoryTransaction {
   @@index([type])
   @@index([partId, createdAt])
   @@index([invoiceId])
+  @@index([bookingId])
+  @@index([serviceId])
+  @@index([bookingServiceId])
+  @@index([bookingServiceMaterialId])
+  @@index([costCenterId])
 }
 
 model FiscalPeriod {
@@ -693,25 +797,36 @@ model FiscalPeriod {
 }
 
 model Account {
-  id           String           @id @default(uuid())
-  tenantId     String
-  code         String
-  nameAr       String
-  nameEn       String
-  parentId     String?
-  accountType  AccountType
-  category     AccountCategory?
-  isContra     Boolean          @default(false)
-  balanceSYP   Decimal          @default(0) @db.Decimal(15, 2)
-  balanceUSD   Decimal          @default(0) @db.Decimal(15, 2)
-  isActive     Boolean          @default(true)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  parent       Account?         @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children     Account[]        @relation("AccountHierarchy")
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  journalLines JournalLine[]
-  deletedAt    DateTime?
+  id                             String              @id @default(uuid())
+  tenantId                       String
+  code                           String
+  nameAr                         String
+  nameEn                         String
+  parentId                       String?
+  accountType                    AccountType
+  category                       AccountCategory?
+  isContra                       Boolean             @default(false)
+  balanceSYP                     Decimal             @default(0) @db.Decimal(15, 2)
+  balanceUSD                     Decimal             @default(0) @db.Decimal(15, 2)
+  isActive                       Boolean             @default(true)
+  createdAt                      DateTime            @default(now())
+  updatedAt                      DateTime            @updatedAt
+  parent                         Account?            @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children                       Account[]           @relation("AccountHierarchy")
+  tenant                         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journalLines                   JournalLine[]
+  postingMappings                AccountPostingMap[]
+  serviceCostMappings            Service[]           @relation("ServiceCostAccount")
+  serviceRevenueMappings         Service[]           @relation("ServiceRevenueAccount")
+  serviceCategoryCostMappings    ServiceCategory[]   @relation("ServiceCategoryCostAccount")
+  serviceCategoryRevenueMappings ServiceCategory[]   @relation("ServiceCategoryRevenueAccount")
+  partInventoryMappings          Part[]              @relation("PartInventoryAccount")
+  partCostMappings               Part[]              @relation("PartCostAccount")
+  partRevenueMappings            Part[]              @relation("PartRevenueAccount")
+  categoryInventoryMappings      PartCategory[]      @relation("PartCategoryInventoryAccount")
+  categoryCostMappings           PartCategory[]      @relation("PartCategoryCostAccount")
+  categoryRevenueMappings        PartCategory[]      @relation("PartCategoryRevenueAccount")
+  deletedAt                      DateTime?
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -720,30 +835,47 @@ model Account {
   @@index([category])
 }
 
+model AccountPostingMap {
+  id         String   @id @default(uuid())
+  tenantId   String
+  mappingKey String
+  accountId  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, mappingKey])
+  @@index([accountId])
+  @@index([tenantId, isActive])
+}
+
 model JournalEntry {
-  id             String             @id @default(uuid())
-  tenantId       String
-  entryDate      DateTime
-  reference      String?
-  description    String
-  isReversing    Boolean            @default(false)
-  reversingDate  DateTime?
-  isReversed     Boolean            @default(false)
-  fiscalPeriodId String?
-  sourceType     String?
-  sourceId       String?
-  createdById    String?
-  approvedById   String?
-  approvedAt     DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  status         JournalEntryStatus @default(DRAFT)
-  approvedBy     User?              @relation("JournalEntryApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  createdBy      User?              @relation("JournalEntryCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  fiscalPeriod   FiscalPeriod?      @relation(fields: [fiscalPeriodId], references: [id], onDelete: SetNull)
-  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  lines          JournalLine[]
-  deletedAt      DateTime?
+  id               String             @id @default(uuid())
+  tenantId         String
+  entryDate        DateTime
+  reference        String?
+  description      String
+  exchangeRateUsed Decimal?           @db.Decimal(18, 6)
+  isReversing      Boolean            @default(false)
+  reversingDate    DateTime?
+  isReversed       Boolean            @default(false)
+  fiscalPeriodId   String?
+  sourceType       String?
+  sourceId         String?
+  createdById      String?
+  approvedById     String?
+  approvedAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  status           JournalEntryStatus @default(DRAFT)
+  approvedBy       User?              @relation("JournalEntryApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy        User?              @relation("JournalEntryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  fiscalPeriod     FiscalPeriod?      @relation(fields: [fiscalPeriodId], references: [id], onDelete: SetNull)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines            JournalLine[]
+  deletedAt        DateTime?
 
   @@index([tenantId])
   @@index([entryDate])
@@ -752,27 +884,46 @@ model JournalEntry {
 }
 
 model JournalLine {
-  id          String       @id @default(uuid())
-  entryId     String
-  accountId   String
-  accountName String?
-  debitSYP    Decimal      @default(0) @db.Decimal(15, 2)
-  debitUSD    Decimal      @default(0) @db.Decimal(15, 2)
-  creditSYP   Decimal      @default(0) @db.Decimal(15, 2)
-  creditUSD   Decimal      @default(0) @db.Decimal(15, 2)
-  description String?
-  sourceType  String?
-  sourceId    String?
-  createdAt   DateTime     @default(now())
-  account     Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  deletedAt   DateTime?
-  updatedAt   DateTime     @updatedAt
+  id               String          @id @default(uuid())
+  entryId          String
+  accountId        String
+  bookingId        String?
+  serviceId        String?
+  bookingServiceId String?
+  costCenterId     String?
+  customerId       String?
+  supplierId       String?
+  dueDate          DateTime?
+  accountName      String?
+  debitSYP         Decimal         @default(0) @db.Decimal(15, 2)
+  debitUSD         Decimal         @default(0) @db.Decimal(15, 2)
+  creditSYP        Decimal         @default(0) @db.Decimal(15, 2)
+  creditUSD        Decimal         @default(0) @db.Decimal(15, 2)
+  description      String?
+  sourceType       String?
+  sourceId         String?
+  createdAt        DateTime        @default(now())
+  account          Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  entry            JournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  service          Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  bookingService   BookingService? @relation(fields: [bookingServiceId], references: [id], onDelete: SetNull)
+  costCenter       CostCenter?     @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  customer         Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier         Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  deletedAt        DateTime?
+  updatedAt        DateTime        @updatedAt
 
   @@index([entryId])
   @@index([accountId])
   @@index([sourceType, sourceId])
   @@index([accountId, createdAt])
+  @@index([bookingId])
+  @@index([serviceId])
+  @@index([bookingServiceId])
+  @@index([costCenterId])
+  @@index([customerId])
+  @@index([supplierId])
 }
 
 model Invoice {
@@ -841,26 +992,32 @@ model InvoiceNumberSequence {
 }
 
 model InvoiceItem {
-  id          String    @id @default(uuid())
-  invoiceId   String
-  partId      String?
-  serviceId   String?
-  description String
-  quantity    Int
-  priceSYP    Decimal   @db.Decimal(12, 2)
-  priceUSD    Decimal?  @db.Decimal(12, 2)
-  totalSYP    Decimal   @db.Decimal(12, 2)
-  totalUSD    Decimal?  @db.Decimal(12, 2)
-  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  part        Part?     @relation(fields: [partId], references: [id], onDelete: SetNull)
-  service     Service?  @relation("InvoiceItems", fields: [serviceId], references: [id], onDelete: SetNull)
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                       String                  @id @default(uuid())
+  invoiceId                String
+  partId                   String?
+  serviceId                String?
+  bookingServiceId         String?
+  bookingServiceMaterialId String?
+  description              String
+  quantity                 Decimal                 @db.Decimal(12, 3)
+  priceSYP                 Decimal                 @db.Decimal(12, 2)
+  priceUSD                 Decimal?                @db.Decimal(12, 2)
+  totalSYP                 Decimal                 @db.Decimal(12, 2)
+  totalUSD                 Decimal?                @db.Decimal(12, 2)
+  invoice                  Invoice                 @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  part                     Part?                   @relation(fields: [partId], references: [id], onDelete: SetNull)
+  service                  Service?                @relation("InvoiceItems", fields: [serviceId], references: [id], onDelete: SetNull)
+  bookingService           BookingService?         @relation(fields: [bookingServiceId], references: [id], onDelete: SetNull)
+  bookingServiceMaterial   BookingServiceMaterial? @relation(fields: [bookingServiceMaterialId], references: [id], onDelete: SetNull)
+  deletedAt                DateTime?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 
   @@index([invoiceId])
   @@index([partId])
   @@index([serviceId])
+  @@index([bookingServiceId])
+  @@index([bookingServiceMaterialId])
 }
 
 model Payment {
@@ -1430,6 +1587,23 @@ model Task {
   @@index([entityType, entityId])
 }
 
+model WorkOrder {
+  id          String          @id @default(uuid())
+  tenantId    String
+  bookingId   String          @unique
+  status      WorkOrderStatus @default(OPEN)
+  notes       String?
+  createdById String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+}
+
 model TaskAssignment {
   id          String    @id @default(uuid())
   taskId      String
@@ -1567,12 +1741,12 @@ model PurchaseOrderItem {
   tenantId        String
   purchaseOrderId String
   partId          String
-  quantity        Int
+  quantity        Decimal       @db.Decimal(12, 3)
   costSYP         Decimal       @db.Decimal(12, 2)
   costUSD         Decimal?      @db.Decimal(12, 2)
   totalSYP        Decimal       @db.Decimal(12, 2)
   totalUSD        Decimal?      @db.Decimal(12, 2)
-  receivedQty     Int           @default(0)
+  receivedQty     Decimal       @default(0) @db.Decimal(12, 3)
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   part            Part          @relation(fields: [partId], references: [id], onDelete: Cascade)
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
@@ -1598,6 +1772,7 @@ model GoodsReceiptNote {
   purchaseOrderId String
   grnNumber       String                 @unique
   receivedDate    DateTime               @default(now())
+  dueDate         DateTime?
   receivedBy      String
   notes           String?
   createdAt       DateTime               @default(now())
@@ -1625,9 +1800,9 @@ model GoodsReceiptNoteLine {
   tenantId         String
   grnId            String
   partId           String
-  orderedQuantity  Int
-  receivedQuantity Int
-  damagedQuantity  Int              @default(0)
+  orderedQuantity  Decimal          @db.Decimal(12, 3)
+  receivedQuantity Decimal          @db.Decimal(12, 3)
+  damagedQuantity  Decimal          @default(0) @db.Decimal(12, 3)
   unitCost         Decimal          @db.Decimal(12, 2)
   unitCostUSD      Decimal?         @db.Decimal(12, 2)
   totalCost        Decimal          @db.Decimal(12, 2)
@@ -1940,7 +2115,7 @@ model MaintenancePackageItem {
   packageId String
   partId    String?
   serviceId String?
-  quantity  Int
+  quantity  Decimal            @db.Decimal(12, 3)
   priceSYP  Decimal            @db.Decimal(12, 2)
   priceUSD  Decimal?           @db.Decimal(12, 2)
   tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2056,9 +2231,9 @@ model InventoryCountItem {
   tenantId    String
   countId     String
   partId      String
-  expectedQty Int
-  actualQty   Int
-  varianceQty Int
+  expectedQty Decimal        @db.Decimal(12, 3)
+  actualQty   Decimal        @db.Decimal(12, 3)
+  varianceQty Decimal        @db.Decimal(12, 3)
   unitCostSYP Decimal        @db.Decimal(12, 2)
   unitCostUSD Decimal?       @db.Decimal(12, 2)
   varianceSYP Decimal        @db.Decimal(15, 2)
@@ -2082,7 +2257,7 @@ model InventoryCountAdjustment {
   countId        String
   partId         String
   adjustmentType AdjustmentType
-  quantity       Int
+  quantity       Decimal        @db.Decimal(12, 3)
   costSYP        Decimal        @db.Decimal(12, 2)
   costUSD        Decimal?       @db.Decimal(12, 2)
   reason         String?
@@ -2357,6 +2532,14 @@ enum TaskStatus {
   CANCELLED
 }
 
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  READY
+  COMPLETED
+  CANCELLED
+}
+
 enum MileageType {
   ENTRY
   EXIT
@@ -2540,30 +2723,50 @@ model DataExport {
 }
 
 model Expense {
-  id                 String    @id @default(uuid())
+  id                 String          @id @default(uuid())
   tenantId           String
   category           String
   description        String
-  amountSYP          Decimal   @db.Decimal(12, 2)
-  amountUSD          Decimal?  @db.Decimal(12, 2)
+  amountSYP          Decimal         @db.Decimal(12, 2)
+  amountUSD          Decimal?        @db.Decimal(12, 2)
   expenseDate        DateTime
+  dueDate            DateTime?
   paymentMethod      String
   reference          String?
   notes              String?
   bookingId          String?
+  bookingServiceId   String?
+  serviceId          String?
+  costCenterId       String?
+  originalAmount     Decimal?        @db.Decimal(15, 2)
+  originalCurrency   String?
+  exchangeRateUsed   Decimal?        @db.Decimal(18, 6)
+  supplierId         String?
+  quantity           Decimal?        @db.Decimal(12, 3)
+  unitCostSYP        Decimal?        @db.Decimal(12, 2)
+  unitCostUSD        Decimal?        @db.Decimal(12, 2)
+  attachmentUrl      String?
   approvedBy         String?
   approvedAt         DateTime?
-  isRecurring        Boolean   @default(false)
+  isRecurring        Boolean         @default(false)
   recurringFrequency String?
-  createdAt          DateTime  @default(now())
+  bookingService     BookingService? @relation("ExpenseBookingService", fields: [bookingServiceId], references: [id], onDelete: SetNull)
+  service            Service?        @relation("ExpenseService", fields: [serviceId], references: [id], onDelete: SetNull)
+  costCenter         CostCenter?     @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  supplier           Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  createdAt          DateTime        @default(now())
   deletedAt          DateTime?
-  updatedAt          DateTime  @updatedAt
+  updatedAt          DateTime        @updatedAt
 
   @@index([tenantId])
   @@index([category])
   @@index([expenseDate])
   @@index([isRecurring])
   @@index([bookingId])
+  @@index([bookingServiceId])
+  @@index([serviceId])
+  @@index([costCenterId])
+  @@index([supplierId])
 }
 
 enum ScheduleStatus {
@@ -2742,7 +2945,7 @@ model InventoryTransferItem {
   tenantId   String
   transferId String
   partId     String
-  quantity   Int
+  quantity   Decimal           @db.Decimal(12, 3)
   createdAt  DateTime          @default(now())
   tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transfer   InventoryTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
@@ -3006,10 +3209,14 @@ model CostCenter {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  allocationsFrom CostCenterAllocation[] @relation("FromCenter")
-  allocationsTo   CostCenterAllocation[] @relation("ToCenter")
-  serviceCosts    ServiceCostDetail[]
-  jobCosts        BookingJobCost[]
+  allocationsFrom       CostCenterAllocation[] @relation("FromCenter")
+  allocationsTo         CostCenterAllocation[] @relation("ToCenter")
+  serviceCosts          ServiceCostDetail[]
+  jobCosts              BookingJobCost[]
+  serviceCategories     ServiceCategory[]
+  journalLines          JournalLine[]
+  inventoryTransactions InventoryTransaction[]
+  expenses              Expense[]
 
   @@index([tenantId])
   @@index([type])
@@ -3099,24 +3306,39 @@ model ServiceCostDetail {
 }
 
 model BookingJobCost {
-  id           String   @id @default(uuid())
-  tenantId     String
-  bookingId    String
-  mechanicId   String?
-  serviceId    String
-  costCenterId String?
-  laborHours   Decimal? @db.Decimal(5, 2)
-  laborCost    Decimal? @db.Decimal(12, 2)
-  materialCost Decimal? @db.Decimal(12, 2)
-  overheadCost Decimal? @db.Decimal(12, 2)
-  totalCost    Decimal? @db.Decimal(12, 2)
-  varianceNote String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  tenantId         String
+  bookingId        String
+  mechanicId       String?
+  serviceId        String
+  costCenterId     String?
+  laborHours       Decimal? @db.Decimal(5, 2)
+  laborCost        Decimal? @db.Decimal(12, 2)
+  laborCostUSD     Decimal? @db.Decimal(12, 2)
+  materialCost     Decimal? @db.Decimal(12, 2)
+  materialCostUSD  Decimal? @db.Decimal(12, 2)
+  overheadCost     Decimal? @db.Decimal(12, 2)
+  overheadCostUSD  Decimal? @db.Decimal(12, 2)
+  totalCost        Decimal? @db.Decimal(12, 2)
+  totalCostUSD     Decimal? @db.Decimal(12, 2)
+  exchangeRateUsed Decimal? @db.Decimal(18, 6)
+  varianceNote     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   costCenter CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
 
+  @@unique([bookingId, serviceId])
   @@index([tenantId])
   @@index([bookingId])
   @@index([serviceId])
+}
+
+model SovereignControl {
+  id        Int      @id @default(1)
+  locked    Boolean  @default(false)
+  changedBy String?  @map("changed_by")
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  @@map("_sovereign_control")
 }

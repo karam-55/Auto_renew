@@ -30,9 +30,9 @@ export class AutoJournalForInvoiceUseCase {
     }
 
     // Get accounts
-    const accountsReceivableAccount = await this.accountRepository.findByCode('1130'); // AR account
-    const revenueAccount = await this.accountRepository.findByCode('4150'); // Revenue account
-    const vatAccount = await this.accountRepository.findByCode('2130'); // VAT payable
+    const accountsReceivableAccount = await this.accountRepository.findByRole(invoice.tenantId, 'ACCOUNTS_RECEIVABLE');
+    const revenueAccount = await this.accountRepository.findByRole(invoice.tenantId, 'SERVICE_REVENUE');
+    const vatAccount = await this.accountRepository.findByRole(invoice.tenantId, 'VAT_PAYABLE');
 
     if (!accountsReceivableAccount || !revenueAccount || !vatAccount) {
       throw new Error('Required accounts not found in chart of accounts');

@@ -10,6 +10,16 @@ export class InvoicesScreen {
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
+  private canManage(): boolean {
+    const role = (this.auth.getUser()?.role || '').toUpperCase()
+    return ['ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'].includes(role)
+  }
+
+  private canExport(): boolean {
+    const role = (this.auth.getUser()?.role || '').toUpperCase()
+    return ['ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'].includes(role)
+  }
+
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'الفواتير', 'receipt_long', this.api)
     const content = document.createElement('div')
@@ -52,10 +62,11 @@ export class InvoicesScreen {
               <span class="material-symbols-outlined text-[20px]">refresh</span>
               مسح
             </button>
+            ${this.canExport() ? `
             <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="export-invoices-btn">
               <span class="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
               تصدير
-            </button>
+            </button>` : ''}
           </div>
         </div>
         <div class="glass-card rounded-2xl overflow-hidden stagger-entry stagger-entry-2">
@@ -170,12 +181,12 @@ export class InvoicesScreen {
                 <button class="touch-safe w-8 h-8 rounded-lg hover:bg-tertiary/10 flex items-center justify-center text-on-surface-variant hover:text-tertiary hover:scale-110 transition-all" title="دفع" aria-label="تسجيل دفع الفاتورة" data-action="pay" data-id="${i.id}">
                   <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
                 </button>
-                ${i.status !== 'CANCELLED' && i.status !== 'VOID' ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="إلغاء" aria-label="إلغاء الفاتورة" data-action="cancel" data-id="${i.id}">
+                ${this.canManage() && i.status !== 'CANCELLED' && i.status !== 'VOID' ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="إلغاء" aria-label="إلغاء الفاتورة" data-action="cancel" data-id="${i.id}">
                   <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cancel</span>
                 </button>` : ''}
-                <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الفاتورة" data-action="delete" data-id="${i.id}">
+                ${this.canManage() ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الفاتورة" data-action="delete" data-id="${i.id}">
                   <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
-                </button>
+                </button>` : ''}
               </div>
             </td>
           </tr>

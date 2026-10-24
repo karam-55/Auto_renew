@@ -180,7 +180,7 @@ export class TrialBalanceService {
       balances.push({
         accountId: account.id,
         accountCode: account.code,
-        accountName: account.name,
+        accountName: account.nameEn || account.nameAr,
         accountNameAr: account.nameAr,
         accountType: account.accountType,
         debitSYP: netDebitSYP,

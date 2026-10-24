@@ -5,6 +5,10 @@ export interface JournalLine {
   entryId: string;
   accountId: string;
   accountName: string | null;
+  accountNameAr?: string | null;
+  accountNameEn?: string | null;
+  accountCode?: string | null;
+  accountType?: string | null;
   description: string | null;
   debitSYP: number;
   debitUSD: number;
@@ -33,6 +37,10 @@ export interface JournalEntry {
   approvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  totalDebitSYP?: number;
+  totalCreditSYP?: number;
+  totalDebitUSD?: number;
+  totalCreditUSD?: number;
   lines?: JournalLine[];
   fiscalPeriod?: any;
   createdBy?: any;

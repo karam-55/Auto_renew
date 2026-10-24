@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../../shared/middlewares/auth';
 import { GeneralLedgerService } from './service';
 import { Logger } from '../../infrastructure/logging/logger';
-import { CacheUtil } from '../../shared/utils/cache';
 
 export class GeneralLedgerController {
   private generalLedgerService: GeneralLedgerService;
@@ -22,24 +21,7 @@ export class GeneralLedgerController {
         offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
 
-      // Cache key based on filters
-      const cacheKey = `general-ledger:${tenantId}:${JSON.stringify(filters)}`;
-
-      // Try cache first (60 seconds TTL for reports)
-      const cached = await CacheUtil.get<any>(cacheKey);
-      if (cached) {
-        res.status(200).json({
-          success: true,
-          data: cached,
-          cached: true,
-        });
-        return;
-      }
-
       const report = await this.generalLedgerService.generateGeneralLedger(tenantId, filters);
-
-      // Cache for 60 seconds
-      await CacheUtil.set(cacheKey, report, { ttl: 60 });
 
       res.status(200).json({
         success: true,

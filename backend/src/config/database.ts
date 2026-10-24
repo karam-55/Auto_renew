@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Logger } from '../infrastructure/logging/logger';
 import { attachQueryOptimizer } from '../shared/utils/query-optimizer';
 
@@ -55,6 +55,7 @@ const EXCLUDED_FROM_SOFT_DELETE = new Set([
   'JournalLine',
   'InvoiceItem',
   'BookingService',
+  'AccountPostingMap',
   'ServicePart',
   'EmployeeBranch',
   'CouponUsage',
@@ -88,8 +89,14 @@ const EXCLUDED_FROM_SOFT_DELETE = new Set([
   'CostCenter',
 ]);
 
+const MODELS_WITH_DELETED_AT = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((model) => model.fields.some((field) => field.name === 'deletedAt'))
+    .map((model) => model.name)
+);
+
 function shouldApplySoftDelete(model: string): boolean {
-  return !EXCLUDED_FROM_SOFT_DELETE.has(model);
+  return MODELS_WITH_DELETED_AT.has(model) && !EXCLUDED_FROM_SOFT_DELETE.has(model);
 }
 
 function addDeletedAtNullFilter(where: any): any {

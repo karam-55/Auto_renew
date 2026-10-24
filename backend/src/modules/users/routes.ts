@@ -9,8 +9,8 @@ const userController = new UserController();
 // All routes require authentication
 router.use(authenticate);
 
-// Get all users (accessible by OWNER, MANAGER)
-router.get('/', authorize(['OWNER', 'MANAGER']), userController.getAllUsers);
+// Get all users (accessible by OWNER, MANAGER, RECEPTIONIST - staff directory for front desk)
+router.get('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), userController.getAllUsers);
 
 // Get user by ID (accessible by OWNER, MANAGER)
 router.get('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('User'), userController.getUserById);

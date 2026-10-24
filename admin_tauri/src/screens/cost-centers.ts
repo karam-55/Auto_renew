@@ -43,6 +43,7 @@ export class CostCentersScreen {
             <table class="w-full text-right">
               <thead>
                 <tr class="border-b border-surface-subtle">
+                  <th class="px-4 py-3 font-label-lg text-text-tertiary">الرمز</th>
                   <th class="px-4 py-3 font-label-lg text-text-tertiary">الاسم</th>
                   <th class="px-4 py-3 font-label-lg text-text-tertiary">النوع</th>
                   <th class="px-4 py-3 font-label-lg text-text-tertiary">محرك التكلفة</th>
@@ -52,7 +53,7 @@ export class CostCentersScreen {
                 </tr>
               </thead>
               <tbody id="centers-tbody">
-                <tr><td colspan="6" class="px-4 py-8 text-center text-text-secondary font-body-md">جاري التحميل...</td></tr>
+                <tr><td colspan="7" class="px-4 py-8 text-center text-text-secondary font-body-md">جاري التحميل...</td></tr>
               </tbody>
             </table>
           </div>
@@ -92,6 +93,7 @@ export class CostCentersScreen {
       if (res.success && res.data && res.data.length > 0) {
         tbody.innerHTML = res.data.map((c: any) => `
           <tr class="border-b border-surface-subtle/50 hover:bg-surface-subtle/30 transition-colors">
+            <td class="px-4 py-3 font-mono text-xs text-text-secondary" dir="ltr">${c.code || '—'}</td>
             <td class="px-4 py-3 font-body-md text-on-surface">${c.name}</td>
             <td class="px-4 py-3 font-body-md text-text-secondary">${this.translateType(c.type)}</td>
             <td class="px-4 py-3 font-body-md text-text-secondary">${this.translateDriver(c.costDriver)}</td>
@@ -105,10 +107,10 @@ export class CostCentersScreen {
           </tr>
         `).join('')
       } else {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-text-secondary font-body-md">لا توجد مراكز. اضغط "تهيئة افتراضية"</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-text-secondary font-body-md">لا توجد مراكز. اضغط "تهيئة افتراضية"</td></tr>'
       }
     } catch {
-      el.querySelector('#centers-tbody')!.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-error font-body-md">حدث خطأ</td></tr>'
+      el.querySelector('#centers-tbody')!.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-error font-body-md">حدث خطأ</td></tr>'
     }
   }
 

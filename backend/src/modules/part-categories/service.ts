@@ -1,4 +1,6 @@
+import { AccountType } from '@prisma/client';
 import prisma from '../../config/database';
+import { getAccountIdByRole } from '../accounting/automatic-journal-entries';
 import {
   PartCategory,
   CreatePartCategoryDto,
@@ -7,7 +9,78 @@ import {
 } from './types';
 
 export class PartCategoryService {
+  async initializeDefaultAccountingCategories(tenantId: string) {
+    const defaults = [
+      {
+        name: 'زيوت ومواد الصيانة',
+        nameAr: 'زيوت ومواد الصيانة',
+        inventoryRole: 'INVENTORY_OILS',
+        costRole: 'COST_MAINTENANCE',
+        revenueRole: 'PARTS_REVENUE',
+      },
+      {
+        name: 'قطع الغيار والإكسسوارات',
+        nameAr: 'قطع الغيار والإكسسوارات',
+        inventoryRole: 'INVENTORY_PARTS',
+        costRole: 'COST_MAINTENANCE',
+        revenueRole: 'PARTS_REVENUE',
+      },
+      {
+        name: 'مواد الحماية والتلميع',
+        nameAr: 'مواد الحماية والتلميع',
+        inventoryRole: 'INVENTORY_PROTECTION',
+        costRole: 'COST_PROTECTION',
+        revenueRole: 'PROTECTION_REVENUE',
+      },
+    ] as const;
+
+    return prisma.$transaction(async (tx) => {
+      const categories = [];
+      for (const category of defaults) {
+        const [inventoryAccountId, costAccountId, revenueAccountId] = await Promise.all([
+          getAccountIdByRole(tenantId, category.inventoryRole, tx),
+          getAccountIdByRole(tenantId, category.costRole, tx),
+          getAccountIdByRole(tenantId, category.revenueRole, tx),
+        ]);
+        if (!inventoryAccountId || !costAccountId || !revenueAccountId) {
+          throw new Error('هيّئ دليل الحسابات وربط الحسابات قبل تهيئة فئات المخزون');
+        }
+
+        const existing = await tx.partCategory.findFirst({
+          where: { tenantId, nameAr: category.nameAr, deletedAt: null },
+        });
+        if (existing) {
+          categories.push(await tx.partCategory.update({
+            where: { id: existing.id },
+            data: {
+              inventoryAccountId: existing.inventoryAccountId || inventoryAccountId,
+              costAccountId: existing.costAccountId || costAccountId,
+              revenueAccountId: existing.revenueAccountId || revenueAccountId,
+            },
+          }));
+          continue;
+        }
+
+        categories.push(await tx.partCategory.create({
+          data: {
+            tenantId,
+            name: category.name,
+            nameAr: category.nameAr,
+            inventoryAccountId,
+            costAccountId,
+            revenueAccountId,
+          },
+        }));
+      }
+      return categories;
+    }, { isolationLevel: 'Serializable' });
+  }
+
   async createPartCategory(tenantId: string, data: CreatePartCategoryDto): Promise<PartCategory> {
+    await this.validateAccountMapping(tenantId, data.inventoryAccountId, AccountType.ASSET);
+    await this.validateAccountMapping(tenantId, data.costAccountId, AccountType.COGS);
+    await this.validateAccountMapping(tenantId, data.revenueAccountId, AccountType.REVENUE);
+
     // If parentId is provided, verify it exists and belongs to the tenant
     if (data.parentId) {
       const parentCategory = await prisma.partCategory.findFirst({
@@ -27,6 +100,9 @@ export class PartCategoryService {
         nameEn: data.nameEn,
         description: data.description,
         parentId: data.parentId,
+        inventoryAccountId: data.inventoryAccountId || null,
+        costAccountId: data.costAccountId || null,
+        revenueAccountId: data.revenueAccountId || null,
         icon: data.icon,
         color: data.color,
       },
@@ -57,6 +133,10 @@ export class PartCategoryService {
   }
 
   async updatePartCategory(id: string, tenantId: string, data: UpdatePartCategoryDto): Promise<PartCategory> {
+    await this.validateAccountMapping(tenantId, data.inventoryAccountId, AccountType.ASSET);
+    await this.validateAccountMapping(tenantId, data.costAccountId, AccountType.COGS);
+    await this.validateAccountMapping(tenantId, data.revenueAccountId, AccountType.REVENUE);
+
     // Check if category exists and belongs to tenant
     const existingCategory = await prisma.partCategory.findFirst({
       where: { id, tenantId },
@@ -95,6 +175,9 @@ export class PartCategoryService {
         nameEn: data.nameEn,
         description: data.description,
         parentId: data.parentId,
+        inventoryAccountId: data.inventoryAccountId,
+        costAccountId: data.costAccountId,
+        revenueAccountId: data.revenueAccountId,
         icon: data.icon,
         color: data.color,
       },
@@ -209,10 +292,27 @@ export class PartCategoryService {
       nameEn: category.nameEn,
       description: category.description,
       parentId: category.parentId,
+      inventoryAccountId: category.inventoryAccountId,
+      costAccountId: category.costAccountId,
+      revenueAccountId: category.revenueAccountId,
       icon: category.icon,
       color: category.color,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
     };
+  }
+
+  private async validateAccountMapping(tenantId: string, accountId: string | null | undefined, accountType: AccountType) {
+    if (!accountId) return;
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId, isActive: true, deletedAt: null },
+      include: { children: { select: { id: true } } },
+    });
+    if (!account || account.accountType !== accountType) {
+      throw new Error(`Mapped account must be an active ${accountType} account in this tenant`);
+    }
+    if (account.children.length > 0) {
+      throw new Error('Mapped account must be a leaf account, not a parent');
+    }
   }
 }

@@ -6,6 +6,8 @@
  */
 export interface BookingServiceInput {
   serviceId: string;
+  quantity?: number;
+  /** Legacy input retained for old clients; work-order pricing is authoritative. */
   priceSYP?: number;
   priceUSD?: number;
   /** Free-text service name — required for CUSTOM services */
@@ -57,6 +59,10 @@ export interface BookingResponse {
   status: string;
   priority?: string | null;
   paymentMethod?: string | null;
+  workOrder?: {
+    id: string;
+    status: string;
+  } | null;
   notes?: string | null;
   publicToken?: string | null;
   createdAt: Date;
@@ -78,13 +84,17 @@ export interface BookingResponse {
   };
   services?: Array<{
     id: string;
+    bookingServiceId?: string;
     name: string;
+    quantity?: number;
+    materials?: Array<{ id: string; partId: string; quantity: number; issuedQuantity?: number; partName?: string }>;
     category: string;
     duration: number;
     basePrice: number;
     /** Actual price charged on this booking line (may differ from basePrice). */
     priceSYP?: number;
     priceUSD?: number | null;
+    priceFinalized?: boolean;
   }>;
   mechanicAssignments?: Array<{
     id: string;

@@ -17,7 +17,7 @@ export class PrismaStockItemRepository implements StockItemRepository {
     return StockItem.create(
       part.id,
       part.id,
-      part.quantity
+      Number(part.quantity)
     );
   }
 
@@ -34,7 +34,7 @@ export class PrismaStockItemRepository implements StockItemRepository {
       StockItem.create(
         part.id,
         partId,
-        part.quantity
+        Number(part.quantity)
       )
     ];
   }
@@ -53,7 +53,7 @@ export class PrismaStockItemRepository implements StockItemRepository {
       },
     });
 
-    return parts.map(p => StockItem.create(p.id, p.id, p.quantity));
+    return parts.map(p => StockItem.create(p.id, p.id, Number(p.quantity)));
   }
 
   async create(stockItem: StockItem): Promise<StockItem> {

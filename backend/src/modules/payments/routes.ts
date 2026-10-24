@@ -9,8 +9,8 @@ const paymentController = new PaymentController();
 // All routes require authentication
 router.use(authenticate);
 
-// Create payment - OWNER, MANAGER, ACCOUNTANT, CASHIER only
-router.post('/', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER']), paymentController.createPayment);
+// Create payment - OWNER, MANAGER, ACCOUNTANT, CASHIER, RECEPTIONIST (front-desk collection)
+router.post('/', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER', 'RECEPTIONIST']), paymentController.createPayment);
 
 // Get all payments - All authenticated users
 router.get('/', paymentController.getPayments);

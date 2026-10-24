@@ -185,12 +185,7 @@ export class BookingWizardScreen {
                   <p class="text-text-secondary text-sm">جاري تحميل الخدمات...</p>
                 </div>
                 <div class="flex items-center justify-between mt-2 px-1">
-                  <p class="text-text-tertiary text-xs">اختر خدمة وحدد سعرها (ل.س)</p>
-                  <div class="flex items-center gap-2">
-                    <span class="font-label-sm text-text-tertiary">الإجمالي:</span>
-                    <span class="font-financial-data text-body-lg text-primary font-semibold" id="services-total">0</span>
-                    <span class="text-text-tertiary text-xs">ل.س</span>
-                  </div>
+                  <p class="text-text-tertiary text-xs">أضف الخدمات المطلوبة؛ السعر والمواد الفعلية تُحدّد في أمر الشغل</p>
                 </div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -409,21 +404,12 @@ export class BookingWizardScreen {
         const servicesPayload = Array.from(checkedServices).map((cb) => {
           const row = cb.closest('.service-row') as HTMLElement
           const type = row.dataset.serviceType || 'STANDARD'
-          const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
-          const price = parseFloat(priceInput?.value || '0') || 0
-          const payload: any = { serviceId: cb.value, priceSYP: price }
+          const payload: any = { serviceId: cb.value }
           if (type === 'CUSTOM') {
             payload.customName = (row.querySelector<HTMLInputElement>('.svc-custom-name')?.value || '').trim()
           }
           if (type === 'PANELS') {
             payload.panels = Array.from(row.querySelectorAll<HTMLInputElement>('.svc-panel:checked')).map(p => p.value)
-          }
-          if (type === 'OIL_WARRANTY' || type === 'OIL_PAID' || type === 'VARIABLE') {
-            const materials = Array.from(row.querySelectorAll<HTMLElement>('.svc-material-row')).map(mr => ({
-              partId: (mr.querySelector('.mat-part') as HTMLSelectElement)?.value,
-              quantity: parseFloat((mr.querySelector('.mat-qty') as HTMLInputElement)?.value || '0'),
-            })).filter(m => m.partId && m.quantity > 0)
-            if (materials.length > 0) payload.materials = materials
           }
           return payload
         })
@@ -441,9 +427,6 @@ export class BookingWizardScreen {
           }
           if (type === 'PANELS' && (!p.panels || p.panels.length === 0)) {
             ;(window as any).toast?.show?.({ message: 'التصويج يحتاج اختيار قطعة واحدة على الأقل', type: 'warning' }); return
-          }
-          if ((type === 'OIL_WARRANTY' || type === 'OIL_PAID') && (!p.materials || p.materials.length === 0)) {
-            ;(window as any).toast?.show?.({ message: 'تغيير الزيت يحتاج اختيار قطعة الزيت والكمية باللتر', type: 'warning' }); return
           }
         }
 
@@ -530,8 +513,9 @@ export class BookingWizardScreen {
 
           // Clear cache so bookings list shows the new booking
           this.api.clearCache()
-          // Navigate to print ticket
-          this.router.navigate(`/bookings/print/${bookingId}`)
+          // Continue directly into the auto-created work order.
+          const workOrderId = bookingRes.data.workOrder?.id
+          this.router.navigate(workOrderId ? `/work-orders/${workOrderId}` : `/bookings/print/${bookingId}`)
         } catch (err: any) {
           ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ أثناء إنشاء الحجز', type: 'error' })
           if (nextBtn) {
@@ -547,39 +531,18 @@ export class BookingWizardScreen {
     const dateInput = el.querySelector('#booking-date') as HTMLInputElement
     if (dateInput) dateInput.value = todayStr
 
-    // Fetch services + parts (for oil/wash material pickers)
+    // Booking captures the requested services only; actual materials are selected on the work order.
     const PANEL_OPTIONS = ['بونيت', 'سقف', 'صدر', 'باب أمامي يمين', 'باب أمامي يسار', 'باب خلفي يمين', 'باب خلفي يسار', 'رفرف أمامي يمين', 'رفرف أمامي يسار', 'رفرف خلفي يمين', 'رفرف خلفي يسار', 'مصد أمامي', 'مصد خلفي', 'عتبة يمين', 'عتبة يسار']
-    let partsCache: any[] = []
-    const partsPromise = this.api.get<any>('/api/parts?limit=0').then(res => {
-      if (res.success && res.data) partsCache = Array.isArray(res.data) ? res.data : res.data.data || []
-    }).catch(() => {})
-
     this.api.get<any>('/api/services?limit=0').then(async res => {
       const list = el.querySelector('#service-list') as HTMLDivElement
       if (!list) return
-      await partsPromise
-      const partOptions = partsCache.map((p: any) => `<option value="${p.id}">${p.nameAr || p.name} — ${p.partNumber || ''}</option>`).join('')
       if (res.success && res.data) {
-        const services = Array.isArray(res.data) ? res.data : res.data.data || []
+          const services = Array.isArray(res.data) ? res.data : res.data.data || []
         if (services.length > 0) {
           list.innerHTML = services.map((s: any) => {
             const defaultPrice = s.priceSYP ?? s.basePrice ?? 0
             const type = s.serviceType || 'STANDARD'
-            const isJob = ['JOB_BASED', 'PANELS', 'CUSTOM'].includes(type)
-            const isFree = type === 'OIL_WARRANTY'
             let extras = ''
-            if (type === 'OIL_WARRANTY' || type === 'OIL_PAID' || type === 'VARIABLE') {
-              extras = `
-                <div class="svc-extras hidden mt-2 pr-6 space-y-2" data-mat-container>
-                  <div class="svc-material-row flex items-center gap-2">
-                    <select class="mat-part flex-1 h-9 text-sm bg-surface border border-border rounded px-2">${partOptions || '<option value="">— لا يوجد قطع —</option>'}</select>
-                    <input type="number" min="0.25" step="0.25" value="1" class="mat-qty w-20 h-9 text-sm bg-surface border border-border rounded px-2" title="${type.startsWith('OIL') ? 'الكمية باللتر' : 'الكمية'}" />
-                    <button type="button" class="mat-add text-primary text-xs whitespace-nowrap">+ مادة أخرى</button>
-                  </div>
-                  ${type === 'OIL_PAID' ? '<p class="text-text-tertiary text-xs">سعر الزيت = الليترات × سعر مبيع القطعة</p>' : ''}
-                  ${type === 'OIL_WARRANTY' ? '<p class="text-text-tertiary text-xs">كفالة — مجاني للزبون، يُحسم من المخزون</p>' : ''}
-                </div>`
-            }
             if (type === 'PANELS') {
               extras = `
                 <div class="svc-extras hidden mt-2 pr-6">
@@ -601,53 +564,16 @@ export class BookingWizardScreen {
                   <input type="checkbox" value="${s.id}" class="svc-check w-4 h-4 rounded border-border text-primary focus:ring-primary" />
                   <span class="font-body-md text-on-surface truncate">${s.nameAr || s.name}</span>
                 </label>
-                ${isJob ? '<span class="text-text-tertiary text-xs">سعر بالفاتورة</span>'
-                  : isFree ? '<span class="text-success text-xs font-semibold">مجاني (كفالة)</span>'
-                  : type === 'OIL_PAID' ? '<span class="text-text-tertiary text-xs">سعر الزيت تلقائي</span>'
-                  : `<input type="number" min="0" step="1000" value="${defaultPrice}" placeholder="السعر (ل.س)" class="svc-price w-32 h-8 text-sm bg-surface border border-border rounded px-2 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:bg-surface-subtle" disabled /><span class="text-text-tertiary text-xs whitespace-nowrap">ل.س</span>`}
+                <span class="text-text-tertiary text-xs">${type === 'FIXED' && defaultPrice > 0 ? 'السعر الافتراضي بالخدمات' : 'يحدد السعر في أمر الشغل'}</span>
               </div>
               ${extras}
             </div>
           `}).join('')
 
-          const updateTotal = () => {
-            const checked = list.querySelectorAll<HTMLInputElement>('.svc-check:checked')
-            let total = 0
-            checked.forEach((cb) => {
-              const row = cb.closest('.service-row') as HTMLElement
-              const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
-              if (priceInput) total += parseFloat(priceInput.value) || 0
-            })
-            const totalEl = el.querySelector('#services-total') as HTMLElement
-            if (totalEl) totalEl.textContent = total.toLocaleString('en-US')
-          }
-
           list.querySelectorAll<HTMLInputElement>('.svc-check').forEach((cb) => {
             cb.addEventListener('change', () => {
               const row = cb.closest('.service-row') as HTMLElement
-              const priceInput = row.querySelector<HTMLInputElement>('.svc-price')
-              const type = row.dataset.serviceType || 'STANDARD'
-              if (priceInput) priceInput.disabled = !cb.checked || type === 'FIXED'
               row.querySelectorAll<HTMLElement>('.svc-extras').forEach(x => x.classList.toggle('hidden', !cb.checked))
-              updateTotal()
-            })
-          })
-          list.querySelectorAll<HTMLInputElement>('.svc-price').forEach((input) => {
-            input.addEventListener('input', updateTotal)
-          })
-          // "+ مادة أخرى" adds a material row inside the same service extras block
-          list.querySelectorAll('.mat-add').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              e.preventDefault()
-              const container = (btn as HTMLElement).closest('[data-mat-container]') as HTMLElement
-              const row = document.createElement('div')
-              row.className = 'svc-material-row flex items-center gap-2'
-              row.innerHTML = `
-                <select class="mat-part flex-1 h-9 text-sm bg-surface border border-border rounded px-2">${partOptions || '<option value="">— لا يوجد قطع —</option>'}</select>
-                <input type="number" min="0.25" step="0.25" value="1" class="mat-qty w-20 h-9 text-sm bg-surface border border-border rounded px-2" />
-                <button type="button" class="mat-remove text-error text-xs">حذف</button>`
-              row.querySelector('.mat-remove')!.addEventListener('click', () => row.remove())
-              container.appendChild(row)
             })
           })
         } else {

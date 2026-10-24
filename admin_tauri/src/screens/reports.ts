@@ -15,6 +15,8 @@ interface ReportCardDef {
 
 const REPORT_CARDS: ReportCardDef[] = [
   { title: 'الإيرادات', icon: 'bar_chart', desc: 'تقرير الإيرادات اليومية والشهرية', color: 'primary', route: '/reports/revenue', category: 'المالية' },
+  { title: 'تحليل الربحية', icon: 'monitoring', desc: 'ربحية الخدمات وأوامر الشغل والأقسام من القيود المرحلة', color: 'secondary', route: '/reports/profitability', category: 'المالية' },
+  { title: 'حركة الصندوق والبنك', icon: 'payments', desc: 'كشف حركة وأرصدة الصندوق أو الحساب المصرفي من القيود المرحلة', color: 'tertiary', route: '/reports/cash-bank', category: 'المالية' },
   { title: 'الأرباح والخسائر', icon: 'pie_chart', desc: 'قائمة الدخل التفصيلية', color: 'secondary', route: '/accounting/income-statement', category: 'المالية' },
   { title: 'المخزون', icon: 'stacked_bar_chart', desc: 'تقرير حركة المخزون والتكلفة', color: 'tertiary', route: '/reports/inventory', category: 'المخزون' },
   { title: 'العملاء', icon: 'groups', desc: 'تحليل سلوك العملاء والولاء', color: 'info', route: '/reports/customers', category: 'العملاء' },

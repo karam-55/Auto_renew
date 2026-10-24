@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { isValidQuantity } from '../../utils/quantity';
 
 export class MaintenancePackageService {
   async getAllPackages(tenantId: string) {
@@ -49,6 +50,9 @@ export class MaintenancePackageService {
       priceUSD?: number;
     }>;
   }) {
+    if (data.items.some((item) => !isValidQuantity(item.quantity))) {
+      throw new Error('Package item quantities must be positive and use at most three decimal places');
+    }
     const { items, ...packageData } = data;
 
     return prisma.maintenancePackage.create({
@@ -92,6 +96,9 @@ export class MaintenancePackageService {
       }>;
     }
   ) {
+    if (data.items?.some((item) => !isValidQuantity(item.quantity))) {
+      throw new Error('Package item quantities must be positive and use at most three decimal places');
+    }
     const { items, ...packageData } = data;
 
     // Update package

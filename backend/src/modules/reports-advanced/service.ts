@@ -280,19 +280,21 @@ export class AdvancedReportsService {
     const lowStockItems: LowStockItem[] = [];
 
     parts.forEach(part => {
-      totalParts += part.quantity;
-      totalValueSYP += Number(part.quantity) * Number(part.costSYP);
-      totalValueUSD += Number(part.quantity) * (Number(part.costUSD) || 0);
+      const quantity = Number(part.quantity);
+      const minQuantity = Number(part.minQuantity);
+      totalParts += quantity;
+      totalValueSYP += quantity * Number(part.costSYP);
+      totalValueUSD += quantity * (Number(part.costUSD) || 0);
 
       // Check for low stock
-      if (part.quantity <= part.minQuantity) {
+      if (quantity <= minQuantity) {
         lowStockItems.push({
           partId: part.id,
           partName: part.name,
           partCode: part.partNumber,
-          currentQuantity: part.quantity,
-          minQuantity: part.minQuantity,
-          reorderLevel: part.minQuantity, // Using minQuantity as reorder level
+          currentQuantity: quantity,
+          minQuantity,
+          reorderLevel: minQuantity,
           unitCostSYP: Number(part.costSYP),
         });
       }
@@ -328,7 +330,7 @@ export class AdvancedReportsService {
           turnoverRate: 0,
         };
 
-        existing.totalSold += item.quantity;
+      existing.totalSold += Number(item.quantity);
         existing.totalRevenueSYP += Number(item.priceSYP) || 0;
 
         fastMovingMap.set(item.partId, existing);
@@ -340,7 +342,7 @@ export class AdvancedReportsService {
     const fastMovingItems = Array.from(fastMovingMap.values())
       .map(item => {
         const part = parts.find(p => p.id === item.partId);
-        const currentStock = part ? part.quantity : 0;
+        const currentStock = part ? Number(part.quantity) : 0;
         const beginningStock = currentStock + item.totalSold;
         const avgStock = beginningStock > 0 ? (beginningStock + currentStock) / 2 : 1;
         return {
@@ -356,12 +358,12 @@ export class AdvancedReportsService {
 
     // For now, just mark items with zero quantity as slow moving
     parts.forEach(part => {
-      if (part.quantity === 0) {
+      if (Number(part.quantity) === 0) {
         slowMovingItems.push({
           partId: part.id,
           partName: part.name,
           partCode: part.partNumber,
-          currentQuantity: part.quantity,
+          currentQuantity: Number(part.quantity),
           lastSoldDate: new Date(0),
           daysSinceLastSale: 999,
           currentValueSYP: 0,

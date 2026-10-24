@@ -16,6 +16,17 @@ export interface InventoryTransaction {
   referenceType: string | null;
   referenceId: string | null;
   notes: string | null;
+  partName?: string;
+  unitName?: string | null;
+  warehouseName?: string | null;
+  supplierName?: string | null;
+  bookingId?: string | null;
+  customerName?: string | null;
+  vehicleDescription?: string | null;
+  serviceName?: string | null;
+  destinationDescription?: string;
+  transactionLabel?: string;
+  direction?: 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT';
   createdAt: Date;
   updatedAt: Date;
 }

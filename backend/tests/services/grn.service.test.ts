@@ -6,7 +6,7 @@ import prisma from '../../src/config/database';
 jest.mock('../../src/config/database', () => ({
   __esModule: true,
   default: {
-    supplier: { findFirst: jest.fn() },
+    supplier: { findFirst: jest.fn(), update: jest.fn() },
     purchaseOrder: { findFirst: jest.fn(), update: jest.fn() },
     purchaseOrderItem: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     warehouse: { findFirst: jest.fn() },
@@ -50,6 +50,7 @@ describe('GRNService', () => {
     (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.purchaseOrderItem.update as jest.Mock).mockResolvedValue({});
     (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.supplier.update as jest.Mock).mockResolvedValue({});
     (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue({ id: 'stock-in-1' });
   });
 
@@ -491,6 +492,7 @@ describe('GRNService', () => {
       const grnId = 'non-existent-grn';
       const userId = 'user-1';
 
+      (prisma.goodsReceiptNote.findFirst as jest.Mock).mockReset();
       (prisma.goodsReceiptNote.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(grnService.completeGRN(grnId, mockTenantId, userId)).rejects.toThrow(

@@ -51,24 +51,7 @@ export class JournalEntryController {
         offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
 
-      // Cache key based on filters
-      const cacheKey = `journal-entries:${tenantId}:${JSON.stringify(filters)}`;
-
-      // Try cache first (30 seconds TTL)
-      const cached = await CacheUtil.get<any>(cacheKey);
-      if (cached) {
-        res.status(200).json({
-          success: true,
-          data: cached,
-          cached: true,
-        });
-        return;
-      }
-
       const entries = await this.journalEntryService.getJournalEntries(tenantId, filters);
-
-      // Cache for 30 seconds
-      await CacheUtil.set(cacheKey, entries, { ttl: 30 });
 
       res.status(200).json({
         success: true,

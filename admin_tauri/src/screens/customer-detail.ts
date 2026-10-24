@@ -3,6 +3,16 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!)
+}
+
 export class CustomerDetailScreen {
   private customerId: string
   constructor(private auth: AuthService, private api: ApiClient, private router: Router, customerId: string) {
@@ -20,10 +30,16 @@ export class CustomerDetailScreen {
             <h1 class="font-beVietnamPro text-headline-md text-on-surface">تفاصيل العميل</h1>
             <p class="text-body-md text-text-secondary mt-1">بيانات العميل والمركبات</p>
           </div>
-          <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="back-btn">
-            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
-            رجوع
-          </button>
+          <div class="flex gap-2">
+            <button class="h-[48px] px-4 bg-secondary text-on-secondary font-ibmPlexSans font-body-lg rounded-lg hover:bg-secondary/90 transition-colors flex items-center gap-2" id="customer-statement-btn">
+              <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+              كشف الحساب
+            </button>
+            <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="back-btn">
+              <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+              رجوع
+            </button>
+          </div>
         </div>
         <div id="customer-card" class="bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle overflow-hidden">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center gap-4">
@@ -76,8 +92,49 @@ export class CustomerDetailScreen {
       </div>
     `
     c.querySelector('#back-btn')?.addEventListener('click', () => this.router.navigate('/customers'))
+    c.querySelector('#customer-statement-btn')?.addEventListener('click', () => this.showStatement(c))
     this.loadData(c)
     return layout.render(c)
+  }
+
+  private async showStatement(parent: HTMLElement) {
+    try {
+      const response = await this.api.get<any>(`/api/reports/customers/${this.customerId}/statement`, false)
+      if (response.success === false) throw new Error(response.message || 'تعذر تحميل كشف الحساب')
+      const statement = response.data
+      const modal = document.createElement('div')
+      modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+      modal.innerHTML = `
+        <div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface-container-lowest p-6 shadow-2xl">
+          <div class="flex items-center justify-between">
+            <h2 class="font-headline-md text-xl text-on-surface">كشف حساب ${escapeHtml(statement.customer?.fullName)}</h2>
+            <button data-close class="h-9 rounded-lg border border-border px-3 text-on-surface">إغلاق</button>
+          </div>
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full min-w-[700px] text-right">
+              <thead class="bg-surface-subtle"><tr><th class="px-3 py-2">التاريخ</th><th class="px-3 py-2">الاستحقاق</th><th class="px-3 py-2">المرجع</th><th class="px-3 py-2">البيان</th><th class="px-3 py-2">مدين</th><th class="px-3 py-2">دائن</th><th class="px-3 py-2">الرصيد</th></tr></thead>
+              <tbody>${(statement.transactions || []).map((line: any) => `
+                <tr class="border-t border-border/60">
+                  <td class="px-3 py-2">${new Date(line.date).toLocaleDateString()}</td>
+                  <td class="px-3 py-2">${line.dueDate ? new Date(line.dueDate).toLocaleDateString() : '—'}</td>
+                  <td class="px-3 py-2">${escapeHtml(line.reference || '-')}</td>
+                  <td class="px-3 py-2">${escapeHtml(line.description || '-')}</td>
+                  <td class="px-3 py-2">${Number(line.debitSYP || 0).toLocaleString()}</td>
+                  <td class="px-3 py-2">${Number(line.creditSYP || 0).toLocaleString()}</td>
+                  <td class="px-3 py-2">${Number(line.balanceSYP || 0).toLocaleString()}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 text-left font-semibold text-on-surface">الرصيد المستحق: ${Number(statement.closingBalanceSYP || 0).toLocaleString()} ل.س</div>
+        </div>
+      `
+      modal.querySelector('[data-close]')?.addEventListener('click', () => modal.remove())
+      modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove() })
+      parent.appendChild(modal)
+    } catch (error: any) {
+      ;(window as any).toast?.show?.({ message: error.message || 'تعذر تحميل كشف الحساب', type: 'error' })
+    }
   }
 
   private async loadData(el: HTMLElement) {

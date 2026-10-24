@@ -8,9 +8,11 @@ import { TelegramAdminNotificationService } from '../notifications/telegram-admi
 import { ScheduleService } from '../schedule/schedule.service';
 import { VehicleService } from '../vehicles/service';
 import { VehicleService as VehicleManagementService } from '../vehicles/vehicle.service';
-import { InvoiceService } from '../invoices/service';
 import { Server as SocketIOServer } from 'socket.io';
 import { PublicToken } from '../../domain/bookings/value-objects/PublicToken';
+import { isValidQuantity } from '../../utils/quantity';
+import settingsService from '../../services/settings.service';
+import { createStockConsumptionJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 
 export class BookingService {
   private io: SocketIOServer | null = null;
@@ -20,7 +22,6 @@ export class BookingService {
   private scheduleService: ScheduleService;
   private vehicleService: VehicleService;
   private vehicleManagementService: VehicleManagementService;
-  private invoiceService: InvoiceService;
 
   constructor(io?: SocketIOServer) {
     this.io = io || null;
@@ -30,12 +31,10 @@ export class BookingService {
     this.scheduleService = new ScheduleService();
     this.vehicleService = new VehicleService();
     this.vehicleManagementService = new VehicleManagementService();
-    this.invoiceService = new InvoiceService();
     if (io) {
       this.whatsappService.setIo(io);
       // Meta service does not need Socket.IO
       this.fcmService.setIo(io);
-      this.invoiceService.setIo(io);
     }
   }
 
@@ -45,26 +44,21 @@ export class BookingService {
 
   /**
    * Build the nested-create payload for one BookingService line, including
-   * type-specific validation (CUSTOM needs a name, OIL_* needs an oil part,
-   * PANELS needs selected panels) and per-line pricing rules.
+   * type-specific validation. Prices and materials are finalized in the linked
+   * work order, not while the receptionist is creating the booking.
    */
   private buildBookingServiceCreate(input: BookingServiceInput, svc: Service): any {
     const type = (svc as any).serviceType || 'STANDARD';
 
-    let priceSYP = input.priceSYP !== undefined ? Number(input.priceSYP) : Number(svc.priceSYP ?? svc.basePrice ?? 0);
-    let priceUSD = input.priceUSD !== undefined ? Number(input.priceUSD) : (svc.priceUSD != null ? Number(svc.priceUSD) : null);
-
-    // Free/jo-b services carry no price at booking; job-priced lines start at 0
-    // and get their price from job purchases + profit at invoice sync.
-    if (type === 'OIL_WARRANTY' || type === 'JOB_BASED' || type === 'PANELS' || type === 'CUSTOM') {
-      priceSYP = 0;
-      priceUSD = 0;
-    }
+    const quantity = input.quantity == null ? 1 : Number(input.quantity);
+    if (!isValidQuantity(quantity)) throw new Error('Service quantity must be positive and use at most three decimal places');
 
     const data: any = {
       serviceId: input.serviceId,
-      priceSYP,
-      priceUSD,
+      quantity,
+      priceSYP: 0,
+      priceUSD: 0,
+      priceFinalized: false,
       customName: input.customName || undefined,
       panels: Array.isArray(input.panels) ? input.panels.join(', ') : (input.panels || undefined),
     };
@@ -75,11 +69,10 @@ export class BookingService {
     if (type === 'PANELS' && (!input.panels || (Array.isArray(input.panels) && input.panels.length === 0))) {
       throw new Error('Denting service requires selecting at least one panel');
     }
-    if ((type === 'OIL_WARRANTY' || type === 'OIL_PAID') && (!input.materials || input.materials.length === 0)) {
-      throw new Error('Oil change requires selecting an oil part and quantity');
-    }
-
     if (input.materials && input.materials.length > 0) {
+      if (input.materials.some((material) => !isValidQuantity(Number(material.quantity)))) {
+        throw new Error('Material quantities must be positive and use at most three decimal places');
+      }
       data.materials = {
         create: input.materials
           .filter((m) => m.partId && Number(m.quantity) > 0)
@@ -97,13 +90,17 @@ export class BookingService {
   private mapBookingResponse(booking: any): BookingResponse {
     const services = booking.bookingServices
       ? booking.bookingServices.map((bs: any) => ({
+          bookingServiceId: bs.id,
           id: bs.service.id,
           name: bs.customName || bs.service.name,
+          quantity: Number(bs.quantity),
           serviceType: bs.service.serviceType || 'STANDARD',
           panels: bs.panels || undefined,
           materials: (bs.materials || []).map((m: any) => ({
+            id: m.id,
             partId: m.partId,
             quantity: Number(m.quantity),
+            issuedQuantity: Number(m.issuedQuantity || 0),
             partName: m.part?.name || m.part?.nameAr || undefined,
           })),
           category:
@@ -120,12 +117,13 @@ export class BookingService {
             bs.priceUSD !== null && bs.priceUSD !== undefined
               ? Number(bs.priceUSD)
               : null,
+          priceFinalized: !!bs.priceFinalized,
         }))
       : [];
 
-    const totalSYP = services.reduce((sum: number, s: any) => sum + (s.priceSYP || 0), 0);
+    const totalSYP = services.reduce((sum: number, s: any) => sum + (s.priceSYP || 0) * (s.quantity || 1), 0);
     const totalUSD = services.some((s: any) => s.priceUSD !== null)
-      ? services.reduce((sum: number, s: any) => sum + (s.priceUSD || 0), 0)
+      ? services.reduce((sum: number, s: any) => sum + (s.priceUSD || 0) * (s.quantity || 1), 0)
       : null;
 
     return {
@@ -291,6 +289,7 @@ export class BookingService {
         priority: true,
         scheduledDate: true,
         scheduledTime: true,
+        workOrder: { select: { id: true, status: true } },
         customer: {
           select: {
             id: true,
@@ -345,6 +344,155 @@ export class BookingService {
     }
 
     return this.mapBookingResponse(booking);
+  }
+
+  async issueWorkOrderMaterials(
+    tenantId: string,
+    bookingId: string,
+    userId: string,
+    requestedItems: Array<{ materialId: string; quantity: number }>,
+    idempotencyKey: string
+  ) {
+    if (!idempotencyKey?.trim() || idempotencyKey.length > 128) throw new Error('A valid issue request key is required');
+    if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
+      throw new Error('Select the actual materials and quantities to issue');
+    }
+    if (requestedItems.some((item) => !item.materialId || !isValidQuantity(Number(item.quantity)))) {
+      throw new Error('Each issued material needs a positive quantity with at most three decimal places');
+    }
+    if (new Set(requestedItems.map((item) => item.materialId)).size !== requestedItems.length) {
+      throw new Error('A material can appear only once per issue request');
+    }
+
+    const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
+    return prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findFirst({
+        where: { id: bookingId, tenantId, deletedAt: null },
+        include: {
+          bookingServices: {
+            where: { deletedAt: null },
+            include: {
+              service: { include: { category: { select: { costCenterId: true } } } },
+              materials: { include: { part: true } },
+            },
+          },
+        },
+      });
+      if (!booking) throw new Error('Booking not found');
+      if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'INVOICED', 'PAID'].includes(booking.status)) {
+        throw new Error('Materials cannot be issued for a closed or cancelled work order');
+      }
+
+      await ensureDefaultAccounts(tenantId, tx);
+      const materialsById = new Map<string, { bookingService: any; material: any }>();
+      for (const bookingService of booking.bookingServices) {
+        for (const material of bookingService.materials) {
+          materialsById.set(material.id, { bookingService, material });
+        }
+      }
+      const issued: Array<Record<string, unknown>> = [];
+      let totalCostSYP = 0;
+      let totalCostUSD = 0;
+
+      for (const requested of requestedItems) {
+        const source = materialsById.get(requested.materialId);
+        if (!source) throw new Error('Selected material does not belong to this work order');
+        const { bookingService, material } = source;
+        const quantity = Number(requested.quantity);
+        const movementKey = `WO-MATERIAL:${idempotencyKey}:${material.id}`;
+        const existingMovement = await tx.inventoryTransaction.findFirst({
+          where: { tenantId, idempotencyKey: movementKey },
+        });
+        if (existingMovement) {
+          if (existingMovement.partId !== material.partId || Number(existingMovement.quantity) !== quantity) {
+            throw new Error('Issue request key was already used with different material quantities');
+          }
+          continue;
+        }
+        const remaining = Math.round((Number(material.quantity) - Number(material.issuedQuantity)) * 1000) / 1000;
+        if (quantity > remaining) {
+          throw new Error(`Issue quantity exceeds the remaining planned quantity for ${material.part.name || 'material'}`);
+        }
+        if (material.part.tenantId !== tenantId || material.part.deletedAt) {
+          throw new Error(`Material ${material.partId} is unavailable`);
+        }
+
+        const unitCostUSD = material.part.costUSD != null
+          ? Number(material.part.costUSD)
+          : Math.round((Number(material.part.costSYP) / exchangeRate) * 100) / 100;
+        const unitCostSYP = material.part.costUSD != null
+          ? Math.round(unitCostUSD * exchangeRate)
+          : Number(material.part.costSYP);
+        const issueTotalSYP = Math.round(unitCostSYP * quantity * 100) / 100;
+        const issueTotalUSD = Math.round(unitCostUSD * quantity * 100) / 100;
+
+        const stockUpdate = await tx.part.updateMany({
+          where: { id: material.partId, tenantId, quantity: { gte: quantity } },
+          data: { quantity: { decrement: quantity } },
+        });
+        if (stockUpdate.count !== 1) {
+          throw new Error(`Insufficient stock for ${material.part.name || material.part.nameAr || 'material'}`);
+        }
+
+        const targetIssued = Math.round((Number(material.issuedQuantity) + quantity) * 1000) / 1000;
+        const materialUpdate = await tx.bookingServiceMaterial.updateMany({
+          where: { id: material.id, issuedQuantity: material.issuedQuantity },
+          data: {
+            issuedQuantity: targetIssued,
+            issuedCostSYP: { increment: issueTotalSYP },
+            issuedCostUSD: { increment: issueTotalUSD },
+            issuedAt: new Date(),
+          },
+        });
+        if (materialUpdate.count !== 1) throw new Error('Material issue changed concurrently; retry');
+
+        const inventoryTransaction = await tx.inventoryTransaction.create({
+          data: {
+            tenantId,
+            partId: material.partId,
+            type: 'CONSUMPTION',
+            quantity,
+            costSYP: unitCostSYP,
+            costUSD: unitCostUSD,
+            reference: `WORKORDER:${bookingId}`,
+            notes: `Material issued for work order ${bookingId}`,
+            bookingId,
+            serviceId: bookingService.serviceId,
+            bookingServiceId: bookingService.id,
+            bookingServiceMaterialId: material.id,
+            costCenterId: bookingService.service.category?.costCenterId || null,
+            idempotencyKey: movementKey,
+            createdBy: userId,
+          },
+          include: {
+            part: { select: { name: true, nameAr: true } },
+            booking: {
+              include: {
+                customer: { select: { fullName: true } },
+                vehicle: { select: { make: true, model: true, licensePlate: true } },
+              },
+            },
+            bookingService: { include: { service: { select: { name: true, nameAr: true } } } },
+          },
+        });
+        await createStockConsumptionJournalEntry(inventoryTransaction, tenantId, userId, tx);
+
+        issued.push({
+          bookingServiceId: bookingService.id,
+          bookingServiceMaterialId: material.id,
+          serviceId: bookingService.serviceId,
+          partId: material.partId,
+          partName: material.part.name || material.part.nameAr,
+          quantity,
+          costSYP: issueTotalSYP,
+          costUSD: issueTotalUSD,
+        });
+        totalCostSYP += issueTotalSYP;
+        totalCostUSD += issueTotalUSD;
+      }
+
+      return { bookingId, issuedCount: issued.length, issued, totalCostSYP, totalCostUSD };
+    }, { isolationLevel: 'Serializable' });
   }
 
   async getBookingsByDate(tenantId: string, date: Date): Promise<BookingResponse[]> {
@@ -482,8 +630,16 @@ export class BookingService {
               }),
             }
           : undefined,
+        workOrder: {
+          create: {
+            tenantId,
+            status: 'OPEN',
+            createdById: createdById || null,
+          },
+        },
       },
       include: {
+        workOrder: { select: { id: true, status: true } },
         customer: {
           select: {
             id: true,
@@ -623,29 +779,7 @@ export class BookingService {
         }
       }
 
-      // 5. Auto-create invoice + journal entry
-      if (booking.bookingServices && booking.bookingServices.length > 0) {
-        try {
-          const invoiceItems = booking.bookingServices.map((bs: any) => ({
-            serviceId: bs.serviceId,
-            description: bs.service?.name || 'خدمة',
-            quantity: 1,
-            priceSYP: Number(bs.priceSYP || bs.service?.basePrice || 0),
-            priceUSD: bs.priceUSD ? Number(bs.priceUSD) : undefined,
-          }));
-          const invoice = await this.invoiceService.createInvoice(tenantId, createdById || '', {
-            customerId: data.customerId,
-            bookingId: booking.id,
-            invoiceDate: new Date(),
-            items: invoiceItems,
-          });
-          await this.invoiceService.finalizeInvoice(tenantId, invoice.id);
-        } catch (error) {
-          Logger.error('Error creating auto invoice for booking:', error);
-        }
-      }
-
-      // 6. Telegram notification to owners/managers
+      // Invoice creation follows completed work, material issue, and price approval.
       try {
         await this.telegramAdminNotificationService.notifyBookingCreated(tenantId, booking);
       } catch (telegramError) {
@@ -664,6 +798,16 @@ export class BookingService {
 
     if (!existingBooking) {
       throw new Error('Booking not found');
+    }
+
+    if (data.status === 'COMPLETED') {
+      const workOrder = await prisma.workOrder.findFirst({
+        where: { tenantId, bookingId },
+        select: { status: true },
+      });
+      if (workOrder && workOrder.status !== 'COMPLETED') {
+        throw new Error('Finish the linked work order to complete this booking');
+      }
     }
 
     // If updating customer, verify new customer exists and belongs to tenant
@@ -696,6 +840,23 @@ export class BookingService {
         ? data.serviceIds.map((id) => ({ serviceId: id }))
         : [];
     const hasServiceUpdate = Array.isArray(data.services) || Array.isArray(data.serviceIds);
+
+    if (hasServiceUpdate) {
+      const workOrder = await prisma.workOrder.findFirst({
+        where: { tenantId, bookingId },
+        select: { status: true },
+      });
+      if (workOrder && workOrder.status !== 'OPEN') {
+        throw new Error('Services cannot be replaced after work has started');
+      }
+      const issuedMaterial = await prisma.bookingServiceMaterial.findFirst({
+        where: { bookingService: { bookingId, deletedAt: null }, issuedQuantity: { gt: 0 } },
+        select: { id: true },
+      });
+      if (issuedMaterial) {
+        throw new Error('Return issued materials before replacing the work-order services');
+      }
+    }
 
     // If updating services, verify they exist and belong to tenant
     let services: Service[] = [];
@@ -775,6 +936,7 @@ export class BookingService {
             },
           },
         },
+        workOrder: { select: { id: true, status: true } },
         mechanicAssignments: {
           include: {
             mechanic: {
@@ -889,31 +1051,6 @@ export class BookingService {
       }
     }
 
-    // Auto-update invoice when booking services change (supports both `services` and legacy `serviceIds`)
-    if (hasServiceUpdate && booking.bookingServices) {
-      try {
-        const existingInvoice = await prisma.invoice.findFirst({
-          where: { bookingId, tenantId },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (existingInvoice) {
-          const invoiceItems = booking.bookingServices.map((bs: any) => ({
-            serviceId: bs.serviceId,
-            description: bs.service?.name || 'خدمة',
-            quantity: 1,
-            priceSYP: Number(bs.priceSYP || bs.service?.basePrice || 0),
-            priceUSD: bs.priceUSD ? Number(bs.priceUSD) : undefined,
-          }));
-          await this.invoiceService.updateInvoice(tenantId, existingInvoice.id, {
-            items: invoiceItems,
-          });
-        }
-      } catch (error) {
-        Logger.error('Error auto-updating invoice for booking:', error);
-        // Don't fail the booking update if invoice update fails
-      }
-    }
-
     // Send Telegram notification to owners/managers when status changes
     if (data.status && data.status !== existingBooking.status) {
       setImmediate(async () => {
@@ -942,6 +1079,15 @@ export class BookingService {
     if (!booking) {
       throw new Error('Booking not found');
     }
+
+    const issuedMaterial = await prisma.bookingServiceMaterial.findFirst({
+      where: {
+        bookingService: { bookingId, serviceId, deletedAt: null },
+        issuedQuantity: { gt: 0 },
+      },
+      select: { id: true },
+    });
+    if (issuedMaterial) throw new Error('Return issued materials before removing this service');
 
     // Check if service exists
     const service = await prisma.service.findFirst({
@@ -1017,6 +1163,12 @@ export class BookingService {
     if (!existingBooking) {
       throw new Error('Booking not found');
     }
+
+    const issuedMaterial = await prisma.bookingServiceMaterial.findFirst({
+      where: { bookingService: { bookingId, deletedAt: null }, issuedQuantity: { gt: 0 } },
+      select: { id: true },
+    });
+    if (issuedMaterial) throw new Error('Return issued materials before deleting this work order');
 
     await prisma.booking.delete({
       where: { id: bookingId },

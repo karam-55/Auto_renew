@@ -249,8 +249,8 @@ export class ManualInvoiceScreen {
       const cart = JSON.parse(raw)
       if (Array.isArray(cart)) {
         this.invoiceItems = cart.filter((item: any) => item && item.id && Number(item.qty) > 0).map((item: any) => ({
-          partId: item.id,
-          description: item.name || 'قطعة غيار',
+          ...(item.itemType === 'SERVICE' ? { serviceId: item.id } : { partId: item.id }),
+          description: item.name || (item.itemType === 'SERVICE' ? 'خدمة' : 'قطعة غيار'),
           quantity: Number(item.qty),
           priceSYP: Number(item.price || 0),
           priceUSD: item.priceUSD == null ? null : Number(item.priceUSD),
@@ -507,7 +507,7 @@ export class ManualInvoiceScreen {
         const target = e.target as HTMLInputElement
         if (target.tagName === 'INPUT' && target.type === 'number') {
           const idx = parseInt(target.getAttribute('data-idx')!)
-          const val = parseInt(target.value)
+          const val = parseFloat(target.value)
           if (val > 0 && !isNaN(idx)) this.invoiceItems[idx].quantity = val
           this.refreshServicesList(el)
         }
@@ -557,7 +557,7 @@ export class ManualInvoiceScreen {
             <p class="text-sm text-text-secondary">${item.priceSYP} ل.س${item.priceUSD ? ` · $${fmtUsd(item.priceUSD)}` : ''} × ${item.quantity}</p>
           </div>
           <div class="flex items-center gap-2">
-            <input type="number" min="1" value="${item.quantity}" class="w-16 h-[36px] bg-surface-container-lowest border border-border rounded px-2 text-center font-body-md text-on-surface" data-idx="${idx}" />
+            <input type="number" min="0.001" step="0.001" value="${item.quantity}" class="w-20 h-[36px] bg-surface-container-lowest border border-border rounded px-2 text-center font-body-md text-on-surface" data-idx="${idx}" />
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center transition-colors" aria-label="حذف الخدمة من الفاتورة" data-remove="${idx}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
             </button>

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AccountController } from './controller';
+import { postingMapController } from './posting-map.controller';
 import { authenticate, authorize } from '../../shared/middlewares/auth';
 import { tenantGuard } from '../../middleware/tenant-guard.middleware';
 
@@ -20,6 +21,10 @@ router.get('/tree', accountController.getAccountTree);
 
 // Get account balances - OWNER, MANAGER, ACCOUNTANT only
 router.get('/balances', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), accountController.getAccountBalances);
+
+// Map accounting roles to tenant-specific leaf accounts.
+router.get('/posting-maps', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), postingMapController.getAll);
+router.put('/posting-maps/:mappingKey', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), postingMapController.update);
 
 // Get account by ID - All authenticated users
 router.get('/:id', tenantGuard('Account'), accountController.getAccountById);

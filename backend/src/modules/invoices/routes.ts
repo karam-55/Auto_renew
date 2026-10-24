@@ -28,8 +28,8 @@ router.use(authenticate);
 // Add audit context middleware after authentication
 router.use(auditContextMiddleware);
 
-// Create invoice - OWNER, MANAGER, ACCOUNTANT, CASHIER only
-router.post('/', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER']), (req, res) => getController().createInvoice(req, res));
+// Create invoice - OWNER, MANAGER, ACCOUNTANT, CASHIER, RECEPTIONIST (POS/front-desk sales)
+router.post('/', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER', 'RECEPTIONIST']), (req, res) => getController().createInvoice(req, res));
 
 // Get all invoices - All authenticated users
 router.get('/', (req, res) => getController().getInvoices(req, res));
@@ -43,8 +43,8 @@ router.get('/:id', tenantGuard('Invoice'), (req, res) => getController().getInvo
 // Update invoice - OWNER, MANAGER, ACCOUNTANT only
 router.put('/:id', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().updateInvoice(req, res));
 
-// Finalize invoice (change from DRAFT to ISSUED) - OWNER, MANAGER, ACCOUNTANT only
-router.post('/:id/finalize', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().finalizeInvoice(req, res));
+// Finalize invoice (change from DRAFT to ISSUED) - OWNER, MANAGER, ACCOUNTANT, RECEPTIONIST (issue before collection)
+router.post('/:id/finalize', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST']), tenantGuard('Invoice'), (req, res) => getController().finalizeInvoice(req, res));
 
 // Sync draft invoice items from its booking's services - OWNER, MANAGER, ACCOUNTANT only
 router.post('/:id/sync-from-booking', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().syncFromBooking(req, res));
@@ -52,8 +52,8 @@ router.post('/:id/sync-from-booking', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT
 // Cancel invoice (change from SENT/ISSUED to CANCELLED) - OWNER, MANAGER, ACCOUNTANT only
 router.post('/:id/cancel', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Invoice'), (req, res) => getController().cancelInvoice(req, res));
 
-// Pay invoice (change from SENT/ISSUED to PAID) - OWNER, MANAGER, ACCOUNTANT, CASHIER only
-router.post('/:id/pay', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER']), tenantGuard('Invoice'), (req, res) => getController().payInvoice(req, res));
+// Pay invoice (change from SENT/ISSUED to PAID) - OWNER, MANAGER, ACCOUNTANT, CASHIER, RECEPTIONIST (front-desk collection)
+router.post('/:id/pay', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT', 'CASHIER', 'RECEPTIONIST']), tenantGuard('Invoice'), (req, res) => getController().payInvoice(req, res));
 
 // Delete invoice - OWNER, MANAGER only
 router.delete('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('Invoice'), (req, res) => getController().deleteInvoice(req, res));

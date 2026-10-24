@@ -6,6 +6,9 @@ export interface PartCategory {
   nameEn?: string;
   description?: string;
   parentId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
   icon?: string;
   color?: string;
   createdAt: Date;
@@ -18,6 +21,9 @@ export interface CreatePartCategoryDto {
   nameEn?: string;
   description?: string;
   parentId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
   icon?: string;
   color?: string;
 }
@@ -28,6 +34,9 @@ export interface UpdatePartCategoryDto {
   nameEn?: string;
   description?: string;
   parentId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
   icon?: string;
   color?: string;
 }

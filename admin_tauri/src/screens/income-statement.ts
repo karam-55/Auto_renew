@@ -89,7 +89,7 @@ export class IncomeStatementScreen {
 
   private async loadData(c: HTMLElement) {
     try {
-      const res = await this.api.get<any>('/api/reports/profit-loss')
+      const res = await this.api.get<any>('/api/reports/profit-loss', false)
       if (!res.success || !res.data) {
         c.querySelectorAll('tbody').forEach(tb => { tb.innerHTML = '<tr><td colspan="2" class="px-4 py-8 text-center text-text-secondary">لا توجد بيانات</td></tr>' })
         return

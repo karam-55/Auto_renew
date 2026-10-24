@@ -13,13 +13,13 @@ router.use(authenticate);
 router.post('/', authorize(['OWNER', 'MANAGER', 'SALES']), supplierController.createSupplier);
 
 // List suppliers with pagination (accessible by OWNER, MANAGER, SALES)
-router.get('/', authorize(['OWNER', 'MANAGER', 'SALES']), supplierController.getSuppliers);
+router.get('/', authorize(['OWNER', 'MANAGER', 'SALES', 'RECEPTIONIST']), supplierController.getSuppliers);
 
-// Search suppliers (accessible by OWNER, MANAGER, SALES)
-router.get('/search/:query', authorize(['OWNER', 'MANAGER', 'SALES']), supplierController.searchSuppliers);
+// Search suppliers (accessible by OWNER, MANAGER, SALES, RECEPTIONIST - read-only)
+router.get('/search/:query', authorize(['OWNER', 'MANAGER', 'SALES', 'RECEPTIONIST']), supplierController.searchSuppliers);
 
-// Get supplier by ID (accessible by OWNER, MANAGER, SALES)
-router.get('/:id', authorize(['OWNER', 'MANAGER', 'SALES']), tenantGuard('Supplier'), supplierController.getSupplierById);
+// Get supplier by ID (accessible by OWNER, MANAGER, SALES, RECEPTIONIST - read-only)
+router.get('/:id', authorize(['OWNER', 'MANAGER', 'SALES', 'RECEPTIONIST']), tenantGuard('Supplier'), supplierController.getSupplierById);
 
 // Update supplier (accessible by OWNER, MANAGER, SALES)
 router.put('/:id', authorize(['OWNER', 'MANAGER', 'SALES']), tenantGuard('Supplier'), supplierController.updateSupplier);

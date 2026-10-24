@@ -4,8 +4,22 @@ import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { loadExchangeRate, sypFromUsd, wireUsdSypPair } from '../utils/currency'
 
+const CUSTOM_UNIT_VALUE = '__custom__'
+// Standard unit catalog for base (consumption) units and purchase (packaging) units.
+const BASE_UNITS = ['قطعة', 'لتر', 'مل', 'كغ', 'غرام', 'متر', 'سم', 'عبوة', 'علبة', 'قارورة', 'كيس', 'لفة', 'طقم', 'خرطوشة', 'حبة']
+const PURCHASE_UNITS = ['عبوة', 'علبة', 'طرد', 'كرتونة', 'برميل', 'جالون', 'تنكة', 'كيس', 'لفة', 'صندوق', 'باليت', 'دسته']
+
+function unitOptions(units: string[]): string {
+  return `<option value="">اختر الوحدة</option>` +
+    units.map((unit) => `<option value="${unit}">${unit}</option>`).join('') +
+    `<option value="${CUSTOM_UNIT_VALUE}">أخرى (مخصص)</option>`
+}
+
 export class InventoryScreen {
   private editingPartId: string | null = null
+  private postingAccounts: any[] = []
+  private suppliers: any[] = []
+  private suppliersLoaded = false
   private currentPage = 1
   private pageSize = 20
   private totalCount = 0
@@ -136,54 +150,91 @@ export class InventoryScreen {
                 </button>
               </div>
             </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2" for="part-supplier">المورد الأساسي لهذه المادة *</label>
+              <select id="part-supplier" required class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow">
+                <option value="">اختر المورد</option>
+              </select>
+              <p class="mt-1 text-xs text-text-secondary">هذا هو المورد الافتراضي للمادة؛ يمكنك اختيار مورد مختلف عند كل استلام.</p>
+              <button type="button" data-open-suppliers class="mt-2 min-h-[44px] text-sm font-semibold text-primary hover:underline">إضافة مورد جديد</button>
+            </div>
+            <details class="rounded-lg border border-border bg-surface-subtle/40 p-3">
+              <summary class="cursor-pointer font-body-md text-on-surface">تخصيص حسابات هذه المادة (اختياري)</summary>
+              <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب أصل المخزون</label>
+                  <select id="part-inventory-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم حساب الفئة</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب التكلفة</label>
+                  <select id="part-cost-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم حساب الفئة</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب إيراد البيع</label>
+                  <select id="part-revenue-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم حساب الفئة</option>
+                  </select>
+                </div>
+              </div>
+            </details>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية الحالية (تتغير عبر حركة مخزون)</label>
-                <input type="number" min="0" disabled class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow disabled:opacity-70" id="part-quantity" placeholder="0" />
+                <input type="number" min="0" step="0.001" disabled class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow disabled:opacity-70" id="part-quantity" placeholder="0" />
               </div>
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الحد الأدنى</label>
-                <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-min-qty" placeholder="0" />
+                <input type="number" min="0" step="0.001" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-min-qty" placeholder="0" />
               </div>
             </div>
             <div class="border border-border rounded-xl p-4 space-y-3 bg-surface-subtle/40">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[18px] text-secondary">inventory</span>
-                <span class="font-label-sm text-label-sm text-text-tertiary">وحدات الشراء والبيع (اختياري — للمواد يلي بتُشترى بالطرد)</span>
+                <span class="font-label-sm text-label-sm text-text-tertiary">وحدات القياس — مثال: علبة زيت تحوي 4 لترات. التكلفة وسعر البيع أدناه تُقاس <strong>لكل وحدة أساسية</strong> (لتر/غرام/قطعة) وليس لكل عبوة</span>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة البيع</label>
-                  <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-base-unit" placeholder="عبوة" />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة القياس الأساسية (تُستهلك بها)</label>
+                  <select class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-base-unit">${unitOptions(BASE_UNITS)}</select>
+                  <input class="mt-2 hidden w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-base-unit-custom" placeholder="اكتب اسم الوحدة" />
                 </div>
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة الشراء</label>
-                  <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-purchase-unit" placeholder="طرد" />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة الشراء (العبوة)</label>
+                  <select class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-purchase-unit">${unitOptions(PURCHASE_UNITS)}</select>
+                  <input class="mt-2 hidden w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-purchase-unit-custom" placeholder="اكتب اسم الوحدة" />
                 </div>
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">عدد وحدات البيع بالوحدة الشرائية</label>
-                  <input type="number" min="0" step="1" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-units-per-package" placeholder="40" />
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">محتوى العبوة بالوحدة الأساسية</label>
+                  <input type="number" min="0" step="0.001" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-units-per-package" placeholder="مثال: 4.5" />
                 </div>
               </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع (ل.س)</label>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع لكل <span class="base-unit-name font-bold text-on-surface">وحدة أساسية</span> (ل.س)</label>
                 <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-price" placeholder="0" />
+                <p id="part-price-pkg-hint" class="hidden text-label-sm text-text-tertiary mt-1"></p>
               </div>
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">التكلفة (ل.س)</label>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">التكلفة لكل <span class="base-unit-name font-bold text-on-surface">وحدة أساسية</span> (ل.س)</label>
                 <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-cost" placeholder="0" />
+                <p id="part-cost-pkg-hint" class="hidden text-label-sm text-text-tertiary mt-1"></p>
               </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع بالدولار ($)</label>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر البيع لكل <span class="base-unit-name font-bold text-on-surface">وحدة أساسية</span> ($)</label>
                 <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-price-usd" placeholder="0.00" />
+                <p id="part-price-usd-pkg-hint" class="hidden text-label-sm text-text-tertiary mt-1"></p>
               </div>
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">التكلفة بالدولار ($)</label>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">التكلفة لكل <span class="base-unit-name font-bold text-on-surface">وحدة أساسية</span> ($)</label>
                 <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="part-cost-usd" placeholder="0.00" />
+                <p id="part-cost-usd-pkg-hint" class="hidden text-label-sm text-text-tertiary mt-1"></p>
               </div>
             </div>
             <div>
@@ -207,6 +258,9 @@ export class InventoryScreen {
             </button>
           </div>
           <div class="p-6 space-y-4">
+            <button type="button" id="initialize-inventory-categories-btn" class="h-10 px-4 rounded-lg border border-secondary/30 bg-secondary/10 text-secondary text-sm hover:bg-secondary/20">
+              تهيئة فئات المخزون المحاسبية
+            </button>
             <form id="category-form" class="glass-panel rounded-xl border border-border p-4 space-y-3">
               <input type="hidden" id="category-edit-id" value="" />
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -217,6 +271,26 @@ export class InventoryScreen {
                 <div>
                   <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الوصف</label>
                   <input class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="category-desc" placeholder="وصف اختياري" />
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب أصل المخزون</label>
+                  <select id="category-inventory-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم الافتراضي</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب تكلفة الاستخدام/البيع</label>
+                  <select id="category-cost-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم الافتراضي</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب إيراد البيع</label>
+                  <select id="category-revenue-account" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">
+                    <option value="">استخدم الافتراضي</option>
+                  </select>
                 </div>
               </div>
               <div class="flex justify-end gap-2">
@@ -236,7 +310,7 @@ export class InventoryScreen {
                     <th class="px-4 py-3 text-right font-label-sm text-label-sm text-text-tertiary uppercase">إجراءات</th>
                   </tr>
                 </thead>
-                <tbody id="category-tbody">
+        <tbody id="category-tbody">
                   <tr><td colspan="3" class="px-4 py-6 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-24 mx-auto"></div></td></tr>
                 </tbody>
               </table>
@@ -259,15 +333,22 @@ export class InventoryScreen {
           <div class="p-6 space-y-4">
             <input type="hidden" id="intake-part-id" value="" />
             <input type="hidden" id="intake-idempotency-key" value="" />
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-secondary mb-2" for="intake-supplier">المورد الذي تم الشراء منه *</label>
+              <select id="intake-supplier" required class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none">
+                <option value="">اختر المورد</option>
+              </select>
+              <p class="mt-1 text-xs text-text-secondary">يُختار تلقائياً المورد الأساسي للمادة، ويمكن تغييره لهذا الاستلام فقط.</p>
+            </div>
             <!-- Package mode (part has unitsPerPackage) -->
             <div id="intake-package-fields" class="space-y-4">
               <div>
-                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">عدد الأطرد المستلمة *</label>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2"><span id="intake-packages-label">عدد الأطرد المستلمة</span> *</label>
                 <input type="number" min="0" step="1" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-packages" placeholder="مثال: 2" />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">سعر الطرد (ل.س) *</label>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2"><span id="intake-package-cost-label">سعر الطرد (ل.س)</span> *</label>
                   <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-package-cost" placeholder="0" />
                 </div>
                 <div>
@@ -281,11 +362,11 @@ export class InventoryScreen {
             <div id="intake-unit-fields" class="space-y-4 hidden">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية المضافة *</label>
-                <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-units" placeholder="0" />
+                <input type="number" min="0" step="0.001" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-units" placeholder="0" />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">تكلفة الوحدة (ل.س) *</label>
+                  <label class="block font-label-sm text-label-sm text-text-tertiary mb-2"><span id="intake-unit-cost-label">تكلفة الوحدة (ل.س)</span> *</label>
                   <input type="number" min="0" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-unit-cost" placeholder="0" />
                 </div>
                 <div>
@@ -344,7 +425,7 @@ export class InventoryScreen {
     // Event listeners
     c.querySelector('#new-part-btn')?.addEventListener('click', () => {
       this.editingPartId = null
-      this.openPartModal(c, null, categories)
+      void this.openPartModal(c, null, categories)
     })
     c.querySelector('#part-search')?.addEventListener('input', () => {
       if (this.searchTimer) window.clearTimeout(this.searchTimer)
@@ -381,6 +462,22 @@ export class InventoryScreen {
 
     c.querySelector('#close-part-modal')?.addEventListener('click', () => { this.editingPartId = null; this.closeModal(c, '#part-modal') })
     c.querySelector('#cancel-part-modal')?.addEventListener('click', () => { this.editingPartId = null; this.closeModal(c, '#part-modal') })
+    c.querySelector('[data-open-suppliers]')?.addEventListener('click', () => this.router.navigate('/inventory/suppliers'))
+    ;[['#part-base-unit', '#part-base-unit-custom'], ['#part-purchase-unit', '#part-purchase-unit-custom']].forEach(([selId, customId]) => {
+      c.querySelector(selId)?.addEventListener('change', (e) => {
+        const custom = c.querySelector(customId) as HTMLInputElement
+        if (!custom) return
+        const isCustom = (e.currentTarget as HTMLSelectElement).value === CUSTOM_UNIT_VALUE
+        custom.classList.toggle('hidden', !isCustom)
+        if (isCustom) custom.focus()
+      })
+    })
+    ;['#part-base-unit', '#part-purchase-unit', '#part-base-unit-custom', '#part-purchase-unit-custom',
+      '#part-units-per-package', '#part-price', '#part-price-usd', '#part-cost', '#part-cost-usd'].forEach(sel => {
+      const input = c.querySelector(sel)
+      input?.addEventListener('change', () => this.updatePriceUnitLabels(c))
+      input?.addEventListener('input', () => this.updatePriceUnitLabels(c))
+    })
     c.querySelector('#save-part-btn')?.addEventListener('click', async () => {
       await this.savePart(c, () => {
         this.editingPartId = null
@@ -415,6 +512,20 @@ export class InventoryScreen {
 
     // Categories manager
     c.querySelector('#manage-categories-btn')?.addEventListener('click', () => this.openCategoryModal(c))
+    c.querySelector('#initialize-inventory-categories-btn')?.addEventListener('click', async () => {
+      try {
+        const res = await this.api.post<any>('/api/part-categories/initialize', {})
+        if (res.success === false) throw new Error(res.message || 'تعذر تهيئة فئات المخزون')
+        this.loadCategories((cats) => {
+          this.renderCategoryOptions(c, cats)
+          this.populatePartCategoryAccountSelects(c)
+          this.renderCategoryList(c, cats)
+        })
+        ;(window as any).toast?.show?.({ message: 'تم تجهيز فئات المخزون المحاسبية', type: 'success' })
+      } catch (error: any) {
+        ;(window as any).toast?.show?.({ message: error.message || 'تعذر تهيئة فئات المخزون', type: 'error' })
+      }
+    })
     c.querySelector('#close-category-modal')?.addEventListener('click', () => this.closeModal(c, '#category-modal'))
     const categoryModalEl = c.querySelector('#category-modal') as HTMLElement
     categoryModalEl?.addEventListener('click', (e) => {
@@ -481,9 +592,17 @@ export class InventoryScreen {
     const unitsIn = el.querySelector('#intake-units') as HTMLInputElement
     const unitCostIn = el.querySelector('#intake-unit-cost') as HTMLInputElement
     const unitCostUsdIn = el.querySelector('#intake-unit-cost-usd') as HTMLInputElement
+    const supplierSelect = el.querySelector('#intake-supplier') as HTMLSelectElement
     const settlementSelect = el.querySelector('#intake-settlement-account') as HTMLSelectElement
     const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
 
+    try {
+      await this.loadSuppliers(true)
+    } catch (error: any) {
+      ;(window as any).toast?.show?.({ message: error.message || 'تعذر تحميل قائمة الموردين', type: 'error' })
+      return
+    }
+    this.fillSupplierOptions(supplierSelect, part?.supplierId)
     if (nameEl) nameEl.textContent = part?.name || ''
     if (idEl) idEl.value = part?.id || ''
     if (idempotencyKeyEl && part?.id) {
@@ -506,6 +625,14 @@ export class InventoryScreen {
     if (preview) preview.classList.add('hidden')
 
     const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
+    const pkgLabel = el.querySelector('#intake-packages-label') as HTMLElement
+    const pkgCostLabel = el.querySelector('#intake-package-cost-label') as HTMLElement
+    const unitCostLabel = el.querySelector('#intake-unit-cost-label') as HTMLElement
+    const purchaseUnit = part?.purchaseUnitName || 'طرد'
+    const baseUnit = part?.baseUnitName || 'وحدة'
+    if (pkgLabel) pkgLabel.textContent = `عدد ${purchaseUnit} المستلمة`
+    if (pkgCostLabel) pkgCostLabel.textContent = `سعر ${purchaseUnit} (ل.س)`
+    if (unitCostLabel) unitCostLabel.textContent = `تكلفة ${baseUnit} (ل.س)`
     if (pkgFields) pkgFields.classList.toggle('hidden', !hasPackage)
     if (unitFields) unitFields.classList.toggle('hidden', hasPackage)
 
@@ -555,7 +682,10 @@ export class InventoryScreen {
     let payload: Record<string, unknown> = {}
     const settlementAccount = (el.querySelector('#intake-settlement-account') as HTMLSelectElement)?.value
     if (!settlementAccount) { ;(window as any).toast?.show?.({ message: 'اختر حساب تسجيل تكلفة الاستلام', type: 'warning' }); return }
+    const supplierId = (el.querySelector('#intake-supplier') as HTMLSelectElement)?.value
+    if (!supplierId) { ;(window as any).toast?.show?.({ message: 'اختر المورد الذي تم الشراء منه', type: 'warning' }); return }
     payload.settlementAccount = settlementAccount
+    payload.supplierId = supplierId
     const notesIn = el.querySelector('#intake-notes') as HTMLInputElement
     if (notesIn?.value?.trim()) payload.notes = notesIn.value.trim()
 
@@ -603,13 +733,53 @@ export class InventoryScreen {
   // ===== Categories =====
 
   private async loadCategories(callback?: (categories: any[]) => void) {
+    let categories: any[] = []
     try {
       const res = await this.api.get<any>('/api/part-categories', false)
-      const cats = res.data?.categories || res.data || []
-      if (callback) callback(Array.isArray(cats) ? cats : [])
+      categories = res.data?.categories || res.data || []
+      if (!Array.isArray(categories)) categories = []
     } catch {
-      if (callback) callback([])
+      categories = []
     }
+    try {
+      const accountRes = await this.api.get<any>('/api/accounting/accounts/tree', false)
+      const accountTree = accountRes.data?.data || accountRes.data || []
+      this.postingAccounts = this.flattenAccounts(Array.isArray(accountTree) ? accountTree : [])
+    } catch {
+      this.postingAccounts = []
+    }
+    if (callback) callback(categories)
+  }
+
+  private flattenAccounts(accounts: any[]): any[] {
+    return accounts.flatMap((account) => [account, ...this.flattenAccounts(account.children || [])])
+  }
+
+  private populatePartCategoryAccountSelects(el: HTMLElement) {
+    const accountMaps = [
+      { id: '#category-inventory-account', type: 'ASSET', label: 'استخدم الافتراضي' },
+      { id: '#category-cost-account', type: 'COGS', label: 'استخدم الافتراضي' },
+      { id: '#category-revenue-account', type: 'REVENUE', label: 'استخدم الافتراضي' },
+      { id: '#part-inventory-account', type: 'ASSET', label: 'استخدم حساب الفئة' },
+      { id: '#part-cost-account', type: 'COGS', label: 'استخدم حساب الفئة' },
+      { id: '#part-revenue-account', type: 'REVENUE', label: 'استخدم حساب الفئة' },
+    ]
+    for (const map of accountMaps) {
+      const select = el.querySelector(map.id) as HTMLSelectElement | null
+      if (!select) continue
+      const selected = select.value
+      const options = this.postingAccounts
+        .filter((account) => account.accountType === map.type && account.isActive !== false && !(account.children?.length))
+        .map((account) => `<option value="${this.esc(account.id)}">${this.esc(account.code)} — ${this.esc(account.nameAr)}</option>`)
+        .join('')
+      select.innerHTML = `<option value="">${map.label}</option>${options}`
+      if (selected) select.value = selected
+    }
+  }
+
+  private accountLabel(accountId?: string | null): string {
+    const account = this.postingAccounts.find((item) => item.id === accountId)
+    return account ? `${account.code} ${account.nameAr}` : 'افتراضي'
   }
 
   private renderCategoryOptions(el: HTMLElement, categories: any[]) {
@@ -644,7 +814,12 @@ export class InventoryScreen {
             <span class="font-body-md text-on-surface font-medium">${this.esc(cat.name)}</span>
           </div>
         </td>
-        <td class="px-4 py-3 font-body-md text-text-secondary">${this.esc(cat.description || '-')}</td>
+        <td class="px-4 py-3 font-body-md text-text-secondary">
+          <div>${this.esc(cat.description || '-')}</div>
+          <div class="mt-1 text-[11px] text-text-tertiary">
+            مخزون ${this.esc(this.accountLabel(cat.inventoryAccountId))} · تكلفة ${this.esc(this.accountLabel(cat.costAccountId))} · إيراد ${this.esc(this.accountLabel(cat.revenueAccountId))}
+          </div>
+        </td>
         <td class="px-4 py-3">
           <div class="flex items-center gap-2">
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" aria-label="تعديل الفئة" data-cat-action="edit" data-id="${cat.id}">
@@ -699,6 +874,9 @@ export class InventoryScreen {
     editId.value = cat.id
     nameIn.value = cat.name || ''
     if (descIn) descIn.value = cat.description || ''
+    ;(el.querySelector('#category-inventory-account') as HTMLSelectElement).value = cat.inventoryAccountId || ''
+    ;(el.querySelector('#category-cost-account') as HTMLSelectElement).value = cat.costAccountId || ''
+    ;(el.querySelector('#category-revenue-account') as HTMLSelectElement).value = cat.revenueAccountId || ''
     if (saveLabel) saveLabel.textContent = 'حفظ التعديل'
     if (cancelBtn) cancelBtn.classList.remove('hidden')
     nameIn.focus()
@@ -713,6 +891,9 @@ export class InventoryScreen {
     if (editId) editId.value = ''
     if (nameIn) nameIn.value = ''
     if (descIn) descIn.value = ''
+    ;(el.querySelector('#category-inventory-account') as HTMLSelectElement).value = ''
+    ;(el.querySelector('#category-cost-account') as HTMLSelectElement).value = ''
+    ;(el.querySelector('#category-revenue-account') as HTMLSelectElement).value = ''
     if (saveLabel) saveLabel.textContent = 'إضافة فئة'
     if (cancelBtn) cancelBtn.classList.add('hidden')
   }
@@ -727,7 +908,13 @@ export class InventoryScreen {
       nameIn?.focus()
       return
     }
-    const payload = { name, description: descIn?.value?.trim() || undefined }
+    const payload = {
+      name,
+      description: descIn?.value?.trim() || undefined,
+      inventoryAccountId: (el.querySelector('#category-inventory-account') as HTMLSelectElement).value || null,
+      costAccountId: (el.querySelector('#category-cost-account') as HTMLSelectElement).value || null,
+      revenueAccountId: (el.querySelector('#category-revenue-account') as HTMLSelectElement).value || null,
+    }
     try {
       const res = editId?.value
         ? await this.api.put<any>(`/api/part-categories/${editId.value}`, payload)
@@ -749,6 +936,7 @@ export class InventoryScreen {
     if (!modal) return
     this.resetCategoryForm(el)
     this.loadCategories((cats) => {
+      this.populatePartCategoryAccountSelects(el)
       this.renderCategoryOptions(el, cats)
       this.renderCategoryList(el, cats)
     })
@@ -758,7 +946,25 @@ export class InventoryScreen {
 
   // ===== Parts =====
 
-  private openPartModal(el: HTMLElement, part: any | null, categories: any[]) {
+  private async loadSuppliers(force = false): Promise<any[]> {
+    if (this.suppliersLoaded && !force) return this.suppliers
+    const response = await this.api.get<any>('/api/suppliers?status=ACTIVE&limit=100', false)
+    if (response.success === false) throw new Error(response.message || 'تعذر تحميل قائمة الموردين')
+    const data = response.data || {}
+    const suppliers = Array.isArray(data) ? data : data.data || data.suppliers || []
+    this.suppliers = Array.isArray(suppliers) ? suppliers.filter((supplier: any) => supplier.isActive !== false) : []
+    this.suppliersLoaded = true
+    return this.suppliers
+  }
+
+  private fillSupplierOptions(select: HTMLSelectElement | null, selectedId?: string | null) {
+    if (!select) return
+    select.innerHTML = `<option value="">اختر المورد</option>` +
+      this.suppliers.map((supplier: any) => `<option value="${this.esc(supplier.id)}">${this.esc(supplier.name)}${supplier.phone ? ` · ${this.esc(supplier.phone)}` : ''}</option>`).join('')
+    select.value = selectedId || ''
+  }
+
+  private async openPartModal(el: HTMLElement, part: any | null, categories: any[]) {
     const modal = el.querySelector('#part-modal') as HTMLElement
     const title = el.querySelector('#part-modal-title') as HTMLElement
     const nameIn = el.querySelector('#part-name') as HTMLInputElement
@@ -770,12 +976,22 @@ export class InventoryScreen {
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
     const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
     const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
-    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLInputElement
-    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLInputElement
+    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLSelectElement
+    const baseUnitCustomIn = el.querySelector('#part-base-unit-custom') as HTMLInputElement
+    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLSelectElement
+    const purchaseUnitCustomIn = el.querySelector('#part-purchase-unit-custom') as HTMLInputElement
     const uppIn = el.querySelector('#part-units-per-package') as HTMLInputElement
+    const supplierSelect = el.querySelector('#part-supplier') as HTMLSelectElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
     if (!modal || !nameIn) return
 
+    try {
+      await this.loadSuppliers(true)
+    } catch (error: any) {
+      ;(window as any).toast?.show?.({ message: error.message || 'تعذر تحميل الموردين', type: 'error' })
+      return
+    }
+    this.populatePartCategoryAccountSelects(el)
     if (title) title.textContent = part ? 'تعديل المادة' : 'إضافة مادة جديدة'
     nameIn.value = part?.name || ''
     if (codeIn) codeIn.value = part?.partNumber || part?.code || ''
@@ -784,6 +1000,10 @@ export class InventoryScreen {
         categories.map((cat: any) => `<option value="${cat.id}">${this.esc(cat.name)}</option>`).join('')
       catSelect.value = part?.categoryId || ''
     }
+    this.fillSupplierOptions(supplierSelect, part?.supplierId)
+    ;(el.querySelector('#part-inventory-account') as HTMLSelectElement).value = part?.inventoryAccountId || ''
+    ;(el.querySelector('#part-cost-account') as HTMLSelectElement).value = part?.costAccountId || ''
+    ;(el.querySelector('#part-revenue-account') as HTMLSelectElement).value = part?.revenueAccountId || ''
     if (qtyIn) qtyIn.value = part?.quantity != null ? String(part.quantity) : ''
     if (minQtyIn) minQtyIn.value = part?.minQuantity != null ? String(part.minQuantity) : ''
     if (priceIn) priceIn.value = part?.sellingPriceUSD != null && sypFromUsd(Number(part.sellingPriceUSD)) > 0
@@ -794,13 +1014,64 @@ export class InventoryScreen {
       : part?.costSYP != null ? String(part.costSYP) : ''
     if (usdPriceIn) usdPriceIn.value = part?.sellingPriceUSD != null ? String(part.sellingPriceUSD) : ''
     if (usdCostIn) usdCostIn.value = part?.costUSD != null ? String(part.costUSD) : ''
-    if (baseUnitIn) baseUnitIn.value = part?.baseUnitName || ''
-    if (purchaseUnitIn) purchaseUnitIn.value = part?.purchaseUnitName || ''
+    this.setUnitSelectValue(baseUnitIn, baseUnitCustomIn, part?.baseUnitName)
+    this.setUnitSelectValue(purchaseUnitIn, purchaseUnitCustomIn, part?.purchaseUnitName)
     if (uppIn) uppIn.value = part?.unitsPerPackage != null ? String(part.unitsPerPackage) : ''
     if (descIn) descIn.value = part?.description || ''
+    this.updatePriceUnitLabels(el)
     modal.classList.remove('hidden')
     modal.classList.add('flex')
     setTimeout(() => nameIn.focus(), 100)
+  }
+
+  private setUnitSelectValue(select: HTMLSelectElement | null, custom: HTMLInputElement | null, value?: string | null) {
+    if (!select) return
+    const known = value ? BASE_UNITS.includes(value) || PURCHASE_UNITS.includes(value) : false
+    select.value = known ? value! : (value ? CUSTOM_UNIT_VALUE : '')
+    if (custom) {
+      custom.classList.toggle('hidden', select.value !== CUSTOM_UNIT_VALUE)
+      custom.value = !known && value ? value : ''
+    }
+  }
+
+  private readUnitSelectValue(select: HTMLSelectElement | null, custom: HTMLInputElement | null): string {
+    if (!select) return ''
+    if (select.value === CUSTOM_UNIT_VALUE) return custom?.value?.trim() || ''
+    return select.value.trim()
+  }
+
+  private updatePriceUnitLabels(el: HTMLElement) {
+    const baseUnit = this.readUnitSelectValue(
+      el.querySelector('#part-base-unit'),
+      el.querySelector('#part-base-unit-custom'),
+    ) || 'وحدة أساسية'
+    const purchaseUnit = this.readUnitSelectValue(
+      el.querySelector('#part-purchase-unit'),
+      el.querySelector('#part-purchase-unit-custom'),
+    )
+    const upp = parseFloat((el.querySelector('#part-units-per-package') as HTMLInputElement)?.value) || 0
+
+    el.querySelectorAll('.base-unit-name').forEach(span => { span.textContent = baseUnit })
+
+    const fields: [string, string, string][] = [
+      ['#part-price', '#part-price-pkg-hint', 'ل.س'],
+      ['#part-price-usd', '#part-price-usd-pkg-hint', '$'],
+      ['#part-cost', '#part-cost-pkg-hint', 'ل.س'],
+      ['#part-cost-usd', '#part-cost-usd-pkg-hint', '$'],
+    ]
+    fields.forEach(([inputSel, hintSel, currency]) => {
+      const input = el.querySelector(inputSel) as HTMLInputElement
+      const hint = el.querySelector(hintSel) as HTMLElement
+      if (!input || !hint) return
+      const value = parseFloat(input.value)
+      if (purchaseUnit && upp > 0 && Number.isFinite(value) && value > 0) {
+        const packageValue = value * upp
+        hint.textContent = `يعادل ${packageValue.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${currency} لكل ${purchaseUnit} (${upp} ${baseUnit})`
+        hint.classList.remove('hidden')
+      } else {
+        hint.classList.add('hidden')
+      }
+    })
   }
 
   private closeModal(el: HTMLElement, selector: string) {
@@ -821,9 +1092,12 @@ export class InventoryScreen {
     const costIn = el.querySelector('#part-cost') as HTMLInputElement
     const usdPriceIn = el.querySelector('#part-price-usd') as HTMLInputElement
     const usdCostIn = el.querySelector('#part-cost-usd') as HTMLInputElement
-    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLInputElement
-    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLInputElement
+    const baseUnitIn = el.querySelector('#part-base-unit') as HTMLSelectElement
+    const baseUnitCustomIn = el.querySelector('#part-base-unit-custom') as HTMLInputElement
+    const purchaseUnitIn = el.querySelector('#part-purchase-unit') as HTMLSelectElement
+    const purchaseUnitCustomIn = el.querySelector('#part-purchase-unit-custom') as HTMLInputElement
     const uppIn = el.querySelector('#part-units-per-package') as HTMLInputElement
+    const supplierSelect = el.querySelector('#part-supplier') as HTMLSelectElement
     const descIn = el.querySelector('#part-description') as HTMLTextAreaElement
 
     if (!nameIn || !nameIn.value.trim()) {
@@ -831,8 +1105,13 @@ export class InventoryScreen {
       nameIn?.focus()
       return
     }
-    const qty = parseInt(qtyIn?.value || '0') || 0
-    const minQty = parseInt(minQtyIn?.value || '0') || 0
+    if (!supplierSelect?.value) {
+      ;(window as any).toast?.show?.({ message: 'اختر المورد الأساسي لهذه المادة', type: 'warning' })
+      supplierSelect?.focus()
+      return
+    }
+    const qty = parseFloat(qtyIn?.value || '0') || 0
+    const minQty = parseFloat(minQtyIn?.value || '0') || 0
     const price = parseInt(priceIn?.value || '0') || 0
     const cost = parseInt(costIn?.value || '0') || 0
     const usdPrice = usdPriceIn?.value?.trim() ? parseFloat(usdPriceIn.value) : undefined
@@ -848,6 +1127,10 @@ export class InventoryScreen {
       name: nameIn.value.trim(),
       partNumber: codeIn?.value?.trim() || '',
       description: descIn?.value?.trim() || '',
+      inventoryAccountId: (el.querySelector('#part-inventory-account') as HTMLSelectElement).value || null,
+      costAccountId: (el.querySelector('#part-cost-account') as HTMLSelectElement).value || null,
+      revenueAccountId: (el.querySelector('#part-revenue-account') as HTMLSelectElement).value || null,
+      supplierId: supplierSelect.value,
       quantity: qty,
       minQuantity: minQty,
       sellingPriceSYP: price,
@@ -856,14 +1139,19 @@ export class InventoryScreen {
     if (categoryId) payload.categoryId = categoryId
     if (usdPrice != null) payload.sellingPriceUSD = usdPrice
     if (usdCost != null) payload.costUSD = usdCost
-    const baseUnit = baseUnitIn?.value?.trim()
-    const purchaseUnit = purchaseUnitIn?.value?.trim()
+    const baseUnit = this.readUnitSelectValue(baseUnitIn, baseUnitCustomIn)
+    const purchaseUnit = this.readUnitSelectValue(purchaseUnitIn, purchaseUnitCustomIn)
     const uppRaw = uppIn?.value?.trim()
     if (baseUnit) payload.baseUnitName = baseUnit
     if (purchaseUnit) payload.purchaseUnitName = purchaseUnit
     if (uppRaw) {
-      const upp = parseInt(uppRaw)
-      if (upp > 0) payload.unitsPerPackage = upp
+      const upp = parseFloat(uppRaw)
+      if (upp > 0) {
+        payload.unitsPerPackage = upp
+      } else {
+        ;(window as any).toast?.show?.({ message: 'محتوى العبوة يجب أن يكون أكبر من صفر', type: 'warning' })
+        return
+      }
     }
 
     try {
@@ -937,6 +1225,114 @@ export class InventoryScreen {
     if (nextBtn) nextBtn.disabled = this.currentPage >= this.totalPages
   }
 
+  private async showPartHistory(el: HTMLElement, partId: string, partName: string, page: number): Promise<void> {
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-3 sm:p-6'
+    overlay.tabIndex = -1
+    overlay.innerHTML = `
+      <section role="dialog" aria-modal="true" aria-labelledby="part-history-title" class="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
+        <header class="flex items-start justify-between gap-4 border-b border-border bg-surface-subtle p-4 sm:p-6">
+          <div>
+            <p class="text-label-sm font-semibold text-primary">تتبع المخزون</p>
+            <h2 id="part-history-title" class="mt-1 text-headline-sm font-semibold text-on-surface">سجل حركات ${this.esc(partName)}</h2>
+            <p class="mt-1 text-body-sm text-text-secondary">كل استلام أو صرف أو استهلاك أو تسوية، والجهة أو أمر الشغل المرتبط بها.</p>
+          </div>
+          <button type="button" data-close class="min-h-[44px] min-w-[44px] rounded-lg border border-border text-on-surface hover:bg-surface" aria-label="إغلاق سجل الحركات">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </header>
+        <div data-history-content class="max-h-[68vh] overflow-y-auto p-4 sm:p-6">
+          <div class="py-12 text-center text-body-md text-text-secondary">جاري تحميل سجل الحركة…</div>
+        </div>
+        <footer class="flex items-center justify-between gap-3 border-t border-border p-4">
+          <span data-history-count class="text-body-sm text-text-secondary"></span>
+          <div class="flex gap-2">
+            <button type="button" data-prev class="min-h-[44px] rounded-lg border border-border px-4 text-on-surface disabled:opacity-40">السابق</button>
+            <button type="button" data-next class="min-h-[44px] rounded-lg border border-border px-4 text-on-surface disabled:opacity-40">التالي</button>
+          </div>
+        </footer>
+      </section>`
+    el.appendChild(overlay)
+    const close = () => {
+      document.removeEventListener('keydown', onKeyDown)
+      overlay.remove()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    overlay.focus()
+    overlay.querySelector('[data-close]')?.addEventListener('click', close)
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) close() })
+    overlay.querySelector('[data-prev]')?.addEventListener('click', () => {
+      if (page > 1) void this.showPartHistory(el, partId, partName, page - 1)
+      close()
+    })
+    overlay.querySelector('[data-next]')?.addEventListener('click', () => {
+      void this.showPartHistory(el, partId, partName, page + 1)
+      close()
+    })
+
+    try {
+      const response = await this.api.get<any>(`/api/inventory-transactions/part/${encodeURIComponent(partId)}?page=${page}&limit=50`, false)
+      if (!response.success) throw new Error(response.message || 'تعذر تحميل سجل الحركات')
+      const result = response.data || {}
+      const transactions = Array.isArray(result.data) ? result.data : []
+      const content = overlay.querySelector('[data-history-content]') as HTMLElement
+      const count = overlay.querySelector('[data-history-count]') as HTMLElement
+      const previous = overlay.querySelector('[data-prev]') as HTMLButtonElement
+      const next = overlay.querySelector('[data-next]') as HTMLButtonElement
+      const totalPages = Math.max(1, Number(result.totalPages || 1))
+      count.textContent = `الصفحة ${page.toLocaleString('ar-SY')} من ${totalPages.toLocaleString('ar-SY')} · ${Number(result.total || 0).toLocaleString('ar-SY')} حركة`
+      previous.disabled = page <= 1
+      next.disabled = page >= totalPages
+      if (!transactions.length) {
+        content.innerHTML = `<div class="rounded-xl border border-dashed border-border px-4 py-12 text-center">
+          <span class="material-symbols-outlined text-4xl text-text-tertiary" aria-hidden="true">inventory_2</span>
+          <p class="mt-2 font-semibold text-on-surface">لا توجد حركات مسجلة لهذه المادة</p>
+          <p class="mt-1 text-body-sm text-text-secondary">ستظهر هنا عمليات الاستلام والصرف والاستهلاك والتسوية.</p>
+        </div>`
+        return
+      }
+      content.innerHTML = `<div class="space-y-3">${transactions.map((movement: any) => {
+        const isOut = movement.direction === 'OUT'
+        const quantitySign = movement.direction === 'IN' ? '+' : isOut ? '−' : ''
+        const badgeClass = isOut ? 'bg-error/10 text-error' : movement.direction === 'IN' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+        const directionText = isOut ? 'خرج من المخزون' : movement.direction === 'IN' ? 'دخل إلى المخزون' : movement.direction === 'TRANSFER' ? 'نقل داخلي' : 'تسوية مخزون'
+        const date = movement.createdAt
+          ? new Intl.DateTimeFormat('ar-SY', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(movement.createdAt))
+          : '—'
+        const destination = movement.destinationDescription || 'وجهة غير محددة'
+        const related = [
+          movement.customerName ? `العميل: ${movement.customerName}` : '',
+          movement.vehicleDescription ? `السيارة: ${movement.vehicleDescription}` : '',
+          movement.serviceName ? `الخدمة: ${movement.serviceName}` : '',
+          movement.supplierName ? `المورد: ${movement.supplierName}` : '',
+          movement.warehouseName ? `المستودع: ${movement.warehouseName}` : '',
+        ].filter(Boolean)
+        return `<article class="rounded-xl border border-border bg-surface p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-full px-3 py-1 text-label-sm font-semibold ${badgeClass}">${this.esc(movement.transactionLabel || 'حركة مخزون')}</span>
+                <span class="text-body-sm text-text-secondary">${this.esc(directionText)}</span>
+              </div>
+              <p class="mt-2 text-body-md font-semibold text-on-surface">${this.esc(destination)}</p>
+              ${related.length ? `<p class="mt-1 text-body-sm leading-6 text-text-secondary">${related.map((item) => this.esc(item)).join(' · ')}</p>` : ''}
+            </div>
+            <div class="text-left">
+              <p class="text-headline-sm font-bold ${isOut ? 'text-error' : 'text-on-surface'}">${quantitySign}${new Intl.NumberFormat('ar-SY', { maximumFractionDigits: 3 }).format(Number(movement.quantity || 0))} ${this.esc(movement.unitName || '')}</p>
+              <p class="mt-1 text-body-sm text-text-tertiary">${this.esc(date)}</p>
+            </div>
+          </div>
+        </article>`
+      }).join('')}</div>`
+    } catch (error: any) {
+      const content = overlay.querySelector('[data-history-content]') as HTMLElement
+      content.innerHTML = `<div role="alert" class="rounded-xl border border-error/30 bg-error/5 p-4 text-body-sm text-error">${this.esc(error?.message || 'تعذر تحميل سجل الحركات')}</div>`
+    }
+  }
+
   private renderParts(el: HTMLElement, parts: any[]) {
     const tbody = el.querySelector('#inventory-tbody')!
     if (parts.length === 0) {
@@ -948,16 +1344,22 @@ export class InventoryScreen {
       const min = p.minQuantity || 0
       const status = qty <= 0 ? 'out' : (qty < min ? 'low' : 'ok')
       const unitLabel = p.baseUnitName ? ` ${this.esc(p.baseUnitName)}` : ''
-      const fullPackages = p.unitsPerPackage && p.unitsPerPackage > 0 ? Math.floor(qty / p.unitsPerPackage) : 0
-      const packagesInfo = fullPackages > 0
-        ? `<div class="text-sm text-text-tertiary">يعادل ${fullPackages} ${this.esc(p.purchaseUnitName || 'طرد')}</div>`
-        : ''
+      const upp = Number(p.unitsPerPackage || 0)
+      let packagesInfo = ''
+      if (upp > 0 && qty > 0) {
+        const fullPackages = Math.floor(qty / upp)
+        const remainder = Math.round((qty % upp) * 1000) / 1000
+        const parts = fullPackages > 0 ? [`${fullPackages} ${this.esc(p.purchaseUnitName || 'طرد')}`] : []
+        if (remainder > 0) parts.push(`${remainder}${unitLabel || ' وحدة'}`)
+        if (parts.length > 0) packagesInfo = `<div class="text-sm text-text-tertiary">يعادل ${parts.join(' + ')}</div>`
+      }
       return `
       <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
         <td class="px-6 py-4 font-body-md text-on-surface">${this.esc(p.partNumber || p.code || p.id?.slice(0,8))}</td>
         <td class="px-6 py-4">
           <div class="font-body-md text-on-surface font-medium">${this.esc(p.name)}</div>
           <div class="text-sm text-text-tertiary">${this.esc(p.description || '')}</div>
+          <div class="mt-1 text-xs text-primary">${p.supplierName ? `المورد الأساسي: ${this.esc(p.supplierName)}` : 'لم يتم تحديد مورد'}</div>
         </td>
         <td class="px-6 py-4 font-body-md text-on-surface">${p.category?.name ? this.esc(p.category.name) : '-'}</td>
         <td class="px-6 py-4 font-body-md ${status === 'out' ? 'text-error' : (status === 'low' ? 'text-warning' : 'text-on-surface')}">${qty}${unitLabel}${packagesInfo}</td>
@@ -975,6 +1377,10 @@ export class InventoryScreen {
           <div class="flex items-center gap-2">
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-success transition-colors" title="استلام مخزون" aria-label="استلام مخزون" data-action="intake" data-id="${p.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">archive</span>
+            </button>
+            <button class="touch-safe min-w-[44px] min-h-[44px] rounded-lg hover:bg-primary/10 flex items-center justify-center gap-1 text-primary transition-colors" title="سجل حركة المادة" aria-label="عرض سجل حركات ${this.esc(p.name)}" data-action="history" data-id="${p.id}" data-name="${this.esc(p.name)}">
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">manage_search</span>
+              <span class="text-xs">الحركات</span>
             </button>
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-text-tertiary hover:text-info transition-colors" title="تعديل" aria-label="تعديل المادة" data-action="edit" data-id="${p.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
@@ -1005,6 +1411,12 @@ export class InventoryScreen {
         }
       })
     })
+    tbody.querySelectorAll<HTMLButtonElement>('[data-action="history"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id
+        if (id) void this.showPartHistory(el, id, btn.dataset.name || 'المادة', 1)
+      })
+    })
     tbody.querySelectorAll('[data-action="edit"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id')
@@ -1014,7 +1426,7 @@ export class InventoryScreen {
           const part = res.data?.part || res.data
           if (part) {
             this.editingPartId = id
-            this.openPartModal(el, part, this.currentCategories(el))
+            await this.openPartModal(el, part, this.currentCategories(el))
           } else {
             ;(window as any).toast?.show?.({ message: 'لم يتم العثور على المادة', type: 'error' })
           }

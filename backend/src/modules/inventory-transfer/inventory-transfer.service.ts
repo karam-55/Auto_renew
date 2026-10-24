@@ -1,5 +1,6 @@
 import { InventoryTransfer, TransferStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
+import { isValidQuantity } from '../../utils/quantity';
 
 export class InventoryTransferService {
   async createTransfer(data: {
@@ -10,6 +11,9 @@ export class InventoryTransferService {
     items: Array<{ partId: string; quantity: number }>;
     notes?: string;
   }): Promise<InventoryTransfer> {
+    if (data.items.length === 0 || data.items.some((item) => !isValidQuantity(item.quantity))) {
+      throw new Error('Transfer items need positive quantities with at most three decimal places');
+    }
     // Validate warehouses
     const fromWarehouse = await prisma.warehouse.findUnique({
       where: { id: data.fromWarehouseId },
@@ -132,6 +136,8 @@ export class InventoryTransferService {
       where: { id },
       include: {
         items: true,
+        fromWarehouse: true,
+        toWarehouse: true,
       },
     });
 
@@ -152,9 +158,10 @@ export class InventoryTransferService {
           partId: item.partId,
           warehouseId: transfer.fromWarehouseId,
           type: 'TRANSFER',
-          quantity: -item.quantity,
+          quantity: item.quantity,
           costSYP: 0,
-          reference: `Transfer OUT: ${id}`,
+          reference: `TRANSFER:${id}`,
+          notes: `صرف التحويل إلى مستودع ${transfer.toWarehouse.name}`,
         },
       });
     }
@@ -179,6 +186,8 @@ export class InventoryTransferService {
       where: { id },
       include: {
         items: true,
+        fromWarehouse: true,
+        toWarehouse: true,
       },
     });
 
@@ -201,7 +210,8 @@ export class InventoryTransferService {
           type: 'TRANSFER',
           quantity: item.quantity,
           costSYP: 0,
-          reference: `Transfer IN: ${id}`,
+          reference: `TRANSFER:${id}`,
+          notes: `استلام التحويل من مستودع ${transfer.fromWarehouse.name}`,
         },
       });
     }
@@ -260,7 +270,7 @@ export class InventoryTransferService {
     return transactions.reduce((total, transaction) => {
       // TRANSFER transactions can be positive (IN) or negative (OUT)
       // Other types like PURCHASE, SALE, etc. have their own logic
-      return total + transaction.quantity;
+      return total + Number(transaction.quantity);
     }, 0);
   }
 }

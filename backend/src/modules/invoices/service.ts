@@ -16,6 +16,7 @@ import { WhatsAppService } from '../whatsapp/service';
 import { TelegramAdminNotificationService } from '../notifications/telegram-admin-notification.service';
 import { PaymentService } from '../payments/service';
 import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, ensureDefaultAccounts, reverseJournalEntry } from '../accounting/automatic-journal-entries';
+import { isValidQuantity } from '../../utils/quantity';
 
 export class InvoiceService {
   private loyaltyService: LoyaltyService;
@@ -102,21 +103,62 @@ export class InvoiceService {
       throw new Error('Invoice must have at least one item');
     }
 
+    for (const item of data.items) {
+      if (!item.bookingServiceId) continue;
+      if (!data.bookingId) throw new Error('Booking service line requires an invoice linked to that work order');
+      const bookingService = await prisma.bookingService.findFirst({
+        where: {
+          id: item.bookingServiceId,
+          bookingId: data.bookingId,
+          deletedAt: null,
+          booking: { tenantId },
+        },
+        select: { serviceId: true },
+      });
+      if (!bookingService) throw new Error('Invoice item references a service line outside this work order');
+      if (item.serviceId && item.serviceId !== bookingService.serviceId) {
+        throw new Error('Invoice item service does not match its work-order service line');
+      }
+      item.serviceId = bookingService.serviceId;
+      if (item.bookingServiceMaterialId) {
+        if (!item.partId) throw new Error('Work-order material invoice item must reference an inventory part');
+        const material = await prisma.bookingServiceMaterial.findFirst({
+          where: {
+            id: item.bookingServiceMaterialId,
+            bookingServiceId: item.bookingServiceId,
+            partId: item.partId,
+            bookingService: { bookingId: data.bookingId, booking: { tenantId } },
+          },
+          select: { id: true },
+        });
+        if (!material) throw new Error('Invoice item references a material outside this work order');
+      }
+    }
+
     // Validate item quantities and prices — USD is the base currency;
     // accept either USD or SYP and auto-fill the missing side from the exchange rate
     const settings = await settingsService.getSettings(tenantId);
     const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
     const defaultTaxRate = Number(settings.taxRate || 0) / 100;
     for (const item of data.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-        throw new Error('Item quantity must be a positive whole number');
+      if (!isValidQuantity(item.quantity)) {
+        throw new Error('Item quantity must be positive and use at most three decimal places');
       }
-      if (item.priceUSD != null && item.priceUSD > 0) {
-        item.priceSYP = Math.round(item.priceUSD * exchangeRate);
-      } else if (item.priceSYP != null && item.priceSYP > 0) {
-        item.priceUSD = Math.round((item.priceSYP / exchangeRate) * 100) / 100;
+      const priceSYPInput = Number(item.priceSYP ?? 0);
+      const priceUSDInput = item.priceUSD == null ? null : Number(item.priceUSD);
+      if (!Number.isFinite(priceSYPInput) || priceSYPInput < 0 ||
+          (priceUSDInput != null && (!Number.isFinite(priceUSDInput) || priceUSDInput < 0))) {
+        throw new Error('Item prices cannot be negative');
+      }
+      if (priceUSDInput != null && priceUSDInput > 0) {
+        item.priceUSD = priceUSDInput;
+        item.priceSYP = Math.round(priceUSDInput * exchangeRate);
+      } else if (priceSYPInput > 0) {
+        item.priceSYP = priceSYPInput;
+        item.priceUSD = Math.round((priceSYPInput / exchangeRate) * 100) / 100;
       } else {
-        throw new Error('Item price is required (USD or SYP)');
+        item.priceSYP = 0;
+        item.priceUSD = 0;
       }
     }
 
@@ -126,10 +168,10 @@ export class InvoiceService {
 
     const calculatedItems = data.items.map((item) => {
       const itemTotalSYP = item.quantity * item.priceSYP;
-      const itemTotalUSD = item.priceUSD ? item.quantity * item.priceUSD : null;
+      const itemTotalUSD = item.priceUSD != null ? item.quantity * item.priceUSD : null;
 
       subtotalSYP += itemTotalSYP;
-      if (itemTotalUSD) {
+      if (itemTotalUSD != null) {
         subtotalUSD += itemTotalUSD;
       }
 
@@ -225,6 +267,8 @@ export class InvoiceService {
             invoiceId: createdInvoice.id,
             partId: item.partId,
             serviceId: item.serviceId,
+            bookingServiceId: item.bookingServiceId,
+            bookingServiceMaterialId: item.bookingServiceMaterialId,
             description: item.description,
             quantity: item.quantity,
             priceSYP: item.priceSYP,
@@ -375,11 +419,43 @@ export class InvoiceService {
 
     // If updating items, recalculate totals
     if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        if (!item.bookingServiceId) continue;
+        if (!existingInvoice.bookingId) throw new Error('Booking service line requires an invoice linked to a work order');
+        const bookingService = await prisma.bookingService.findFirst({
+          where: {
+            id: item.bookingServiceId,
+            bookingId: existingInvoice.bookingId,
+            deletedAt: null,
+            booking: { tenantId },
+          },
+          select: { serviceId: true },
+        });
+        if (!bookingService) throw new Error('Invoice item references a service line outside this work order');
+        if (item.serviceId && item.serviceId !== bookingService.serviceId) {
+          throw new Error('Invoice item service does not match its work-order service line');
+        }
+        item.serviceId = bookingService.serviceId;
+        if (item.bookingServiceMaterialId) {
+          if (!item.partId) throw new Error('Work-order material invoice item must reference an inventory part');
+          const material = await prisma.bookingServiceMaterial.findFirst({
+            where: {
+              id: item.bookingServiceMaterialId,
+              bookingServiceId: item.bookingServiceId,
+              partId: item.partId,
+              bookingService: { bookingId: existingInvoice.bookingId, booking: { tenantId } },
+            },
+            select: { id: true },
+          });
+          if (!material) throw new Error('Invoice item references a material outside this work order');
+        }
+      }
+
       // Rebuild draft invoice items atomically after recalculating totals.
       // USD is the base currency — auto-fill the missing side from the exchange rate
       const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
       for (const item of data.items) {
-        if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+        if (!isValidQuantity(item.quantity)) throw new Error('Item quantity must be positive and use at most three decimal places');
         if (item.priceUSD != null && item.priceUSD > 0) {
           item.priceSYP = Math.round(item.priceUSD * exchangeRate);
         } else if (item.priceSYP != null && item.priceSYP > 0) {
@@ -480,6 +556,8 @@ export class InvoiceService {
               invoiceId,
               partId: item.partId,
               serviceId: item.serviceId,
+              bookingServiceId: item.bookingServiceId,
+              bookingServiceMaterialId: item.bookingServiceMaterialId,
               description: item.description,
               quantity: item.quantity,
               priceSYP: item.priceSYP,
@@ -589,66 +667,56 @@ export class InvoiceService {
     if (bookingServices.length === 0) {
       throw new Error('Booking has no services to sync');
     }
+    const unpricedService = bookingServices.find((bookingService: any) => !bookingService.priceFinalized);
+    if (unpricedService) {
+      throw new Error(`Set the final price for "${unpricedService.customName || unpricedService.service.name}" before invoicing`);
+    }
 
     const settings = await settingsService.getSettings(tenantId);
     const taxRate = invoice.taxRateId
       ? Number((await prisma.taxRate.findFirst({ where: { id: invoice.taxRateId, tenantId } }))?.rate || 0)
       : Number(settings.taxRate || 0) / 100;
 
-    // Job-priced services (بخ/صيانة/PPF/مخصص/تصويج) start from the total of
-    // job purchases recorded for this booking — the user then adds profit.
-    const jobPurchases = await prisma.expense.aggregate({
-      where: { tenantId, bookingId: invoice.bookingId, category: 'JOB_PURCHASE', deletedAt: null },
-      _sum: { amountSYP: true, amountUSD: true },
-    });
-    const jobCostSYP = Number(jobPurchases._sum.amountSYP || 0);
-    const jobCostUSD = jobPurchases._sum.amountUSD != null ? Number(jobPurchases._sum.amountUSD) : null;
-    let jobCostAssigned = false;
-
     let subtotalSYP = 0;
     let subtotalUSD = 0;
     const itemInputs: any[] = [];
     for (const bs of bookingServices) {
       const type = (bs.service as any).serviceType || 'STANDARD';
-      const isJobPriced = ['JOB_BASED', 'PANELS', 'CUSTOM'].includes(type);
-
-      let priceSYP = Number(bs.priceSYP);
-      let priceUSD = bs.priceUSD != null ? Number(bs.priceUSD) : null;
-      if (isJobPriced && !jobCostAssigned) {
-        // Prefill the first job-priced line with the booking's job-purchase total.
-        priceSYP = jobCostSYP > 0 ? jobCostSYP : priceSYP;
-        priceUSD = jobCostUSD != null && jobCostUSD > 0 ? jobCostUSD : priceUSD;
-        jobCostAssigned = true;
-      }
+      const priceSYP = Number(bs.priceSYP || 0);
+      const priceUSD = bs.priceUSD != null ? Number(bs.priceUSD) : 0;
 
       const name = bs.customName || bs.service.name;
       const panelsLabel = bs.panels ? ` (${bs.panels})` : '';
-      subtotalSYP += priceSYP;
-      if (priceUSD) subtotalUSD += priceUSD;
+      const serviceQuantity = Number(bs.quantity || 1);
+      subtotalSYP += priceSYP * serviceQuantity;
+      subtotalUSD += priceUSD * serviceQuantity;
       itemInputs.push({
         serviceId: bs.serviceId,
+        bookingServiceId: bs.id,
         partId: null,
         description: `${name}${panelsLabel}`,
-        quantity: 1,
+        quantity: serviceQuantity,
         priceSYP,
         priceUSD,
-        totalSYP: priceSYP,
-        totalUSD: priceUSD,
+        totalSYP: priceSYP * serviceQuantity,
+        totalUSD: priceUSD * serviceQuantity,
       });
 
       // Materials (oil litres, wash consumables) become part items that
       // consume stock on finalization. Warranty oil is priced 0; paid oil and
       // consumables bill at the part's sale price.
       for (const m of (bs as any).materials || []) {
-        const qty = Number(m.quantity);
+        const qty = Number(m.issuedQuantity || 0);
         if (!(qty > 0)) continue;
         const part = (m as any).part;
         const matPriceSYP = type === 'OIL_WARRANTY' ? 0 : Number(part?.sellingPriceSYP || 0);
         const matPriceUSD = type === 'OIL_WARRANTY' ? 0 : (part?.sellingPriceUSD != null ? Number(part.sellingPriceUSD) : null);
         subtotalSYP += matPriceSYP * qty;
-        if (matPriceUSD) subtotalUSD += matPriceUSD * qty;
+        subtotalUSD += Number(matPriceUSD || 0) * qty;
         itemInputs.push({
-          serviceId: null,
+          serviceId: bs.serviceId,
+          bookingServiceId: bs.id,
+          bookingServiceMaterialId: m.id,
           partId: m.partId,
           description: part?.nameAr || part?.name || 'مادة',
           quantity: qty,
@@ -696,6 +764,62 @@ export class InvoiceService {
     });
 
     return this.mapToInvoiceResponse(updatedInvoice, items);
+  }
+
+  async createAndFinalizeWorkOrderInvoice(
+    tenantId: string,
+    bookingId: string,
+    userId?: string,
+  ): Promise<Invoice> {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, tenantId, deletedAt: null },
+      include: {
+        customer: true,
+        vehicle: true,
+        bookingServices: {
+          where: { deletedAt: null },
+          include: { service: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    if (!booking) throw new Error('Booking not found');
+    if (!booking.bookingServices.length) throw new Error('Work order has no services');
+
+    const unpriced = booking.bookingServices.find((line) => !line.priceFinalized);
+    if (unpriced) {
+      throw new Error(`Set the final price for "${unpriced.customName || unpriced.service.name}" before finishing the work order`);
+    }
+
+    let invoice: any = await prisma.invoice.findFirst({
+      where: { tenantId, bookingId, status: { not: InvoiceStatus.CANCELLED }, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!invoice) {
+      invoice = await this.createInvoice(tenantId, userId || 'system', {
+        customerId: booking.customerId,
+        vehicleId: booking.vehicleId,
+        bookingId,
+        invoiceDate: new Date(),
+        notes: `فاتورة أمر الشغل ${bookingId.slice(0, 8)}`,
+        items: booking.bookingServices.map((line) => ({
+          serviceId: line.serviceId,
+          bookingServiceId: line.id,
+          description: line.customName || line.service.name,
+          quantity: Number(line.quantity),
+          priceSYP: Number(line.priceSYP),
+          priceUSD: line.priceUSD == null ? 0 : Number(line.priceUSD),
+        })),
+      });
+    }
+
+    if (invoice.status === InvoiceStatus.DRAFT) {
+      await this.syncInvoiceFromBooking(tenantId, invoice.id);
+      invoice = await this.finalizeInvoice(tenantId, invoice.id, userId);
+    }
+
+    return invoice;
   }
 
   /**
@@ -773,8 +897,11 @@ export class InvoiceService {
             costSYP: transaction.costSYP,
             costUSD: transaction.costUSD,
             reference: `CANCEL:${transaction.id}`,
-            notes: `Restored from cancelled invoice ${invoice.invoiceNumber}`,
+            notes: `إعادة مادة إلى المخزون بعد إلغاء الفاتورة ${invoice.invoiceNumber}`,
             invoiceId,
+            bookingId: transaction.bookingId,
+            serviceId: transaction.serviceId,
+            bookingServiceId: transaction.bookingServiceId,
             createdBy: userId,
           },
         });
@@ -840,10 +967,14 @@ export class InvoiceService {
       const invoice = await tx.invoice.findFirst({
         where: { id: invoiceId, tenantId },
         include: {
+          vehicle: { select: { make: true, model: true, licensePlate: true } },
           items: {
             include: {
               service: {
-                include: { serviceParts: { include: { part: true } } },
+                include: {
+                  category: { select: { costCenterId: true } },
+                  serviceParts: { include: { part: true } },
+                },
               },
             },
           },
@@ -851,7 +982,19 @@ export class InvoiceService {
         },
       });
       if (!invoice) throw new Error('Invoice not found');
+      const invoiceVehicleText = invoice.vehicle
+        ? [invoice.vehicle.make, invoice.vehicle.model, invoice.vehicle.licensePlate ? `(${invoice.vehicle.licensePlate})` : ''].filter(Boolean).join(' ')
+        : '';
       if (invoice.status !== InvoiceStatus.DRAFT) throw new Error('Can only finalize invoices in DRAFT status');
+      if (invoice.bookingId) {
+        const unpricedService = await tx.bookingService.findFirst({
+          where: { bookingId: invoice.bookingId, deletedAt: null, priceFinalized: false },
+          select: { id: true, customName: true, service: { select: { name: true } } },
+        });
+        if (unpricedService) {
+          throw new Error(`Set the final price for "${unpricedService.customName || unpricedService.service.name}" before finalizing the invoice`);
+        }
+      }
 
       const claim = await tx.invoice.updateMany({
         where: { id: invoiceId, tenantId, status: InvoiceStatus.DRAFT },
@@ -861,27 +1004,68 @@ export class InvoiceService {
 
       await ensureDefaultAccounts(tenantId, tx);
 
-      const partsToConsume = new Map<string, { quantity: number; part: any }>();
-      const addPart = (part: any, quantity: number) => {
+      const partsToConsume = new Map<string, {
+        quantity: number;
+        part: any;
+        serviceId: string | null;
+        bookingServiceId: string | null;
+        costCenterId: string | null;
+      }>();
+      const addPart = (
+        part: any,
+        quantity: number,
+        serviceId: string | null = null,
+        bookingServiceId: string | null = null,
+        costCenterId: string | null = null
+      ) => {
         if (!part || part.tenantId !== tenantId) throw new Error('Invoice contains a missing or invalid part');
-        const existing = partsToConsume.get(part.id);
+        const key = `${part.id}:${bookingServiceId || serviceId || 'DIRECT'}`;
+        const existing = partsToConsume.get(key);
         if (existing) existing.quantity += quantity;
-        else partsToConsume.set(part.id, { quantity, part });
+        else partsToConsume.set(key, { quantity, part, serviceId, bookingServiceId, costCenterId });
       };
 
       for (const item of invoice.items) {
         if (item.partId) {
           const part = await tx.part.findFirst({ where: { id: item.partId, tenantId } });
-          addPart(part, item.quantity);
+          let quantityToConsume = Number(item.quantity);
+          if (item.bookingServiceMaterialId) {
+            if (!item.bookingServiceId) throw new Error('Work-order material invoice item is missing its service line');
+            const material = await tx.bookingServiceMaterial.findFirst({
+              where: { id: item.bookingServiceMaterialId, bookingServiceId: item.bookingServiceId, partId: item.partId },
+              select: { issuedQuantity: true },
+            });
+            if (!material) throw new Error('Invoice material line no longer exists on the work order');
+            if (quantityToConsume > Number(material.issuedQuantity)) {
+              throw new Error('Issue the additional work-order material before finalizing the invoice');
+            }
+            quantityToConsume = 0;
+          }
+          if (quantityToConsume > 0) {
+            addPart(
+              part,
+              quantityToConsume,
+              item.serviceId || null,
+              item.bookingServiceId || null,
+              item.service?.category?.costCenterId || null
+            );
+          }
         }
-        if (item.serviceId && item.service?.serviceParts) {
+        if (!item.partId && item.serviceId && item.service?.serviceParts) {
           for (const servicePart of item.service.serviceParts) {
-            addPart(servicePart.part, servicePart.quantity * item.quantity);
+            addPart(
+              servicePart.part,
+              Number(servicePart.quantity) * Number(item.quantity),
+              item.serviceId,
+              item.bookingServiceId || null,
+              item.service?.category?.costCenterId || null
+            );
           }
         }
       }
 
-      for (const [partId, data] of partsToConsume) {
+      for (const data of partsToConsume.values()) {
+        const partId = data.part.id;
         const deduction = await tx.part.updateMany({
           where: { id: partId, tenantId, quantity: { gte: data.quantity } },
           data: { quantity: { decrement: data.quantity } },
@@ -902,19 +1086,35 @@ export class InvoiceService {
             quantity: data.quantity,
             costSYP,
             costUSD,
-            reference: invoice.invoiceNumber,
-            notes: `Part used in invoice ${invoice.invoiceNumber}`,
+            reference: `INVOICE:${invoice.invoiceNumber}`,
+            notes: `استهلاك مادة ضمن الفاتورة ${invoice.invoiceNumber}${invoice.customer?.fullName ? ` للعميل ${invoice.customer.fullName}` : ''}${invoiceVehicleText ? ` · السيارة ${invoiceVehicleText}` : ''}`,
             invoiceId,
+            bookingId: invoice.bookingId || null,
+            serviceId: data.serviceId,
+            bookingServiceId: data.bookingServiceId,
+            costCenterId: data.costCenterId,
             createdBy: userId,
           },
-          include: { part: { select: { name: true } } },
+          include: {
+            part: { select: { name: true, nameAr: true } },
+            booking: {
+              include: {
+                customer: { select: { fullName: true } },
+                vehicle: { select: { make: true, model: true, licensePlate: true } },
+              },
+            },
+            service: { select: { name: true, nameAr: true } },
+            bookingService: { include: { service: { select: { name: true, nameAr: true } } } },
+          },
         });
         await createStockConsumptionJournalEntry(transaction, tenantId, userId || null, tx);
       }
 
       const updatedInvoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
       if (!updatedInvoice) throw new Error('Invoice not found after finalization');
-      await createInvoiceJournalEntry({ ...updatedInvoice, items: invoice.items, customer: invoice.customer }, tenantId, userId || null, tx);
+      if (Number(updatedInvoice.totalSYP) > 0 || Number(updatedInvoice.totalUSD || 0) > 0) {
+        await createInvoiceJournalEntry({ ...updatedInvoice, items: invoice.items, customer: invoice.customer }, tenantId, userId || null, tx);
+      }
       return { invoice, updatedInvoice };
     }, { isolationLevel: 'Serializable' });
 
@@ -1095,8 +1295,10 @@ export class InvoiceService {
         invoiceId: item.invoiceId,
         partId: item.partId,
         serviceId: item.serviceId,
+        bookingServiceId: item.bookingServiceId,
+        bookingServiceMaterialId: item.bookingServiceMaterialId,
         description: item.description,
-        quantity: item.quantity,
+        quantity: Number(item.quantity),
         priceSYP: Number(item.priceSYP),
         priceUSD: item.priceUSD ? Number(item.priceUSD) : null,
         totalSYP: Number(item.totalSYP),

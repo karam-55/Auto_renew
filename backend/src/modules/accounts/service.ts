@@ -10,6 +10,48 @@ import {
 import { AccountType } from '@prisma/client';
 
 export class AccountService {
+  private async assertAccountNotMapped(tenantId: string, accountId: string): Promise<void> {
+    const [postingMaps, services, serviceCategories, parts, partCategories] = await Promise.all([
+      prisma.accountPostingMap.count({ where: { tenantId, accountId, isActive: true } }),
+      prisma.service.count({
+        where: {
+          tenantId,
+          OR: [{ revenueAccountId: accountId }, { costAccountId: accountId }],
+        },
+      }),
+      prisma.serviceCategory.count({
+        where: {
+          tenantId,
+          OR: [{ revenueAccountId: accountId }, { costAccountId: accountId }],
+        },
+      }),
+      prisma.part.count({
+        where: {
+          tenantId,
+          OR: [
+            { inventoryAccountId: accountId },
+            { costAccountId: accountId },
+            { revenueAccountId: accountId },
+          ],
+        },
+      }),
+      prisma.partCategory.count({
+        where: {
+          tenantId,
+          OR: [
+            { inventoryAccountId: accountId },
+            { costAccountId: accountId },
+            { revenueAccountId: accountId },
+          ],
+        },
+      }),
+    ]);
+
+    if (postingMaps + services + parts + partCategories + serviceCategories > 0) {
+      throw new Error('Account is assigned to posting rules. Reassign those rules before deactivating or changing its type.');
+    }
+  }
+
   /**
    * Create a new account
    * Validates that parent account exists and prevents circular references
@@ -128,6 +170,13 @@ export class AccountService {
       throw new Error('Account not found');
     }
 
+    if (
+      (data.isActive === false && existingAccount.isActive) ||
+      (data.accountType && data.accountType !== existingAccount.accountType)
+    ) {
+      await this.assertAccountNotMapped(tenantId, accountId);
+    }
+
     // If updating code, check for duplicates
     if (data.code && data.code !== existingAccount.code) {
       const duplicateCode = await prisma.account.findFirst({
@@ -198,6 +247,8 @@ export class AccountService {
     if (!account) {
       throw new Error('Account not found');
     }
+
+    await this.assertAccountNotMapped(tenantId, accountId);
 
     // Check if account has children
     if (account.children.length > 0) {

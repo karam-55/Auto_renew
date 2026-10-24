@@ -10,6 +10,16 @@ export class PartCategoryController {
     this.partCategoryService = new PartCategoryService();
   }
 
+  initializeDefaultAccountingCategories = async (req: AuthRequest, res: Response) => {
+    try {
+      const categories = await this.partCategoryService.initializeDefaultAccountingCategories(req.user!.tenantId);
+      res.json({ success: true, categories });
+    } catch (error: any) {
+      Logger.error('Initialize mapped part categories error:', error);
+      res.status(400).json({ success: false, error: error.message || 'Failed to initialize inventory categories' });
+    }
+  };
+
   createPartCategory = async (req: AuthRequest, res: Response) => {
     try {
       const category = await this.partCategoryService.createPartCategory(req.user!.tenantId, req.body);

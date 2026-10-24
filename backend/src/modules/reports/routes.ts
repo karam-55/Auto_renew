@@ -77,6 +77,8 @@ router.get('/aged-receivables', reportController.getAgedReceivables);
 
 // GET /api/reports/aged-payables?asOfDate=
 router.get('/aged-payables', reportController.getAgedPayables);
+router.get('/customers/:customerId/statement', reportController.getCustomerStatement);
+router.get('/cash-bank-movement', reportController.getCashBankMovement);
 
 // ============================================
 // ADVANCED REPORTS
@@ -122,6 +124,8 @@ router.get('/invoice-profit/:id', tenantGuard('Invoice'), profitabilityControlle
 
 // GET /api/reports/service-profit?from=&to=
 router.get('/service-profit', profitabilityController.getServiceProfit);
+router.get('/work-order-profit', profitabilityController.getWorkOrderProfit);
+router.get('/department-profit', profitabilityController.getDepartmentProfit);
 
 // GET /api/reports/technician-profit?from=&to=
 router.get('/technician-profit', profitabilityController.getTechnicianProfit);

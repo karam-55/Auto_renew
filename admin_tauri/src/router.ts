@@ -5,6 +5,8 @@ import { canAccess } from './utils/role-permissions'
 import { LoginScreen } from './screens/login'
 import { DashboardScreen } from './screens/dashboard'
 import { BookingsScreen } from './screens/bookings'
+import { WorkOrdersScreen } from './screens/work-orders'
+import { WorkOrderDetailScreen } from './screens/work-order-detail'
 import { BookingWizardScreen } from './screens/booking-wizard'
 import { BookingTicketScreen } from './screens/booking-ticket'
 import { BookingPrintTicketScreen } from './screens/booking-print-ticket'
@@ -21,6 +23,7 @@ import { PurchaseOrdersScreen } from './screens/purchase-orders'
 import { BranchesScreen } from './screens/branches'
 import { AccountingScreen } from './screens/accounting'
 import { ChartOfAccountsScreen } from './screens/chart-of-accounts'
+import { AccountPostingMapsScreen } from './screens/account-posting-maps'
 import { JournalEntriesScreen } from './screens/journal-entries'
 import { GeneralLedgerScreen } from './screens/general-ledger'
 import { TrialBalanceScreen } from './screens/trial-balance'
@@ -36,6 +39,8 @@ import { HrScreen } from './screens/hr'
 import { EmployeeFormScreen } from './screens/employee-form'
 import { DepartmentsScreen } from './screens/departments'
 import { ReportsScreen } from './screens/reports'
+import { ProfitabilityReportScreen } from './screens/profitability-report'
+import { CashBankReportScreen } from './screens/cash-bank-report'
 import { RevenueReportScreen } from './screens/revenue-report'
 import { InventoryReportScreen } from './screens/inventory-report'
 import { CustomerReportScreen } from './screens/customer-report'
@@ -170,6 +175,7 @@ export class Router {
       case '/':
       case '/dashboard': return new DashboardScreen(this.auth, this.api, this)
       case '/bookings': return new BookingsScreen(this.auth, this.api, this)
+      case '/work-orders': return new WorkOrdersScreen(this.auth, this.api, this)
       case '/bookings/new': return new BookingWizardScreen(this.auth, this.api, this, 'new')
       case '/bookings/existing': return new BookingWizardScreen(this.auth, this.api, this, 'registered')
       case '/invoices': return new InvoicesScreen(this.auth, this.api, this)
@@ -196,6 +202,7 @@ export class Router {
       case '/branches': return new BranchesScreen(this.auth, this.api, this)
       case '/accounting': return new AccountingScreen(this.auth, this.api, this)
       case '/accounting/chart-of-accounts': return new ChartOfAccountsScreen(this.auth, this.api, this)
+      case '/accounting/account-mappings': return new AccountPostingMapsScreen(this.auth, this.api, this)
       case '/accounting/journal-entries': return new JournalEntriesScreen(this.auth, this.api, this)
       case '/accounting/general-ledger': return new GeneralLedgerScreen(this.auth, this.api, this)
       case '/accounting/trial-balance': return new TrialBalanceScreen(this.auth, this.api, this)
@@ -209,6 +216,8 @@ export class Router {
       case '/hr/employees/new': return new EmployeeFormScreen(this.auth, this.api, this, null)
       case '/departments': return new DepartmentsScreen(this.auth, this.api, this)
       case '/reports': return new ReportsScreen(this.auth, this.api, this)
+      case '/reports/profitability': return new ProfitabilityReportScreen(this.auth, this.api, this)
+      case '/reports/cash-bank': return new CashBankReportScreen(this.auth, this.api, this)
       case '/reports/revenue': return new RevenueReportScreen(this.auth, this.api, this)
       case '/reports/inventory': return new InventoryReportScreen(this.auth, this.api, this)
       case '/reports/customers': return new CustomerReportScreen(this.auth, this.api, this)
@@ -231,6 +240,8 @@ export class Router {
     // Dynamic routes
     const bookingTicketId = extractId(path, '/bookings/ticket/')
     if (bookingTicketId) return new BookingTicketScreen(this.auth, this.api, this, bookingTicketId)
+    const workOrderId = extractId(path, '/work-orders/')
+    if (workOrderId) return new WorkOrderDetailScreen(this.auth, this.api, this, workOrderId)
     const bookingPrintId = extractId(path, '/bookings/print/')
     if (bookingPrintId) return new BookingPrintTicketScreen(this.auth, this.api, this, bookingPrintId)
     const invoicePrintId = extractId(path, '/invoices/print/')

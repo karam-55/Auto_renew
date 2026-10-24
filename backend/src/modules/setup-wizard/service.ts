@@ -13,8 +13,13 @@ import {
   DEFAULT_COST_CENTERS,
 } from './types';
 import { hashPassword, generateTokens } from '../../shared/utils/auth';
+import { createJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { DEFAULT_ACCOUNT_CODES } from '../accounting/chart-of-accounts.defaults';
+import { ServiceCategoryService } from '../services/service-category.service';
 
 export class SetupWizardService {
+  private serviceCategoryService = new ServiceCategoryService();
+
   /**
    * Get current setup wizard status for tenant
    */
@@ -70,58 +75,108 @@ export class SetupWizardService {
       throw new Error('Password must be at least 6 characters');
     }
 
-    // Check if already initialized
-    const existingTenants = await prisma.tenant.count();
-    if (existingTenants > 0) {
-      throw new Error('System already initialized');
-    }
-
-    // Create tenant with default ID
-    const tenant = await prisma.tenant.create({
-      data: {
-        id: 'default',
-        name: data.tenantName,
-        nameAr: data.tenantNameAr || data.tenantName,
-        nameEn: data.tenantNameEn || data.tenantName,
-        isActive: true,
-      },
-    });
-
-    // Create branch
-    const branch = await prisma.branch.create({
-      data: {
-        tenantId: tenant.id,
-        name: data.branchName,
-        nameAr: data.branchNameAr || data.branchName,
-        nameEn: data.branchNameEn || data.branchName,
-        isActive: true,
-      },
-    });
-
-    // Create first admin user
     const passwordHash = await hashPassword(data.adminPassword);
-    const user = await prisma.user.create({
-      data: {
-        tenantId: tenant.id,
-        fullName: data.adminFullName,
-        username: data.adminUsername,
-        passwordHash,
-        phone: data.adminPhone || '0000000000',
-        role: 'OWNER',
-        isActive: true,
-      },
-    });
+    const { tenant, branch, user } = await prisma.$transaction(async (tx) => {
+      if (await tx.tenant.count() > 0) {
+        throw new Error('System already initialized');
+      }
 
-    // Create company settings
-    await prisma.companySettings.create({
-      data: {
-        tenantId: tenant.id,
-        companyName: data.tenantName,
-        companyNameAr: data.tenantNameAr || data.tenantName,
-        companyNameEn: data.tenantNameEn || data.tenantName,
-        setupStep: 0,
-        setupCompleted: false,
-      },
+      const tenant = await tx.tenant.create({
+        data: {
+          id: 'default',
+          name: data.tenantName,
+          nameAr: data.tenantNameAr || data.tenantName,
+          nameEn: data.tenantNameEn || data.tenantName,
+          isActive: true,
+        },
+      });
+
+      const branch = await tx.branch.create({
+        data: {
+          tenantId: tenant.id,
+          name: data.branchName,
+          nameAr: data.branchNameAr || data.branchName,
+          nameEn: data.branchNameEn || data.branchName,
+          isActive: true,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          fullName: data.adminFullName,
+          username: data.adminUsername,
+          passwordHash,
+          phone: data.adminPhone || '0000000000',
+          role: 'OWNER',
+          isActive: true,
+        },
+      });
+
+      const usdCurrency = await tx.currency.upsert({
+        where: { code: 'USD' },
+        update: {
+          tenantId: tenant.id,
+          name: 'US Dollar',
+          nameAr: 'دولار أمريكي',
+          nameEn: 'US Dollar',
+          symbol: '$',
+          isDefault: true,
+          isActive: true,
+          deletedAt: null,
+          decimalPlaces: 2,
+        },
+        create: {
+          tenantId: tenant.id,
+          code: 'USD',
+          name: 'US Dollar',
+          nameAr: 'دولار أمريكي',
+          nameEn: 'US Dollar',
+          symbol: '$',
+          isDefault: true,
+          isActive: true,
+          decimalPlaces: 2,
+        },
+      });
+      await tx.currency.upsert({
+        where: { code: 'SYP' },
+        update: {
+          tenantId: tenant.id,
+          name: 'Syrian Pound',
+          nameAr: 'ليرة سورية',
+          nameEn: 'Syrian Pound',
+          symbol: 'ل.س',
+          isDefault: false,
+          isActive: true,
+          deletedAt: null,
+          decimalPlaces: 2,
+        },
+        create: {
+          tenantId: tenant.id,
+          code: 'SYP',
+          name: 'Syrian Pound',
+          nameAr: 'ليرة سورية',
+          nameEn: 'Syrian Pound',
+          symbol: 'ل.س',
+          isDefault: false,
+          isActive: true,
+          decimalPlaces: 2,
+        },
+      });
+
+      await tx.companySettings.create({
+        data: {
+          tenantId: tenant.id,
+          defaultCurrencyId: usdCurrency.id,
+          companyName: data.tenantName,
+          companyNameAr: data.tenantNameAr || data.tenantName,
+          companyNameEn: data.tenantNameEn || data.tenantName,
+          setupStep: 0,
+          setupCompleted: false,
+        },
+      });
+
+      return { tenant, branch, user };
     });
 
     // Generate tokens
@@ -137,12 +192,13 @@ export class SetupWizardService {
 
   /**
    * Step 1: Save company information
-   */
+  */
   async saveStep1(tenantId: string, data: SetupStep1Company): Promise<void> {
-    // Use updateMany to avoid FK constraint issues from upsert create branch
-    await prisma.companySettings.updateMany({
-      where: { tenantId },
-      data: {
+    const selectedCurrency = await prisma.currency.findFirst({
+      where: { tenantId, code: data.currency, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+    await this.upsertCompanySettings(tenantId, {
         companyName: data.companyName,
         companyNameAr: data.companyNameAr,
         companyNameEn: data.companyNameEn,
@@ -154,36 +210,27 @@ export class SetupWizardService {
         timezone: data.timezone,
         dateFormat: data.dateFormat,
         timeFormat: data.timeFormat,
+        ...(selectedCurrency ? { defaultCurrencyId: selectedCurrency.id } : {}),
         setupStep: 1,
-      },
     });
+    if (selectedCurrency) {
+      await prisma.currency.updateMany({
+        where: { tenantId, isDefault: true },
+        data: { isDefault: false },
+      });
+      await prisma.currency.update({
+        where: { id: selectedCurrency.id },
+        data: { isDefault: true },
+      });
+    }
   }
 
   /**
    * Step 2: Save financial settings
-   */
+  */
   async saveStep2(tenantId: string, data: SetupStep2Financial): Promise<void> {
-    // Create fiscal period if provided
-    if (data.fiscalPeriodName && data.fiscalStartDate && data.fiscalEndDate) {
-      const existing = await prisma.fiscalPeriod.findFirst({
-        where: { tenantId, name: data.fiscalPeriodName },
-      });
-      if (!existing) {
-        await prisma.fiscalPeriod.create({
-          data: {
-            tenantId,
-            name: data.fiscalPeriodName,
-            startDate: new Date(data.fiscalStartDate),
-            endDate: new Date(data.fiscalEndDate),
-            status: 'ACTIVE',
-          },
-        });
-      }
-    }
-
-    await prisma.companySettings.update({
-      where: { tenantId },
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await this.upsertCompanySettings(tenantId, {
         exchangeRate: data.exchangeRate,
         taxRate: data.taxRate,
         overheadPercentage: data.overheadPercentage,
@@ -192,7 +239,24 @@ export class SetupWizardService {
         invoicePrefix: data.invoicePrefix,
         autoGenerateInvoiceNumber: data.autoGenerateInvoiceNumber,
         setupStep: 2,
-      },
+      }, tx);
+
+      if (data.fiscalPeriodName && data.fiscalStartDate && data.fiscalEndDate) {
+        const existing = await tx.fiscalPeriod.findFirst({
+          where: { tenantId, name: data.fiscalPeriodName },
+        });
+        if (!existing) {
+          await tx.fiscalPeriod.create({
+            data: {
+              tenantId,
+              name: data.fiscalPeriodName,
+              startDate: new Date(data.fiscalStartDate),
+              endDate: new Date(data.fiscalEndDate),
+              status: 'ACTIVE',
+            },
+          });
+        }
+      }
     });
   }
 
@@ -205,77 +269,110 @@ export class SetupWizardService {
       return { created: 0, message: 'Skipped chart of accounts creation' };
     }
 
-    const existingCount = await prisma.account.count({ where: { tenantId } });
-    if (existingCount > 0) {
-      await this.updateSetupStep(tenantId, 3);
-      return { created: 0, message: 'Accounts already exist, skipped' };
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const existingCount = await tx.account.count({ where: { tenantId } });
+      if (existingCount > 0) return { created: 0, skipped: true };
 
-    // Create accounts in order (parents first)
-    const createdAccounts: Record<string, string> = {}; // code -> id
-    let created = 0;
+      const createdAccounts = new Map<string, string>();
+      let created = 0;
 
-    // First pass: create all accounts without parent
-    for (const acc of DEFAULT_ACCOUNTS) {
-      try {
-        const existing = await prisma.account.findFirst({
-          where: { tenantId, code: acc.code },
-        });
-        if (existing) {
-          createdAccounts[acc.code] = existing.id;
-          continue;
-        }
-
-        const createdAccount = await prisma.account.create({
+      for (const account of DEFAULT_ACCOUNTS) {
+        const createdAccount = await tx.account.create({
           data: {
             tenantId,
-            code: acc.code,
-            nameAr: acc.nameAr,
-            nameEn: acc.nameEn,
-            accountType: acc.accountType as any,
-            category: acc.category as any || undefined,
+            code: account.code,
+            nameAr: account.nameAr,
+            nameEn: account.nameEn,
+            accountType: account.accountType,
+            category: account.category as any,
             isActive: true,
             balanceSYP: 0,
             balanceUSD: 0,
           },
+          select: { id: true },
         });
-        createdAccounts[acc.code] = createdAccount.id;
+        createdAccounts.set(account.code, createdAccount.id);
         created++;
-      } catch (err: any) {
-        Logger.error(`Failed to create account ${acc.code}:`, err.message);
       }
-    }
 
-    // Second pass: link parents
-    for (const acc of DEFAULT_ACCOUNTS) {
-      if (acc.parentCode && createdAccounts[acc.code] && createdAccounts[acc.parentCode]) {
-        try {
-          await prisma.account.update({
-            where: { id: createdAccounts[acc.code] },
-            data: { parentId: createdAccounts[acc.parentCode] },
-          });
-        } catch (err: any) {
-          Logger.error(`Failed to link parent for ${acc.code}:`, err.message);
+      for (const account of DEFAULT_ACCOUNTS) {
+        if (!account.parentCode) continue;
+        const accountId = createdAccounts.get(account.code);
+        const parentId = createdAccounts.get(account.parentCode);
+        if (!accountId || !parentId) {
+          throw new Error(`Invalid default chart hierarchy for account ${account.code}`);
         }
+        await tx.account.update({
+          where: { id: accountId },
+          data: { parentId },
+        });
       }
-    }
 
-    // Apply opening balances if provided
-    if (data.openingBalanceSYP && createdAccounts['1110']) {
-      await prisma.account.update({
-        where: { id: createdAccounts['1110'] },
-        data: { balanceSYP: data.openingBalanceSYP },
-      });
-    }
-    if (data.openingBalanceUSD && createdAccounts['1120']) {
-      await prisma.account.update({
-        where: { id: createdAccounts['1120'] },
-        data: { balanceUSD: data.openingBalanceUSD },
-      });
+      await ensureDefaultAccounts(tenantId, tx);
+
+      const openingSYP = Number(data.openingBalanceSYP || 0);
+      const openingUSD = Number(data.openingBalanceUSD || 0);
+      if (openingSYP > 0 || openingUSD > 0) {
+        const cashAccountId = createdAccounts.get(DEFAULT_ACCOUNT_CODES.CASH);
+        const bankAccountId = createdAccounts.get(DEFAULT_ACCOUNT_CODES.BANK);
+        const openingEquityAccountId = createdAccounts.get(DEFAULT_ACCOUNT_CODES.OPENING_BALANCE_EQUITY);
+        if (!cashAccountId || !bankAccountId || !openingEquityAccountId) {
+          throw new Error('Opening balance accounts are missing from the default chart');
+        }
+
+        const lines = [];
+        if (openingSYP > 0) {
+          lines.push({
+            accountId: cashAccountId,
+            debitSYP: openingSYP,
+            debitUSD: 0,
+            creditSYP: 0,
+            creditUSD: 0,
+            description: 'رصيد نقدية افتتاحي',
+          });
+        }
+        if (openingUSD > 0) {
+          lines.push({
+            accountId: bankAccountId,
+            debitSYP: 0,
+            debitUSD: openingUSD,
+            creditSYP: 0,
+            creditUSD: 0,
+            description: 'رصيد مصرفي افتتاحي',
+          });
+        }
+        lines.push({
+          accountId: openingEquityAccountId,
+          debitSYP: 0,
+          debitUSD: 0,
+          creditSYP: openingSYP,
+          creditUSD: openingUSD,
+          description: 'مقابل الأرصدة الافتتاحية',
+        });
+
+        await createJournalEntry(
+          tenantId,
+          new Date(),
+          'قيد الأرصدة الافتتاحية للصندوق والبنك',
+          `SETUP-OPENING-${tenantId}`,
+          'OPENING_BALANCE',
+          `SETUP-OPENING-${tenantId}`,
+          null,
+          lines,
+          tx
+        );
+      }
+
+      return { created, skipped: false };
+    }, { isolationLevel: 'Serializable' });
+
+    if (result.skipped) {
+      await this.updateSetupStep(tenantId, 3);
+      return { created: 0, message: 'Accounts already exist, skipped' };
     }
 
     await this.updateSetupStep(tenantId, 3);
-    return { created, message: `Created ${created} accounts successfully` };
+    return { created: result.created, message: `Created ${result.created} accounts successfully` };
   }
 
   /**
@@ -337,10 +434,12 @@ export class SetupWizardService {
           data: {
             tenantId,
             name: cc.name,
+            nameAr: cc.nameAr,
             code: cc.code,
             type: cc.type as any,
-            costDriver: 'OTHER' as any,
-            monthlyBudget: 0,
+            costDriver: cc.costDriver as any,
+            driverQuantity: cc.driverQuantity,
+            monthlyBudget: cc.monthlyBudget,
             isActive: true,
           },
         });
@@ -392,12 +491,33 @@ export class SetupWizardService {
    * Complete wizard
    */
   async complete(tenantId: string): Promise<void> {
-    await prisma.companySettings.update({
+    await this.serviceCategoryService.initializeDefaultDepartments(tenantId);
+    await this.upsertCompanySettings(tenantId, { setupCompleted: true, setupStep: 7 });
+  }
+
+  private async upsertCompanySettings(
+    tenantId: string,
+    data: Record<string, unknown>,
+    client: any = prisma
+  ): Promise<void> {
+    const tenant = await client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true, nameAr: true, nameEn: true },
+    });
+    if (!tenant) {
+      throw new Error('لم يتم إنشاء المنشأة بعد. ابدأ بإعداد النظام الأولي قبل حفظ الإعدادات.');
+    }
+
+    await client.companySettings.upsert({
       where: { tenantId },
-      data: {
-        setupCompleted: true,
-        setupStep: 7,
+      create: {
+        tenantId,
+        companyName: tenant.name,
+        companyNameAr: tenant.nameAr || tenant.name,
+        companyNameEn: tenant.nameEn || tenant.name,
+        ...data,
       },
+      update: data,
     });
   }
 
@@ -405,10 +525,7 @@ export class SetupWizardService {
    * Helper: update setup step only
    */
   private async updateSetupStep(tenantId: string, step: number): Promise<void> {
-    await prisma.companySettings.update({
-      where: { tenantId },
-      data: { setupStep: step },
-    });
+    await this.upsertCompanySettings(tenantId, { setupStep: step });
   }
 }
 

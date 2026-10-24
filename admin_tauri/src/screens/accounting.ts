@@ -16,7 +16,8 @@ export class AccountingScreen {
           <p class="text-body-md text-text-secondary mt-1">إدارة الحسابات والقيود والتقارير المالية</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          ${this.navCard('شجرة الحسابات', 'account_tree', 'إدارة وهيكلة دليل الحسابات', '/accounting/chart-of-accounts', 'primary')}
+          ${this.navCard('دليل الحسابات', 'account_tree', 'إدارة وهيكلة دليل الحسابات', '/accounting/chart-of-accounts', 'primary')}
+          ${this.navCard('ربط الحسابات', 'schema', 'تحديد حسابات القيود الآلية حسب نوع الحركة', '/accounting/account-mappings', 'primary')}
           ${this.navCard('القيود اليومية', 'receipt', 'تسجيل ومراجعة القيود المحاسبية', '/accounting/journal-entries', 'secondary')}
           ${this.navCard('دفتر الأستاذ', 'menu_book', 'استعراض حركات الحسابات التفصيلية', '/accounting/general-ledger', 'info')}
           ${this.navCard('ميزان المراجعة', 'scale', 'التحقق من توازن الحسابات', '/accounting/trial-balance', 'tertiary')}

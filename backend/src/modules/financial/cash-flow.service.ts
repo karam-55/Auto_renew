@@ -400,9 +400,15 @@ export class CashFlowService {
     periodStart: Date,
     periodEnd: Date
   ): Promise<number> {
-    // This would track payments to suppliers
-    // For now, return 0 as this needs supplier payment tracking
-    return 0;
+    const payments = await prisma.supplierPayment.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        paymentDate: { gte: periodStart, lte: periodEnd },
+      },
+      select: { amountSYP: true },
+    });
+    return payments.reduce((sum, payment) => sum + Number(payment.amountSYP), 0);
   }
 
   /**

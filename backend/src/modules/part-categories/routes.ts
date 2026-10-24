@@ -9,8 +9,10 @@ const partCategoryController = new PartCategoryController();
 // All routes require authentication
 router.use(authenticate);
 
-// Create category (accessible by OWNER, MANAGER, RECEPTIONIST, SALES)
-router.post('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), partCategoryController.createPartCategory);
+router.post('/initialize', authorize(['OWNER', 'MANAGER']), partCategoryController.initializeDefaultAccountingCategories);
+
+// Create category (accessible by OWNER, MANAGER, SALES)
+router.post('/', authorize(['OWNER', 'MANAGER', 'SALES']), partCategoryController.createPartCategory);
 
 // List categories (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']), partCategoryController.getPartCategories);
@@ -21,8 +23,8 @@ router.get('/tree', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MEC
 // Get category by ID (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get('/:id', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']), tenantGuard('PartCategory'), partCategoryController.getPartCategoryById);
 
-// Update category (accessible by OWNER, MANAGER, RECEPTIONIST, SALES)
-router.put('/:id', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']), tenantGuard('PartCategory'), partCategoryController.updatePartCategory);
+// Update category (accessible by OWNER, MANAGER, SALES)
+router.put('/:id', authorize(['OWNER', 'MANAGER', 'SALES']), tenantGuard('PartCategory'), partCategoryController.updatePartCategory);
 
 // Delete category (accessible by OWNER, MANAGER)
 router.delete('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('PartCategory'), partCategoryController.deletePartCategory);

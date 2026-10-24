@@ -10,6 +10,7 @@ export interface GoodsReceiptNote {
   supplierId: string;
   warehouseId?: string;
   receivedDate: Date;
+  dueDate?: Date | null;
   status: GRNStatus;
   receivedBy: string;
   notes?: string;
@@ -57,6 +58,7 @@ export interface CreateGRNDto {
   supplierId: string;
   warehouseId?: string;
   receivedDate?: Date;
+  dueDate?: Date;
   notes?: string;
   lines?: CreateGRNLineDto[];
 }
@@ -65,6 +67,7 @@ export interface UpdateGRNDto {
   supplierId?: string;
   warehouseId?: string;
   receivedDate?: Date;
+  dueDate?: Date;
   status?: GRNStatus;
   notes?: string;
 }

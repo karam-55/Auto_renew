@@ -433,6 +433,25 @@ export class JournalEntryService {
    * Map Prisma journal entry to response format
    */
   private mapToJournalEntryResponse(entry: any, lines: any[]): JournalEntry {
+    const mappedLines = lines.map((line) => ({
+      id: line.id,
+      entryId: line.entryId,
+      accountId: line.accountId,
+      accountName: line.account?.nameAr || line.accountName || line.account?.name || null,
+      accountNameAr: line.account?.nameAr || null,
+      accountNameEn: line.account?.name || null,
+      accountCode: line.account?.code || null,
+      accountType: line.account?.accountType || null,
+      description: line.description,
+      debitSYP: Number(line.debitSYP || 0),
+      debitUSD: Number(line.debitUSD || 0),
+      creditSYP: Number(line.creditSYP || 0),
+      creditUSD: Number(line.creditUSD || 0),
+      sourceType: line.sourceType,
+      sourceId: line.sourceId,
+      createdAt: line.createdAt,
+    }));
+
     return {
       id: entry.id,
       tenantId: entry.tenantId,
@@ -451,20 +470,11 @@ export class JournalEntryService {
       approvedAt: entry.approvedAt,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
-      lines: lines.map((line) => ({
-        id: line.id,
-        entryId: line.entryId,
-        accountId: line.accountId,
-        accountName: line.accountName,
-        description: line.description,
-        debitSYP: Number(line.debitSYP),
-        debitUSD: Number(line.debitUSD),
-        creditSYP: Number(line.creditSYP),
-        creditUSD: Number(line.creditUSD),
-        sourceType: line.sourceType,
-        sourceId: line.sourceId,
-        createdAt: line.createdAt,
-      })),
+      totalDebitSYP: mappedLines.reduce((sum, line) => sum + line.debitSYP, 0),
+      totalCreditSYP: mappedLines.reduce((sum, line) => sum + line.creditSYP, 0),
+      totalDebitUSD: mappedLines.reduce((sum, line) => sum + line.debitUSD, 0),
+      totalCreditUSD: mappedLines.reduce((sum, line) => sum + line.creditUSD, 0),
+      lines: mappedLines,
       fiscalPeriod: entry.fiscalPeriod,
       createdBy: entry.createdBy,
       approvedBy: entry.approvedBy,

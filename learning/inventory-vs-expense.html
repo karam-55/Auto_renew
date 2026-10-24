@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>فهم المخزون والمصاريف — بمثال بسيط</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --green: #059669;
+      --green-soft: #d1fae5;
+      --amber: #d97706;
+      --amber-soft: #fef3c7;
+      --red: #dc2626;
+      --red-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #ede9fe;
+      --border: #e2e8f0;
+      --shadow: 0 20px 25px -5px rgb(0 0 0 / 0.06), 0 8px 10px -6px rgb(0 0 0 / 0.06);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.06), transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(124, 58, 237, 0.06), transparent 40%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.8;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    header { text-align: center; padding: 40px 16px 24px; }
+
+    .badge {
+      display: inline-block;
+      background: var(--primary);
+      color: white;
+      padding: 6px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(26px, 5vw, 40px);
+      font-weight: 800;
+      color: var(--primary-dark);
+      margin-bottom: 10px;
+    }
+
+    .subtitle { font-size: 17px; color: var(--muted); max-width: 560px; margin: 0 auto; }
+
+    .story-card, .demo-section, .compare-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+
+    .story-card h2, .demo-section h2, .compare-card h3 {
+      font-size: 22px;
+      color: var(--primary-dark);
+      margin-bottom: 14px;
+    }
+
+    .story-card p { font-size: 16px; margin-bottom: 12px; }
+
+    .highlight {
+      background: var(--amber-soft);
+      border-right: 4px solid var(--amber);
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin: 16px 0;
+      font-size: 15px;
+    }
+
+    .step-nav {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .step-btn {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: white;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.3s ease;
+      min-height: 48px;
+    }
+
+    .step-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .step-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+    .scene {
+      position: relative;
+      min-height: 300px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #faf5ff 100%);
+      border-radius: 16px;
+      padding: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .entity {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px;
+      border-radius: 16px;
+      min-width: 130px;
+      transition: all 0.6s ease;
+    }
+
+    .entity-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+
+    .entity-label { font-size: 13px; font-weight: 700; text-align: center; }
+    .entity-amount { font-size: 16px; font-weight: 800; direction: ltr; }
+
+    .e-cash .entity-icon { background: var(--green-soft); }
+    .e-inventory .entity-icon { background: var(--purple-soft); }
+    .e-supplier .entity-icon { background: var(--amber-soft); }
+    .e-expense .entity-icon { background: var(--red-soft); }
+    .e-cogs .entity-icon { background: #e0e7ff; }
+
+    .e-cash .entity-amount { color: var(--green); }
+    .e-inventory .entity-amount { color: var(--purple); }
+    .e-supplier .entity-amount { color: var(--amber); }
+    .e-expense .entity-amount { color: var(--red); }
+    .e-cogs .entity-amount { color: var(--primary); }
+
+    .oil-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px;
+      background: var(--purple-soft);
+      border-radius: 10px;
+      border: 2px dashed var(--purple);
+      min-width: 60px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .oil-box .box-icon { font-size: 24px; }
+    .oil-box .box-label { font-size: 11px; font-weight: 700; color: var(--purple); }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 18px;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 0.5s;
+      align-self: center;
+    }
+    .flow-arrow.visible { opacity: 1; }
+
+    .flow-arrow .arrow-text {
+      font-size: 12px;
+      font-weight: 700;
+      background: white;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .pulse-highlight {
+      animation: pulse-ring 1.5s ease infinite;
+    }
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.3); }
+      50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+    }
+
+    .ledger-note {
+      width: 100%;
+      text-align: center;
+      background: white;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--muted);
+      display: none;
+    }
+    .ledger-note.show { display: block; animation: fadeUp 0.5s ease; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-text {
+      text-align: center;
+      padding: 18px;
+      background: var(--bg);
+      border-radius: 12px;
+      margin-top: 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .compare-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .compare-section { grid-template-columns: 1fr; }
+    }
+
+    .compare-card.correct h3 { color: var(--green); }
+    .compare-card.wrong h3 { color: var(--red); }
+
+    .compare-card .tag {
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .compare-card.correct .tag { background: var(--green-soft); color: var(--green); }
+    .compare-card.wrong .tag { background: var(--red-soft); color: var(--red); }
+
+    .journal-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .journal-table th, .journal-table td {
+      padding: 10px 12px;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .journal-table th {
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 12px;
+      background: var(--bg);
+    }
+    .journal-table .debit { color: var(--green); font-weight: 700; }
+    .journal-table .credit { color: var(--red); font-weight: 700; }
+    .journal-table .total-row { font-weight: 800; border-top: 2px solid var(--border); }
+
+    .result-box {
+      margin-top: 14px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+    .result-box.ok { background: var(--green-soft); color: var(--green); border: 1px solid var(--green); }
+    .result-box.bad { background: var(--red-soft); color: var(--red); border: 1px solid var(--red); }
+
+    .wrong-visual {
+      margin-top: 16px;
+      padding: 18px;
+      background: var(--red-soft);
+      border-radius: 12px;
+      border: 2px dashed var(--red);
+    }
+    .wrong-visual .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+    .wrong-visual .step .icon {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: white;
+      flex-shrink: 0;
+    }
+    .wrong-visual .total-line {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 2px dashed var(--red);
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--red);
+      text-align: center;
+    }
+
+    .summary-card {
+      background: linear-gradient(135deg, var(--primary-dark), var(--purple));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 36px;
+      margin-bottom: 28px;
+      color: white;
+      text-align: center;
+    }
+    .summary-card h2 { font-size: 24px; margin-bottom: 14px; color: white; }
+    .summary-card .rule {
+      font-size: 17px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin: 8px 0;
+      display: inline-block;
+    }
+    .summary-card .rule strong { color: var(--amber-soft); }
+
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 18px 0;
+      flex-wrap: wrap;
+    }
+    .flow-step {
+      background: rgba(255,255,255,0.15);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .flow-arrow-sm { font-size: 16px; opacity: 0.7; }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <div class="badge">شرح مبسط للمحاسبة</div>
+      <h1>لماذا شراء مخزون ليس مصروفاً؟</h1>
+      <p class="subtitle">مثال واحد بسيط يوضح الفرق بين الاستلام والاستهلاك، وما يحدث لو سجلت الشراء مرتين</p>
+    </header>
+
+    <section class="story-card">
+      <h2>📦 القصة ببساطة</h2>
+      <p>تخيل أنك اشتريت <strong>10 علب زيت</strong>، كل علبة بـ<strong>100$</strong>، فدفعت <strong>1,000$</strong> من الصندوق.</p>
+      <p>المحاسب يسجل: <strong>المخزون +1,000$</strong> (العلب صارت موجودة)، و<strong>الصندوق −1,000$</strong> (الفلوس طلعت).</p>
+      <p><strong>لماذا ما يكون مصروف؟</strong> لأن العلب ما زالت عندك — لم تُستخدم بعد. المصروف يُحسب فقط عندما تُستخدم المادة في العمل.</p>
+      <div class="highlight">
+        💡 القاعدة الذهبية: <strong>الشراء = نقل أصل من صندوق إلى مخزون</strong>. <strong>المصروف = استهلاك المادة عندما تُستخدم</strong>.
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h2>🎬 شاهد العملية بالأرقام</h2>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px">اضغط على الخطوات لترى ما يحدث في كل مرحلة</p>
+
+      <div class="step-nav" role="group" aria-label="خطوات العملية">
+        <button class="step-btn active" data-step="1">الخطوة 1: الشراء</button>
+        <button class="step-btn" data-step="2">الخطوة 2: استهلاك</button>
+        <button class="step-btn" data-step="3">الخطوة 3: الخطأ</button>
+        <button class="step-btn" data-step="4">النتيجة</button>
+      </div>
+
+      <div class="scene" id="scene" aria-live="polite">
+        <div class="entity e-cash" id="e-cash">
+          <div class="entity-icon">💰</div>
+          <div class="entity-label">الصندوق / البنك</div>
+          <div class="entity-amount" id="cash-val">1,000$</div>
+        </div>
+
+        <div class="flow-arrow" id="arrow-1">
+          <span class="arrow-text">−1,000$</span><span>←</span>
+        </div>
+
+        <div class="entity e-supplier" id="e-supplier">
+          <div class="entity-icon">🏭</div>
+          <div class="entity-label">المورد</div>
+          <div class="entity-amount" id="supplier-val">+10 علب</div>
+        </div>
+
+        <div class="flow-arrow" id="arrow-2">
+          <span>←</span><span class="arrow-text">+10 علب</span>
+        </div>
+
+        <div class="entity e-inventory" id="e-inventory">
+          <div class="entity-icon">📦</div>
+          <div class="entity-label">المخزون</div>
+          <div class="entity-amount" id="inv-val">0$</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:200px" id="oil-boxes"></div>
+        </div>
+
+        <div class="flow-arrow" id="arrow-3" style="display:none">
+          <span class="arrow-text">−100$</span><span>←</span>
+        </div>
+
+        <div class="entity e-cogs" id="e-cogs" style="display:none">
+          <div class="entity-icon">🔧</div>
+          <div class="entity-label">تكلفة المواد<br>(استهلاك)</div>
+          <div class="entity-amount" id="cogs-val">0$</div>
+        </div>
+
+        <div class="entity e-expense" id="e-expense" style="display:none">
+          <div class="entity-icon">📋</div>
+          <div class="entity-label">المصاريف</div>
+          <div class="entity-amount" id="exp-val">0$</div>
+        </div>
+
+        <div class="ledger-note" id="ledger-note"></div>
+      </div>
+
+      <div class="step-text" id="step-text"></div>
+    </section>
+
+    <div class="compare-section">
+
+      <div class="compare-card correct">
+        <h3>✅ الطريقة الصحيحة <span class="tag">صحيح محاسبياً</span></h3>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
+          يسجل الاستلام والاستهلاك بشكل منفصل. كل عملية لها قيد واحد.
+        </p>
+        <table class="journal-table">
+          <thead>
+            <tr><th>العملية</th><th>المدين</th><th>الدائن</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>شراء 10 علب × 100$</td>
+              <td class="debit">مخزون +1,000$</td>
+              <td class="credit">صندوق −1,000$</td>
+            </tr>
+            <tr>
+              <td>استخدام 3 علب (300$)</td>
+              <td class="debit">تكلفة +300$</td>
+              <td class="credit">مخزون −300$</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>الرصيد النهائي</strong></td>
+              <td class="debit">مخزون: 700$</td>
+              <td class="credit">تكلفة: 300$</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="result-box ok">
+          ✅ المصروف = 300$ فقط (العلب المستخدمة)<br>
+          المخزون = 700$ (7 علب متبقية)
+        </div>
+      </div>
+
+      <div class="compare-card wrong">
+        <h3>❌ الطريقة الخاطئة <span class="tag">يُحسب مرتين</span></h3>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
+          يسجل الشراء كمصروف فوراً، ثم يسجل الاستهلاك مرة ثانية كتكلفة.
+        </p>
+        <table class="journal-table">
+          <thead>
+            <tr><th>العملية</th><th>المبلغ</th><th>أين؟</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>شراء 10 علب × 100$</td>
+              <td class="debit">+1,000$</td>
+              <td>سجل مصروف</td>
+            </tr>
+            <tr>
+              <td>استخدام 3 علب (300$)</td>
+              <td class="debit">+300$</td>
+              <td>تكلفة مواد</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>إجمالي التكلفة المسجلة</strong></td>
+              <td class="debit" style="font-size:18px">1,300$</td>
+              <td style="font-weight:800;color:var(--red)">الـ300$ تكرار</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="wrong-visual">
+          <div class="step"><div class="icon">💰</div><span>اشتريت 10 علب ← سجلتها <strong>مصروف 1,000$</strong></span></div>
+          <div class="step"><div class="icon">🔧</div><span>استهلكت 3 علب ← سجلتها <strong>تكلفة 300$</strong></span></div>
+          <div class="step"><div class="icon">⚠️</div><span>الـ300$ هي نفس الـ100$×3 من الـ1,000$ — <strong>حُسبت مرتين!</strong></span></div>
+          <div class="total-line">❌ المبلغ الإجمالي: 1,300$ بدل 1,000$ الحقيقي</div>
+        </div>
+      </div>
+    </div>
+
+    <section class="summary-card">
+      <h2>📌 القاعدة بأبسط كلام</h2>
+      <div class="rule"><strong>شراء → مخزون</strong> | <strong>استخدام → تكلفة</strong> | <strong>لا تسجل نفس المادة مرتين</strong></div>
+      <div class="flow-diagram">
+        <div class="flow-step">💰 صندوق −</div>
+        <span class="flow-arrow-sm">←</span>
+        <div class="flow-step">📦 مخزون +</div>
+        <span class="flow-arrow-sm">←</span>
+        <div class="flow-step">🔧 تكلفة +</div>
+        <span class="flow-arrow-sm">←</span>
+        <div class="flow-step">📦 مخزون −</div>
+      </div>
+      <p style="font-size:14px;opacity:0.9;margin-top:14px">
+        إذا اشتريت مادة لعمل مباشر بدون إدخالها للمخزون، سجلها كمصروف «مشتريات مهمة» مرة واحدة فقط.<br>
+        أما المخزون الدائم: استلام → مخزون، استهلاك → تكلفة. لا تحسبها مرتين.
+      </p>
+    </section>
+
+    <footer>
+      <p>شرح مبسط لنظام Auto Renew — المحاسبة بمفهوم الجرد المستمر</p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      const cashEl = document.getElementById('e-cash');
+      const inventoryEl = document.getElementById('e-inventory');
+      const cogsEl = document.getElementById('e-cogs');
+      const expenseEl = document.getElementById('e-expense');
+      const arrow1 = document.getElementById('arrow-1');
+      const arrow2 = document.getElementById('arrow-2');
+      const arrow3 = document.getElementById('arrow-3');
+      const ledgerNote = document.getElementById('ledger-note');
+      const stepText = document.getElementById('step-text');
+      const cashVal = document.getElementById('cash-val');
+      const invVal = document.getElementById('inv-val');
+      const cogsVal = document.getElementById('cogs-val');
+      const expVal = document.getElementById('exp-val');
+      const oilBoxesEl = document.getElementById('oil-boxes');
+      const stepBtns = document.querySelectorAll('.step-btn');
+
+      const steps = {
+        1: {
+          cash: '0$', inv: '1,000$', showInventory: true, showCogs: false, showExpense: false, showArrow3: false,
+          ledger: '',
+          text: '<p>اشتريت <strong>10 علب</strong> زيت بـ<strong>1,000$</strong>. خرج المال من الصندوق ودخل البضاعة للمخزون.</p>',
+          highlight: 'e-cash',
+          boxes: 10
+        },
+        2: {
+          cash: '0$', inv: '700$', showInventory: true, showCogs: true, showExpense: false, showArrow3: true,
+          cogs: '300$', ledger: '💼 قيد اليومية: تكلفة المواد المستهلكة 300$ ← مخزون −300$',
+          text: '<p>استخدمت <strong>3 علب</strong> (بقيمة 300$) في صيانة السيارات. الآن ننقل تكلفتها من المخزون إلى التكلفة.</p>',
+          highlight: 'e-cogs',
+          boxes: 7
+        },
+        3: {
+          cash: '0$', inv: '700$', showInventory: true, showCogs: true, showExpense: true, showArrow3: true,
+          cogs: '300$', expense: '1,000$', ledger: '⚠️ لو سجلت الشراء كمصروف 1,000$ + تكلفة استهلاك 300$ = 1,300$ ← الـ300$ تكرار!',
+          text: '<p>لو أضفت الـ1,000$ أيضاً كـ«مصروف»، المجموع صار <strong>1,300$</strong> — أي 300$ تكرار بدل 300$ فقط.</p>',
+          highlight: 'e-expense',
+          boxes: 7
+        },
+        4: {
+          cash: '0$', inv: '700$', showInventory: true, showCogs: true, showExpense: false, showArrow3: true,
+          cogs: '300$', ledger: '✅ الصحيح: مخزون 700$ + تكلفة 300$ = 1,000$ (مطابق للشراء الأصلي)',
+          text: '<p>النتيجة الصحيحة: <strong>700$</strong> في المخزون (7 علب) + <strong>300$</strong> تكلفة (3 علب مستخدمة) = <strong>1,000$</strong> كامل.</p>',
+          highlight: 'e-inventory',
+          boxes: 7
+        }
+      };
+
+      function renderOilBoxes(count) {
+        oilBoxesEl.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+          const box = document.createElement('div');
+          box.className = 'oil-box';
+          box.innerHTML = '<span class="box-icon">🛢️</span><span class="box-label">100$</span>';
+          box.style.animationDelay = (i * 0.15) + 's';
+          oilBoxesEl.appendChild(box);
+        }
+      }
+
+      function clearHighlights() {
+        document.querySelectorAll('.entity').forEach(e => e.classList.remove('pulse-highlight'));
+      }
+
+      function setStep(step) {
+        const s = steps[step];
+        if (!s) return;
+
+        cashVal.textContent = s.cash;
+        invVal.textContent = s.inv;
+        if (s.cogs) cogsVal.textContent = s.cogs;
+        if (s.expense) expVal.textContent = s.expense;
+
+        inventoryEl.style.display = s.showInventory ? 'flex' : 'none';
+        cogsEl.style.display = s.showCogs ? 'flex' : 'none';
+        expenseEl.style.display = s.showExpense ? 'flex' : 'none';
+        arrow3.style.display = s.showArrow3 ? 'flex' : 'none';
+
+        renderOilBoxes(s.boxes);
+
+        if (s.ledger) {
+          ledgerNote.textContent = s.ledger;
+          ledgerNote.classList.add('show');
+        } else {
+          ledgerNote.classList.remove('show');
+        }
+
+        stepText.innerHTML = s.text;
+
+        clearHighlights();
+        const target = document.getElementById(s.highlight);
+        if (target) target.classList.add('pulse-highlight');
+
+        arrow1.classList.add('visible');
+        arrow2.classList.add('visible');
+
+        stepBtns.forEach(btn => {
+          const btnStep = btn.getAttribute('data-step');
+          btn.classList.toggle('active', btnStep === String(step));
+        });
+      }
+
+      stepBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setStep(parseInt(btn.getAttribute('data-step')));
+        });
+      });
+
+      setStep(1);
+    })();
+  </script>
+</body>
+</html>

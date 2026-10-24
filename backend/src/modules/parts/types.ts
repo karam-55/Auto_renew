@@ -13,8 +13,12 @@ export interface Part {
   nameEn?: string;
   description?: string;
   categoryId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
   category?: { id: string; name: string };
   supplierId?: string;
+  supplierName?: string;
   costSYP: number;
   costUSD?: number;
   sellingPriceSYP: number;
@@ -37,7 +41,10 @@ export interface CreatePartDto {
   nameEn?: string;
   description?: string;
   categoryId?: string;
-  supplierId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
+  supplierId: string;
   costSYP: number;
   costUSD?: number;
   sellingPriceSYP: number;
@@ -58,6 +65,9 @@ export interface UpdatePartDto {
   nameEn?: string;
   description?: string;
   categoryId?: string;
+  inventoryAccountId?: string | null;
+  costAccountId?: string | null;
+  revenueAccountId?: string | null;
   supplierId?: string;
   costSYP?: number;
   costUSD?: number;
@@ -73,6 +83,7 @@ export interface UpdatePartDto {
 }
 
 export interface StockIntakeDto {
+  supplierId?: string;
   packages?: number;
   units?: number;
   packageCostSYP?: number;

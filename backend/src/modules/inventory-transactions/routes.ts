@@ -16,21 +16,21 @@ router.use(auditContextMiddleware);
 // Create inventory transaction (accessible by OWNER, MANAGER, RECEPTIONIST, SALES)
 router.post(
   '/',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']),
+  authorize(['OWNER', 'MANAGER', 'SALES']),
   inventoryTransactionController.createInventoryTransaction
 );
 
 // List inventory transactions with pagination (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get(
   '/',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']),
+  authorize(['OWNER', 'MANAGER', 'SALES', 'MECHANIC']),
   inventoryTransactionController.getInventoryTransactions
 );
 
 // Get inventory transaction by ID (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get(
   '/:id',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']),
+  authorize(['OWNER', 'MANAGER', 'SALES', 'MECHANIC']),
   tenantGuard('InventoryTransaction'),
   inventoryTransactionController.getInventoryTransactionById
 );
@@ -38,7 +38,7 @@ router.get(
 // Update inventory transaction (accessible by OWNER, MANAGER, RECEPTIONIST, SALES)
 router.put(
   '/:id',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES']),
+  authorize(['OWNER', 'MANAGER', 'SALES']),
   tenantGuard('InventoryTransaction'),
   inventoryTransactionController.updateInventoryTransaction
 );
@@ -54,21 +54,21 @@ router.delete(
 // Get part history (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get(
   '/part/:partId',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']),
+  authorize(['OWNER', 'MANAGER', 'SALES', 'MECHANIC']),
   inventoryTransactionController.getPartHistory
 );
 
 // Get warehouse transactions (accessible by OWNER, MANAGER, RECEPTIONIST, SALES, MECHANIC)
 router.get(
   '/warehouse/:warehouseId',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'MECHANIC']),
+  authorize(['OWNER', 'MANAGER', 'SALES', 'MECHANIC']),
   inventoryTransactionController.getWarehouseTransactions
 );
 
 // Consume parts for booking (accessible by OWNER, MANAGER, RECEPTIONIST, MECHANIC)
 router.post(
   '/consume',
-  authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'MECHANIC']),
+  authorize(['OWNER', 'MANAGER', 'MECHANIC']),
   inventoryTransactionController.consumeParts
 );
 

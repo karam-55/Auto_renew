@@ -6,6 +6,13 @@ const mockPrisma: any = {
     findMany: jest.fn(),
     upsert: jest.fn(),
   },
+  accountPostingMap: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  part: {
+    findFirst: jest.fn(),
+  },
   fiscalPeriod: { findFirst: jest.fn() },
   journalEntry: {
     create: jest.fn(),
@@ -24,7 +31,15 @@ mockPrisma.$transaction = jest.fn(async (operation: any) =>
 );
 
 jest.doMock('../../src/config/database', () => ({ __esModule: true, default: mockPrisma }));
-const { createJournalEntry, reverseJournalEntry, createPayrollJournalEntry, createStockIntakeJournalEntry, createInventoryAdjustmentJournalEntry, createGRNJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
+const {
+  createJournalEntry,
+  reverseJournalEntry,
+  createPayrollJournalEntry,
+  createStockIntakeJournalEntry,
+  createInventoryAdjustmentJournalEntry,
+  createGRNJournalEntry,
+  getAccountIdByRole,
+} = require('../../src/modules/accounting/automatic-journal-entries');
 
 describe('Automatic Journal Entries Service', () => {
   const mockTenantId = 'test-tenant-id';
@@ -58,6 +73,72 @@ describe('Automatic Journal Entries Service', () => {
   // Set up fiscal period mock at top level (no beforeEach clearing)
   beforeAll(() => {
     mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(mockFiscalPeriod);
+    mockPrisma.accountPostingMap.findFirst.mockResolvedValue(null);
+    mockPrisma.part.findFirst.mockImplementation(({ where }: any) => Promise.resolve({
+      id: where.id,
+      tenantId: where.tenantId,
+      inventoryAccountId: null,
+      costAccountId: null,
+      revenueAccountId: null,
+      category: null,
+    }));
+    mockPrisma.account.findFirst.mockImplementation(({ where }: any) => {
+      const code = String(where.code || where.id || '').replace(/^account-/, '');
+      const accountType = Number(code) >= 5000 && Number(code) < 6000
+        ? 'COGS'
+        : Number(code) >= 6000
+          ? 'EXPENSE'
+          : Number(code) >= 4000
+            ? 'REVENUE'
+            : Number(code) >= 2000 && Number(code) < 3000
+              ? 'LIABILITY'
+              : 'ASSET';
+      return Promise.resolve({
+        id: where.id || `account-${where.code}`,
+        tenantId: mockTenantId,
+        isActive: true,
+        deletedAt: null,
+        accountType,
+        children: [],
+      });
+    });
+  });
+
+  describe('account posting maps', () => {
+    it('uses the tenant role mapping instead of the default account code', async () => {
+      const accountLookupCount = mockPrisma.account.findFirst.mock.calls.length;
+      mockPrisma.accountPostingMap.findFirst.mockResolvedValueOnce({
+        accountId: 'mapped-cash-account',
+        isActive: true,
+        account: {
+          tenantId: mockTenantId,
+          isActive: true,
+          accountType: 'ASSET',
+          deletedAt: null,
+        },
+      });
+
+      await expect(getAccountIdByRole(mockTenantId, 'CASH')).resolves.toBe('mapped-cash-account');
+      expect(mockPrisma.account.findFirst).toHaveBeenCalledTimes(accountLookupCount);
+      mockPrisma.accountPostingMap.findFirst.mockReset();
+    });
+
+    it('rejects an account mapping that points to the wrong account type', async () => {
+      mockPrisma.accountPostingMap.findFirst.mockResolvedValueOnce({
+        accountId: 'wrong-account',
+        isActive: true,
+        account: {
+          tenantId: mockTenantId,
+          isActive: true,
+          accountType: 'EXPENSE',
+          deletedAt: null,
+        },
+      });
+
+      await expect(getAccountIdByRole(mockTenantId, 'CASH'))
+        .rejects.toThrow('Account mapping CASH points to an account of the wrong type');
+      mockPrisma.accountPostingMap.findFirst.mockReset();
+    });
   });
 
   describe('createJournalEntry', () => {
@@ -220,7 +301,6 @@ describe('Automatic Journal Entries Service', () => {
         partId: 'part-1', part: { name: 'Brake Pad' },
       };
       mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(mockFiscalPeriod);
-      mockPrisma.account.findFirst.mockImplementation(({ where }: any) => Promise.resolve({ id: `account-${where.code}` }));
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount);
       mockPrisma.journalEntry.findFirst.mockResolvedValue(null);
       mockPrisma.journalEntry.create.mockResolvedValue({ id: 'stock-journal' });
@@ -231,7 +311,7 @@ describe('Automatic Journal Entries Service', () => {
 
       expect(mockPrisma.journalLine.createMany).toHaveBeenCalledWith({
         data: expect.arrayContaining([
-          expect.objectContaining({ accountId: 'account-1140', debitSYP: 1390, debitUSD: 10, creditSYP: 0, creditUSD: 0 }),
+          expect.objectContaining({ accountId: 'account-1300', debitSYP: 1390, debitUSD: 10, creditSYP: 0, creditUSD: 0 }),
           expect.objectContaining({ accountId: 'account-1110', debitSYP: 0, debitUSD: 0, creditSYP: 1390, creditUSD: 10 }),
         ]),
       });
@@ -243,10 +323,9 @@ describe('Automatic Journal Entries Service', () => {
       const grn = {
         id: 'grn-1', tenantId: mockTenantId, grnNumber: 'GRN-1', receivedDate: new Date('2026-10-08'),
         supplier: { name: 'Supplier' },
-        lines: [{ receivedQuantity: 10, damagedQuantity: 2, unitCost: 1390, unitCostUSD: 10 }],
+        lines: [{ partId: 'part-1', receivedQuantity: 10, damagedQuantity: 2, unitCost: 1390, unitCostUSD: 10 }],
       };
       mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(mockFiscalPeriod);
-      mockPrisma.account.findFirst.mockImplementation(({ where }: any) => Promise.resolve({ id: `account-${where.code}` }));
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount);
       mockPrisma.journalEntry.findFirst.mockResolvedValue(null);
       mockPrisma.journalEntry.create.mockResolvedValue({ id: 'grn-journal' });
@@ -257,8 +336,8 @@ describe('Automatic Journal Entries Service', () => {
 
       expect(mockPrisma.journalLine.createMany).toHaveBeenCalledWith({
         data: expect.arrayContaining([
-          expect.objectContaining({ accountId: 'account-1140', debitSYP: 11120, debitUSD: 80, creditSYP: 0, creditUSD: 0 }),
-          expect.objectContaining({ accountId: 'account-6920', debitSYP: 2780, debitUSD: 20, creditSYP: 0, creditUSD: 0 }),
+          expect.objectContaining({ accountId: 'account-1300', debitSYP: 11120, debitUSD: 80, creditSYP: 0, creditUSD: 0 }),
+          expect.objectContaining({ accountId: 'account-5100', debitSYP: 2780, debitUSD: 20, creditSYP: 0, creditUSD: 0 }),
           expect.objectContaining({ accountId: 'account-2110', debitSYP: 0, debitUSD: 0, creditSYP: 13900, creditUSD: 100 }),
         ]),
       });
@@ -272,7 +351,6 @@ describe('Automatic Journal Entries Service', () => {
         costSYP: 1390, costUSD: 10, createdAt: new Date('2026-10-08'), partId: 'part-1',
       };
       mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(mockFiscalPeriod);
-      mockPrisma.account.findFirst.mockImplementation(({ where }: any) => Promise.resolve({ id: `account-${where.code}` }));
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount);
       mockPrisma.journalEntry.findFirst.mockResolvedValue(null);
       mockPrisma.journalEntry.create.mockResolvedValue({ id: 'adjustment-journal' });
@@ -283,8 +361,8 @@ describe('Automatic Journal Entries Service', () => {
 
       expect(mockPrisma.journalLine.createMany).toHaveBeenCalledWith({
         data: expect.arrayContaining([
-          expect.objectContaining({ accountId: 'account-6920', debitSYP: 2780, debitUSD: 20, creditSYP: 0, creditUSD: 0 }),
-          expect.objectContaining({ accountId: 'account-1140', debitSYP: 0, debitUSD: 0, creditSYP: 2780, creditUSD: 20 }),
+          expect.objectContaining({ accountId: 'account-5500', debitSYP: 2780, debitUSD: 20, creditSYP: 0, creditUSD: 0 }),
+          expect.objectContaining({ accountId: 'account-1300', debitSYP: 0, debitUSD: 0, creditSYP: 2780, creditUSD: 20 }),
         ]),
       });
     });

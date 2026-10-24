@@ -128,6 +128,8 @@ export interface CashFlowResponse {
   netCashFlow: number;
   beginningCash: number;
   endingCash: number;
+  beginningCashUSD?: number;
+  endingCashUSD?: number;
   generatedAt: Date;
 }
 

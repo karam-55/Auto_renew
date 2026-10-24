@@ -2,6 +2,16 @@ import { AuthService } from '../services/auth'
 import { ApiClient } from '../api/client'
 import { Router } from '../router'
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!)
+}
+
 const SELECT_ARROW = `data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23475569%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E`
 const SELECT_STYLE = `background-image: url('${SELECT_ARROW}'); background-repeat: no-repeat; background-position: left 0.75rem center; background-size: 1rem; appearance: none;`
 
@@ -12,11 +22,18 @@ export class BookingTicketScreen {
   private isEditing = false
   private bookingData: any = null
   private allServices: any[] = []
+  private auth: AuthService
 
-  constructor(_auth: AuthService, api: ApiClient, router: Router, bookingId: string) {
+  constructor(auth: AuthService, api: ApiClient, router: Router, bookingId: string) {
+    this.auth = auth
     this.api = api
     this.router = router
     this.bookingId = bookingId
+  }
+
+  private canEdit(): boolean {
+    const role = (this.auth.getUser()?.role || '').toUpperCase()
+    return ['ADMIN', 'OWNER', 'MANAGER', 'MECHANIC', 'SALES'].includes(role)
   }
 
   render(): HTMLElement {
@@ -30,10 +47,15 @@ export class BookingTicketScreen {
             <p class="text-body-md text-text-secondary mt-1">#${this.bookingId.slice(0, 8)}</p>
           </div>
           <div class="flex items-center gap-2">
+            ${this.canEdit() ? `
+            <button class="h-[48px] px-4 bg-secondary text-on-secondary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="issue-materials-btn">
+              <span class="material-symbols-outlined text-[20px]">inventory</span>
+              صرف المواد
+            </button>
             <button class="h-[48px] px-4 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="edit-btn">
               <span class="material-symbols-outlined text-[20px]">edit</span>
               تعديل
-            </button>
+            </button>` : ''}
             <button class="h-[48px] px-4 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors flex items-center gap-2" id="back-btn">
               <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
               رجوع
@@ -107,7 +129,8 @@ export class BookingTicketScreen {
         <div id="job-costs" class="hidden bg-surface-container-lowest rounded-xl shadow-md border border-surface-subtle p-card-padding">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold">تكاليف العمل الفعلية (Job Costing)</h3>
-            <button class="h-[40px] px-4 bg-secondary text-on-secondary font-body-md rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-job-cost-btn">
+            ${this.canEdit() ? `
+            <button class="h-[40px] px-4 bg-secondary text-on-secondary font-body-md rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2" id="add-job-cost-btn">` : `<button class="hidden" id="add-job-cost-btn">`}
               <span class="material-symbols-outlined text-[18px]">add</span>
               إضافة تكلفة
             </button>
@@ -180,6 +203,9 @@ export class BookingTicketScreen {
     el.querySelector('#edit-btn')?.addEventListener('click', () => {
       this.toggleEdit(el)
     })
+    el.querySelector('#issue-materials-btn')?.addEventListener('click', async () => {
+      this.openMaterialIssueDialog(el)
+    })
     this.loadServices()
     this.loadData(el)
     this.loadJobCosts(el)
@@ -248,6 +274,81 @@ export class BookingTicketScreen {
     })
 
     return el
+  }
+
+  private openMaterialIssueDialog(content: HTMLElement) {
+    const idempotencyKey = crypto.randomUUID()
+    const services = this.bookingData?.services || []
+    const pending = services.flatMap((service: any) => (service.materials || [])
+      .map((material: any) => ({
+        ...material,
+        serviceName: service.name,
+        remaining: Math.max(0, Number(material.quantity) - Number(material.issuedQuantity || 0)),
+      }))
+      .filter((material: any) => material.remaining > 0))
+    if (pending.length === 0) {
+      ;(window as any).toast?.show?.({ message: 'لا توجد مواد مخططة بكمية غير مصروفة', type: 'warning' })
+      return
+    }
+
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+    overlay.innerHTML = `
+      <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface-container-lowest p-6 shadow-2xl">
+        <h2 class="font-headline-md text-xl text-on-surface">تأكيد صرف المواد الفعلية</h2>
+        <p class="my-2 text-sm text-text-secondary">أدخل الكمية التي استُخدمت فعلياً. لن تُصرف الكمية المخططة تلقائياً.</p>
+        <div class="mt-4 space-y-3">
+          ${pending.map((material: any) => `
+            <label class="grid grid-cols-1 sm:grid-cols-[1fr_150px] items-center gap-3 rounded-xl border border-border p-3">
+              <span class="text-on-surface">${escapeHtml(material.serviceName || 'الخدمة')} · ${escapeHtml(material.partName || 'مادة')}
+                <span class="block text-xs text-text-tertiary">المتبقي المخطط: ${material.remaining.toFixed(3)}</span>
+              </span>
+              <input type="number" min="0" max="${material.remaining}" step="0.001" value="${material.remaining.toFixed(3)}"
+                data-material-id="${escapeHtml(material.id)}" class="h-10 rounded-lg border border-border bg-surface-subtle px-3 text-on-surface" />
+            </label>
+          `).join('')}
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button data-close-issue class="h-10 rounded-lg border border-border px-4 text-on-surface">إلغاء</button>
+          <button data-submit-issue class="h-10 rounded-lg bg-primary px-5 text-white">تأكيد الصرف</button>
+        </div>
+      </div>
+    `
+    const close = () => overlay.remove()
+    overlay.querySelector('[data-close-issue]')?.addEventListener('click', close)
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close()
+    })
+    overlay.querySelector('[data-submit-issue]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement
+      const items = Array.from(overlay.querySelectorAll<HTMLInputElement>('[data-material-id]'))
+        .map((input) => ({
+          materialId: input.dataset.materialId!,
+          quantity: parseFloat(input.value || '0'),
+        }))
+        .filter((item) => item.quantity > 0)
+      if (items.length === 0) {
+        ;(window as any).toast?.show?.({ message: 'أدخل كمية واحدة على الأقل', type: 'warning' })
+        return
+      }
+      button.disabled = true
+      try {
+        const response = await this.api.post<any>(`/api/bookings/${this.bookingId}/issue-materials`, { items, idempotencyKey })
+        if (response.success === false) throw new Error(response.message || 'تعذر صرف المواد')
+        close()
+        ;(window as any).toast?.show?.({
+          message: `تم صرف ${Number(response.data?.issuedCount || 0)} مادة وربط تكلفتها بأمر الشغل`,
+          type: 'success',
+        })
+        await this.loadData(content)
+        await this.loadJobCosts(content)
+      } catch (error: any) {
+        ;(window as any).toast?.show?.({ message: error.message || 'تعذر صرف المواد', type: 'error' })
+      } finally {
+        button.disabled = false
+      }
+    })
+    content.appendChild(overlay)
   }
 
   private getServiceName(serviceId: string): string {
@@ -557,10 +658,15 @@ export class BookingTicketScreen {
           const svcs = b.services || b.bookingServices?.map((bs: any) => bs.service) || []
           if (svcs.length > 0) {
             servicesList.innerHTML = svcs.map((s: any) => `
-              <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body-md text-sm">
-                <span class="material-symbols-outlined text-[16px]">build</span>
-                ${s.name || 'خدمة'}
-              </span>
+              <div class="flex flex-col gap-1">
+                <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body-md text-sm">
+                  <span class="material-symbols-outlined text-[16px]">build</span>
+                  ${escapeHtml(s.name || 'خدمة')}${s.quantity && Number(s.quantity) !== 1 ? ` × ${Number(s.quantity)}` : ''}
+                </span>
+                ${s.materials?.length ? `<span class="px-2 text-xs text-text-tertiary">${s.materials.map((m: any) =>
+                  `${escapeHtml(m.partName || 'مادة')} ${Number(m.issuedQuantity || 0).toFixed(3)}/${Number(m.quantity).toFixed(3)}`
+                ).join(' · ')}</span>` : ''}
+              </div>
             `).join('')
           } else {
             servicesList.innerHTML = '<span class="text-text-secondary font-body-md">لا توجد خدمات محددة</span>'

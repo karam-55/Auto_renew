@@ -86,6 +86,24 @@ export class BalanceSheetService {
     const equityAccounts = accountBalances.filter(
       a => a.accountType === AccountType.EQUITY
     );
+    const retainedEarnings = accountBalances.reduce((total, account) => {
+      if (account.accountType === AccountType.REVENUE) return total + account.amountSYP;
+      if (account.accountType === AccountType.COGS || account.accountType === AccountType.EXPENSE) {
+        return total - account.amountSYP;
+      }
+      return total;
+    }, 0);
+    if (Math.abs(retainedEarnings) >= 0.01) {
+      equityAccounts.push({
+        accountId: 'current-earnings',
+        accountCode: '3999',
+        accountName: 'Current period earnings',
+        accountNameAr: 'نتيجة الفترة غير المقفلة',
+        accountType: AccountType.EQUITY,
+        amountSYP: retainedEarnings,
+        level: 1,
+      });
+    }
 
     // Build sections
     const assets = this.buildSection('Assets', 'الأصول', assetAccounts);
@@ -170,7 +188,7 @@ export class BalanceSheetService {
         const creditUSD = Number(line.creditUSD || 0);
 
         // Assets, COGS and Expenses: Debit increases balance
-        if (account.type === AccountType.ASSET || account.type === AccountType.COGS || account.type === AccountType.EXPENSE) {
+        if (account.accountType === AccountType.ASSET || account.accountType === AccountType.COGS || account.accountType === AccountType.EXPENSE) {
           balanceSYP += debitSYP - creditSYP;
           balanceUSD += debitUSD - creditUSD;
         }
@@ -184,9 +202,9 @@ export class BalanceSheetService {
       balances.push({
         accountId: account.id,
         accountCode: account.code,
-        accountName: account.name,
+        accountName: account.nameEn || account.nameAr,
         accountNameAr: account.nameAr,
-        accountType: account.type,
+        accountType: account.accountType,
         amountSYP: balanceSYP,
         amountUSD: balanceUSD || undefined,
         level: 1

@@ -3,6 +3,7 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { emptyTableRow, exportToCSV, debounce } from '../utils/dom-helpers'
+import { hasUiPermission } from '../utils/role-permissions'
 
 export class BookingsScreen {
   private allBookings: any[] = []
@@ -13,6 +14,15 @@ export class BookingsScreen {
   private calendarView = false
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
+
+  private get role(): string {
+    return this.auth.getUser()?.role || ''
+  }
+
+  private canEdit(): boolean { return hasUiPermission(this.role, 'EDIT_BOOKING') }
+  private canDelete(): boolean { return hasUiPermission(this.role, 'DELETE_BOOKING') }
+  private canBulk(): boolean { return hasUiPermission(this.role, 'BULK_OPERATIONS') }
+  private canExport(): boolean { return hasUiPermission(this.role, 'EXPORT_DATA') }
 
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'الحجوزات', 'calendar_month', this.api)
@@ -62,10 +72,11 @@ export class BookingsScreen {
               <span class="material-symbols-outlined text-[20px]">sync</span>
               تحديث
             </button>
+            ${this.canExport() ? `
             <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="export-bookings-btn">
               <span class="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
               تصدير
-            </button>
+            </button>` : ''}
             <button class="h-12 px-4 bg-surface-container-high text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center" id="calendar-view-btn" aria-pressed="false">
               <span class="material-symbols-outlined text-[20px]" aria-hidden="true">calendar_month</span>
               <span id="calendar-view-label">تقويم</span>
@@ -117,7 +128,7 @@ export class BookingsScreen {
               <thead>
                 <tr class="bg-white/40 border-b border-glass-border">
                   <th class="px-3 py-4 text-right w-10" scope="col">
-                    <input type="checkbox" class="w-4 h-4 rounded border-glass-border text-primary focus:ring-primary" id="select-all" aria-label="تحديد الكل" />
+                    ${this.canBulk() ? `<input type="checkbox" class="w-4 h-4 rounded border-glass-border text-primary focus:ring-primary" id="select-all" aria-label="تحديد الكل" />` : ''}
                   </th>
                   <th class="px-6 py-4 text-right font-label-sm text-on-surface-variant uppercase" scope="col">رقم الطلب</th>
                   <th class="px-6 py-4 text-right font-label-sm text-on-surface-variant uppercase" scope="col">العميل</th>
@@ -374,7 +385,7 @@ export class BookingsScreen {
       tr.setAttribute('data-id', b.id)
       tr.innerHTML = `
         <td class="px-3 py-4">
-          <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-glass-border text-primary focus:ring-primary" data-id="${b.id}" ${isSelected ? 'checked' : ''} />
+          ${this.canBulk() ? `<input type="checkbox" class="row-checkbox w-4 h-4 rounded border-glass-border text-primary focus:ring-primary" data-id="${b.id}" ${isSelected ? 'checked' : ''} />` : ''}
         </td>
         <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-lg bg-surface-container text-financial-data text-on-surface text-sm">#${b.id?.slice(0, 8) || '---'}</span></td>
         <td class="px-6 py-4 font-body-md text-on-surface font-semibold">${b.customer?.fullName || '-'}</td>
@@ -390,12 +401,12 @@ export class BookingsScreen {
             <button class="touch-safe w-8 h-8 rounded-lg hover:bg-secondary-container/10 flex items-center justify-center text-on-surface-variant hover:text-secondary hover:scale-110 transition-all" title="عرض التذكرة" aria-label="عرض تذكرة الحجز" data-action="print" data-id="${b.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
             </button>
-            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-info/10 flex items-center justify-center text-on-surface-variant hover:text-info hover:scale-110 transition-all" title="تعديل" aria-label="تعديل الحجز" data-action="edit" data-id="${b.id}">
+            ${this.canEdit() ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-info/10 flex items-center justify-center text-on-surface-variant hover:text-info hover:scale-110 transition-all" title="تعديل" aria-label="تعديل الحجز" data-action="edit" data-id="${b.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
-            </button>
-            <button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الحجز" data-action="delete" data-id="${b.id}">
+            </button>` : ''}
+            ${this.canDelete() ? `<button class="touch-safe w-8 h-8 rounded-lg hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error hover:scale-110 transition-all" title="حذف" aria-label="حذف الحجز" data-action="delete" data-id="${b.id}">
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
-            </button>
+            </button>` : ''}
           </div>
         </td>
       `
@@ -409,6 +420,10 @@ export class BookingsScreen {
     const bar = el.querySelector('#bulk-actions') as HTMLElement
     const countEl = el.querySelector('#bulk-count') as HTMLElement
     if (!bar || !countEl) return
+    if (!this.canBulk()) {
+      bar.classList.add('hidden')
+      return
+    }
     if (this.selectedIds.size > 0) {
       bar.classList.remove('hidden')
       countEl.textContent = `${this.selectedIds.size} حجز محدد`

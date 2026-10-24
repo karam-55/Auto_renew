@@ -251,12 +251,12 @@ export class IncomeStatementService {
         const creditUSD = Number(line.creditUSD || 0);
 
         // Revenue: Credit increases balance
-        if (account.type === AccountType.REVENUE) {
+        if (account.accountType === AccountType.REVENUE) {
           balanceSYP += creditSYP - debitSYP;
           balanceUSD += creditUSD - debitUSD;
         }
         // COGS & Expenses: Debit increases balance
-        else if (account.type === AccountType.COGS || account.type === AccountType.EXPENSE) {
+        else if (account.accountType === AccountType.COGS || account.accountType === AccountType.EXPENSE) {
           balanceSYP += debitSYP - creditSYP;
           balanceUSD += debitUSD - creditUSD;
         }
@@ -265,9 +265,9 @@ export class IncomeStatementService {
       balances.push({
         accountId: account.id,
         accountCode: account.code,
-        accountName: account.name,
+        accountName: account.nameEn || account.nameAr,
         accountNameAr: account.nameAr,
-        accountType: account.type,
+        accountType: account.accountType,
         amountSYP: balanceSYP,
         amountUSD: balanceUSD || undefined,
         level: 1

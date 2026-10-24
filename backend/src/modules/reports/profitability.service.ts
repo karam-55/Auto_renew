@@ -16,190 +16,188 @@ export class ProfitabilityService {
   }
 
   async calculateInvoiceProfit(invoiceId: string, tenantId: string) {
-    // Get invoice with items and booking (which has services)
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, tenantId },
-      include: {
-        items: {
-          include: {
-            part: true,
-          },
-        },
-        booking: {
-          include: {
-            bookingServices: {
-              include: {
-                service: true,
-              },
-            },
-            mechanicAssignments: {
-              include: {
-                mechanic: true,
-              },
-            },
-            schedules: true,
-          },
-        },
-        customer: true,
-      },
+      select: { id: true, invoiceNumber: true, bookingId: true, totalSYP: true },
+    });
+    if (!invoice) throw new Error('Invoice not found');
+
+    const inventoryTransactions = await prisma.inventoryTransaction.findMany({
+      where: { tenantId, invoiceId: invoice.id, deletedAt: null },
+      select: { id: true },
+    });
+    const sourceIds = inventoryTransactions.map((transaction) => transaction.id);
+    const sourceFilters: any[] = [{ sourceType: 'INVOICE', sourceId: invoice.id }];
+    if (invoice.bookingId) sourceFilters.push({ bookingId: invoice.bookingId });
+    if (sourceIds.length) sourceFilters.push({ sourceType: 'INVENTORY_TRANSACTION', sourceId: { in: sourceIds } });
+    const lines = await prisma.journalLine.findMany({
+      where: { entry: { tenantId, status: 'POSTED' }, OR: sourceFilters },
+      include: { account: { select: { accountType: true } } },
     });
 
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    // Calculate parts cost from invoice items (using part cost)
-    let partsCost = 0;
-    for (const item of invoice.items) {
-      if (item.part) {
-        partsCost += Number(item.part.costSYP) * item.quantity;
+    let revenueSYP = 0;
+    let directCostSYP = 0;
+    for (const line of lines) {
+      if (line.account.accountType === 'REVENUE' && line.sourceType === 'INVOICE' && line.sourceId === invoice.id) {
+        revenueSYP += Number(line.creditSYP) - Number(line.debitSYP);
+      }
+      if (line.account.accountType === 'COGS') {
+        directCostSYP += Number(line.debitSYP) - Number(line.creditSYP);
       }
     }
 
-    // Calculate labor cost from booking services
-    let laborCost = 0;
-    if (invoice.booking?.bookingServices && invoice.booking.mechanicAssignments?.length > 0) {
-      const assignment = invoice.booking.mechanicAssignments[0];
-      const hourlyRate = await this.getTechnicianHourlyRate(assignment.mechanicUserId, tenantId);
-      
-      for (const bookingService of invoice.booking.bookingServices) {
-        // Try to get actual duration from schedule
-        let durationHours = 0;
-        
-        if (invoice.booking.schedules && invoice.booking.schedules.length > 0) {
-          // Find schedule for this service
-          const schedule = invoice.booking.schedules.find(s => s.serviceId === bookingService.serviceId);
-          if (schedule) {
-            const actualDurationMinutes = await this.scheduleService.getActualDuration(schedule.id, tenantId);
-            durationHours = actualDurationMinutes > 0 ? actualDurationMinutes / 60 : 0;
-          }
-        }
-        
-        // Fallback to service duration if no actual time available
-        if (durationHours === 0) {
-          durationHours = bookingService.service.duration ? bookingService.service.duration / 60 : 0;
-        }
-        
-        laborCost += durationHours * hourlyRate;
-      }
-    }
-
-    // Get overhead percentage from company settings
-    const companySettings = await prisma.companySettings.findUnique({
-      where: { tenantId },
-    });
-
-    const overheadPercentage = companySettings?.overheadPercentage ? Number(companySettings.overheadPercentage) : 0.10;
-    const overhead = (partsCost + laborCost) * overheadPercentage;
-
-    const revenue = Number(invoice.totalSYP);
-    const totalCost = partsCost + laborCost + overhead;
-    const profit = revenue - totalCost;
+    const jobCosts = invoice.bookingId
+      ? await prisma.bookingJobCost.findMany({
+          where: { bookingId: invoice.bookingId },
+          select: { laborCost: true, laborCostUSD: true },
+        })
+      : [];
+    const analyticalLaborCostSYP = jobCosts.reduce((sum, item) => sum + Number(item.laborCost || 0), 0);
+    const analyticalLaborCostUSD = jobCosts.reduce((sum, item) => sum + Number(item.laborCostUSD || 0), 0);
+    const grossProfitSYP = revenueSYP - directCostSYP;
+    const analyticalProfitAfterLaborSYP = grossProfitSYP - analyticalLaborCostSYP;
 
     return {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      revenue,
-      partsCost,
-      laborCost,
-      overhead,
-      totalCost,
-      profit,
-      profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
+      revenueSYP,
+      postedDirectCostSYP: directCostSYP,
+      grossProfitSYP,
+      grossMarginPercent: revenueSYP > 0 ? (grossProfitSYP / revenueSYP) * 100 : 0,
+      analyticalLaborCostSYP,
+      analyticalLaborCostUSD,
+      analyticalProfitAfterLaborSYP,
+      note: 'الربح الإجمالي مبني على القيود المرحلة؛ أجور الفنيين المدخلة في تحليل أمر الشغل تعرض منفصلة حتى يحدد المحاسب طريقة ترحيلها.',
     };
   }
 
-  async calculateServiceProfit(tenantId: string, from?: Date, to?: Date) {
-    const where: any = { tenantId };
-    if (from) where.createdAt = { ...where.createdAt, gte: from };
-    if (to) where.createdAt = { ...where.createdAt, lte: to };
-
-    // Get all bookings with services
-    const bookings = await prisma.booking.findMany({
-      where,
+  private async calculatePostedProfitByDimension(
+    tenantId: string,
+    dimension: 'serviceId' | 'bookingId' | 'costCenterId',
+    from?: Date,
+    to?: Date
+  ) {
+    const entryDate: Record<string, Date> = {};
+    if (from) entryDate.gte = from;
+    if (to) entryDate.lte = to;
+    const lines = await prisma.journalLine.findMany({
+      where: {
+        [dimension]: { not: '' },
+        entry: {
+          tenantId,
+          status: 'POSTED',
+          ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
+      },
       include: {
-        bookingServices: {
-          include: {
-            service: true,
-          },
-        },
-        invoices: true,
-        mechanicAssignments: {
-          include: {
-            mechanic: true,
-          },
-        },
+        account: { select: { accountType: true } },
+        service: { select: { id: true, name: true, nameAr: true } },
+        booking: { select: { id: true, scheduledDate: true } },
+        costCenter: { select: { id: true, code: true, name: true, nameAr: true } },
       },
     });
 
-    // Group by service
-    const serviceProfitMap = new Map<string, any>();
-
-    for (const booking of bookings) {
-      for (const bookingService of booking.bookingServices) {
-        const serviceId = bookingService.serviceId;
-        const serviceName = bookingService.service.name;
-
-        if (!serviceProfitMap.has(serviceId)) {
-          serviceProfitMap.set(serviceId, {
-            serviceId,
-            serviceName,
-            count: 0,
-            totalRevenue: 0,
-            totalPartsCost: 0,
-            totalLaborCost: 0,
-            totalOverhead: 0,
-            totalProfit: 0,
-          });
-        }
-
-        const serviceData = serviceProfitMap.get(serviceId);
-        serviceData.count++;
-
-        // Revenue portion
-        const serviceRevenue = Number(bookingService.priceSYP);
-        serviceData.totalRevenue += serviceRevenue;
-
-        // Labor cost
-        const durationHours = bookingService.service.duration ? bookingService.service.duration / 60 : 0;
-        const hourlyRate = booking.mechanicAssignments?.length 
-          ? await this.getTechnicianHourlyRate(booking.mechanicAssignments[0].mechanicUserId, tenantId)
-          : 0;
-        const laborCost = durationHours * hourlyRate;
-        serviceData.totalLaborCost += laborCost;
-
-        // Parts cost (simplified - allocate proportionally)
-        const partsCost = serviceRevenue * 0.3; // Simplified assumption
-        serviceData.totalPartsCost += partsCost;
-
-        // Overhead
-        const companySettings = await prisma.companySettings.findUnique({
-          where: { tenantId },
-        });
-        const overheadPercentage = companySettings?.overheadPercentage ? Number(companySettings.overheadPercentage) : 0.10;
-        const overhead = (partsCost + laborCost) * overheadPercentage;
-        serviceData.totalOverhead += overhead;
-
-        // Profit
-        const profit = serviceRevenue - (partsCost + laborCost + overhead);
-        serviceData.totalProfit += profit;
+    const buckets = new Map<string, any>();
+    for (const line of lines) {
+      const target = (dimension === 'serviceId'
+        ? line.service
+        : dimension === 'bookingId'
+          ? line.booking
+          : line.costCenter) as any;
+      if (!target) continue;
+      const id = target.id;
+      const label = dimension === 'serviceId'
+        ? target.nameAr || target.name
+        : dimension === 'costCenterId'
+          ? `${target.code ? `${target.code} — ` : ''}${target.nameAr || target.name}`
+          : `أمر شغل #${target.id.slice(0, 8)}`;
+      const bucket = buckets.get(id) || {
+        id,
+        label,
+        revenueSYP: 0,
+        revenueUSD: 0,
+        directCostSYP: 0,
+        directCostUSD: 0,
+        entryIds: new Set<string>(),
+      };
+      bucket.entryIds.add(line.entryId);
+      const debitSYP = Number(line.debitSYP);
+      const creditSYP = Number(line.creditSYP);
+      const debitUSD = Number(line.debitUSD);
+      const creditUSD = Number(line.creditUSD);
+      if (line.account.accountType === 'REVENUE') {
+        bucket.revenueSYP += creditSYP - debitSYP;
+        bucket.revenueUSD += creditUSD - debitUSD;
+      } else if (line.account.accountType === 'COGS') {
+        bucket.directCostSYP += debitSYP - creditSYP;
+        bucket.directCostUSD += debitUSD - creditUSD;
       }
+      buckets.set(id, bucket);
     }
 
-    // Convert to array and calculate averages
-    const result = Array.from(serviceProfitMap.values()).map((data) => ({
-      serviceId: data.serviceId,
-      serviceName: data.serviceName,
-      count: data.count,
-      avgRevenue: data.totalRevenue / data.count,
-      avgPartsCost: data.totalPartsCost / data.count,
-      avgLaborCost: data.totalLaborCost / data.count,
-      avgOverhead: data.totalOverhead / data.count,
-      avgProfit: data.totalProfit / data.count,
-      avgProfitMargin: data.totalRevenue > 0 ? (data.totalProfit / data.totalRevenue) * 100 : 0,
-    }));
+    const laborWhere: any = { tenantId };
+    if (dimension === 'serviceId' || dimension === 'bookingId' || dimension === 'costCenterId') {
+      laborWhere[dimension] = { not: '' };
+    }
+    if (from || to) {
+      laborWhere.createdAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
+    const jobCosts = await prisma.bookingJobCost.findMany({
+      where: laborWhere,
+      select: {
+        bookingId: true,
+        serviceId: true,
+        costCenterId: true,
+        laborCost: true,
+        laborCostUSD: true,
+      },
+    });
+    const laborByDimension = new Map<string, { syp: number; usd: number }>();
+    for (const jobCost of jobCosts) {
+      const key = jobCost[dimension];
+      if (!key) continue;
+      const current = laborByDimension.get(key) || { syp: 0, usd: 0 };
+      current.syp += Number(jobCost.laborCost || 0);
+      current.usd += Number(jobCost.laborCostUSD || 0);
+      laborByDimension.set(key, current);
+    }
 
-    return result;
+    return Array.from(buckets.values()).map((bucket) => {
+      const grossProfitSYP = bucket.revenueSYP - bucket.directCostSYP;
+      const grossProfitUSD = bucket.revenueUSD - bucket.directCostUSD;
+      const analyticalLaborCost = laborByDimension.get(bucket.id) || { syp: 0, usd: 0 };
+      return {
+        id: bucket.id,
+        label: bucket.label,
+        entries: bucket.entryIds.size,
+        revenueSYP: bucket.revenueSYP,
+        revenueUSD: bucket.revenueUSD,
+        directCostSYP: bucket.directCostSYP,
+        directCostUSD: bucket.directCostUSD,
+        grossProfitSYP,
+        grossProfitUSD,
+        grossMarginPercent: bucket.revenueSYP > 0 ? (grossProfitSYP / bucket.revenueSYP) * 100 : 0,
+        analyticalLaborCostSYP: analyticalLaborCost.syp,
+        analyticalLaborCostUSD: analyticalLaborCost.usd,
+        grossProfitAfterAnalyticalLaborSYP: grossProfitSYP - analyticalLaborCost.syp,
+        grossProfitAfterAnalyticalLaborUSD: grossProfitUSD - analyticalLaborCost.usd,
+      };
+    });
+  }
+
+  async calculateServiceProfit(tenantId: string, from?: Date, to?: Date) {
+    return this.calculatePostedProfitByDimension(tenantId, 'serviceId', from, to);
+  }
+
+  async calculateWorkOrderProfit(tenantId: string, from?: Date, to?: Date) {
+    return this.calculatePostedProfitByDimension(tenantId, 'bookingId', from, to);
+  }
+
+  async calculateDepartmentProfit(tenantId: string, from?: Date, to?: Date) {
+    return this.calculatePostedProfitByDimension(tenantId, 'costCenterId', from, to);
   }
 
   async calculateTechnicianProfit(tenantId: string, from?: Date, to?: Date) {
@@ -368,7 +366,7 @@ export class ProfitabilityService {
       // Parts cost from items
       for (const item of invoice.items) {
         if (item.part) {
-          partsCost += Number(item.part.costSYP) * item.quantity;
+          partsCost += Number(item.part.costSYP) * Number(item.quantity);
         }
       }
 

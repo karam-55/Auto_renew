@@ -1,7 +1,7 @@
 export const WIZARD_STEPS = [
   { id: 1, label: 'معلومات الشركة', icon: 'business' },
   { id: 2, label: 'الإعدادات المالية', icon: 'account_balance' },
-  { id: 3, label: 'شجرة الحسابات', icon: 'account_tree' },
+  { id: 3, label: 'دليل الحسابات', icon: 'account_tree' },
   { id: 4, label: 'الأصول الثابتة', icon: 'construction' },
   { id: 5, label: 'مراكز التكلفة', icon: 'pie_chart' },
   { id: 6, label: 'المستخدمون', icon: 'group' },
@@ -159,14 +159,14 @@ export const step2Template = `
 export const step3Template = `
   <div class="space-y-6 page-enter">
     <div>
-      <h1 class="font-beVietnamPro text-headline-md text-on-surface">شجرة الحسابات</h1>
-      <p class="text-body-md text-text-secondary mt-1">سيتم إنشاء شجرة الحسابات الافتراضية تلقائياً</p>
+      <h1 class="font-beVietnamPro text-headline-md text-on-surface">دليل الحسابات</h1>
+      <p class="text-body-md text-text-secondary mt-1">سيتم إنشاء دليل الحسابات الافتراضي تلقائياً</p>
     </div>
     <div class="bg-tertiary/5 border border-tertiary/20 rounded-xl p-6">
       <div class="flex items-start gap-3">
         <span class="material-symbols-outlined text-tertiary mt-0.5">info</span>
         <div>
-          <p class="font-body-md text-on-surface">سيتم إنشاء شجرة الحسابات الكاملة تلقائياً بما فيها:</p>
+          <p class="font-body-md text-on-surface">سيتم إنشاء دليل الحسابات الافتراضي تلقائياً بما فيها:</p>
           <ul class="mt-2 space-y-1 text-body-sm text-text-secondary list-disc pr-5">
             <li>الأصول المتداولة والثابتة (1xxx)</li>
             <li>الخصوم والالتزامات (2xxx)</li>
@@ -193,7 +193,7 @@ export const step3Template = `
     </div>
     <div class="flex items-center gap-3 bg-surface rounded-xl border border-border p-4">
       <input id="step3-confirm" type="checkbox" checked class="w-5 h-5 rounded border-border text-primary focus:ring-primary" />
-      <label for="step3-confirm" class="font-body-md text-on-surface cursor-pointer">إنشاء شجرة الحسابات الافتراضية</label>
+      <label for="step3-confirm" class="font-body-md text-on-surface cursor-pointer">إنشاء دليل الحسابات الافتراضي</label>
     </div>
     ${navButtons(false, false)}
   </div>

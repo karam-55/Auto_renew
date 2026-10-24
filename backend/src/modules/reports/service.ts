@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { getAccountIdByRole } from '../accounting/automatic-journal-entries';
 import {
   BalanceSheetRequest,
   BalanceSheetResponse,
@@ -187,6 +188,7 @@ export class ReportService {
             gte: fromDate,
             lte: toDate,
           },
+          status: 'POSTED',
         },
         account: {
           accountType: {
@@ -303,46 +305,32 @@ export class ReportService {
   ): Promise<CashFlowResponse> {
     const currency = request.currency || 'SYP';
     const { fromDate, toDate } = request;
-
-    // Get payments (cash inflows from customers)
-    const payments = await prisma.payment.findMany({
-      where: {
-        tenantId,
-        paymentDate: {
-          gte: fromDate,
-          lte: toDate,
-        },
-      },
-      include: {
-        invoice: {
-          include: {
-            customer: true,
-          },
-        },
-      },
-    });
-
-    // Get beginning cash and bank balance before fromDate
-    const cashAccounts = await prisma.account.findMany({
-      where: { tenantId, code: { in: ['1110', '1120'] }, isActive: true },
-      select: { id: true },
-    });
+    const cashAccountIds = (await Promise.all([
+      getAccountIdByRole(tenantId, 'CASH'),
+      getAccountIdByRole(tenantId, 'BANK'),
+    ])).filter((accountId): accountId is string => Boolean(accountId));
 
     let beginningCash = 0;
-    if (cashAccounts.length > 0) {
+    let beginningCashUSD = 0;
+    let periodCashUSD = 0;
+    if (cashAccountIds.length > 0) {
       const beginningJournalLines = await prisma.journalLine.findMany({
         where: {
-          accountId: { in: cashAccounts.map((account) => account.id) },
-          entry: { tenantId, entryDate: { lt: fromDate }, isReversed: false },
+          accountId: { in: cashAccountIds },
+          entry: { tenantId, status: 'POSTED', entryDate: { lt: fromDate } },
+        },
+        include: {
+          entry: { select: { isReversed: true, isReversing: true, sourceType: true } },
         },
       });
 
       beginningJournalLines.forEach((line) => {
-        beginningCash += Number(line.debitSYP) - Number(line.creditSYP);
+        if (line.entry.isReversed || line.entry.isReversing || String(line.entry.sourceType || '').startsWith('REVERSAL_OF_')) return;
+        beginningCash += Number(line.debitSYP || 0) - Number(line.creditSYP || 0);
+        beginningCashUSD += Number(line.debitUSD || 0) - Number(line.creditUSD || 0);
       });
     }
 
-    // Build cash flow items
     const operatingInflows: CashFlowItem[] = [];
     const operatingOutflows: CashFlowItem[] = [];
     const investingInflows: CashFlowItem[] = [];
@@ -350,57 +338,89 @@ export class ReportService {
     const financingInflows: CashFlowItem[] = [];
     const financingOutflows: CashFlowItem[] = [];
 
-    payments.forEach((payment) => {
-      const amount = Number(payment.amountSYP);
-      const item: CashFlowItem = {
-        id: payment.id,
-        date: payment.paymentDate,
-        description: `Payment received - ${payment.invoice?.invoiceNumber || 'Direct'}`,
-        amount,
-        currency,
-        type: 'INFLOW',
-        category: 'OPERATING',
-        reference: payment.reference || undefined,
-        referenceType: 'PAYMENT',
-      };
-      operatingInflows.push(item);
-    });
-
-    // Get expense payments (cash outflows)
-    const expenseJournalLines = await prisma.journalLine.findMany({
+    const cashLines = cashAccountIds.length
+      ? await prisma.journalLine.findMany({
       where: {
+        accountId: { in: cashAccountIds },
         entry: {
           tenantId,
-          isReversed: false,
+          status: 'POSTED',
           entryDate: { gte: fromDate, lte: toDate },
         },
-        accountId: { in: cashAccounts.map((account) => account.id) },
-        creditSYP: { gt: 0 },
       },
       include: {
-        entry: { include: { lines: { select: { accountId: true, debitSYP: true } } } },
+        entry: {
+          include: {
+            lines: {
+              include: {
+                account: { select: { code: true, accountType: true } },
+              },
+            },
+          },
+        },
       },
-    });
+    })
+      : [];
 
-    expenseJournalLines
-      .filter((line) => !line.entry.lines.some((other) => cashAccounts.some((account) => account.id === other.accountId) && Number(other.debitSYP) > 0))
-      .forEach((line) => {
-      const amount = Number(line.creditSYP);
-      if (amount > 0) {
-        const item: CashFlowItem = {
-          id: line.id,
-          date: line.entry.entryDate,
-          description: line.description || line.entry.description,
-          amount,
-          currency,
-          type: 'OUTFLOW',
-          category: 'OPERATING',
-          reference: line.entry.reference || undefined,
-          referenceType: line.entry.sourceType || undefined,
-        };
-        operatingOutflows.push(item);
+    const movementsByEntry = new Map<string, { entry: any; lines: any[] }>();
+    for (const line of cashLines) {
+      const movement = movementsByEntry.get(line.entryId) || { entry: line.entry, lines: [] };
+      movement.lines.push(line);
+      movementsByEntry.set(line.entryId, movement);
+    }
+
+    const addMovement = (item: CashFlowItem) => {
+      const inflow = item.type === 'INFLOW';
+      if (item.category === 'INVESTING') {
+        (inflow ? investingInflows : investingOutflows).push(item);
+      } else if (item.category === 'FINANCING') {
+        (inflow ? financingInflows : financingOutflows).push(item);
+      } else {
+        (inflow ? operatingInflows : operatingOutflows).push(item);
       }
-    });
+    };
+
+    for (const { entry, lines } of movementsByEntry.values()) {
+      if (entry.isReversed || entry.isReversing || String(entry.sourceType || '').startsWith('REVERSAL_OF_')) {
+        continue;
+      }
+
+      const amountSYP = lines.reduce(
+        (sum, line) => sum + Number(line.debitSYP || 0) - Number(line.creditSYP || 0),
+        0
+      );
+      const amountUSD = lines.reduce(
+        (sum, line) => sum + Number(line.debitUSD || 0) - Number(line.creditUSD || 0),
+        0
+      );
+      periodCashUSD += amountUSD;
+      const signedAmount = currency === 'USD' ? amountUSD : amountSYP;
+      if (Math.abs(signedAmount) < 0.005) continue;
+
+      const sourceType = String(entry.sourceType || '').toUpperCase();
+      const originalSourceType = sourceType.startsWith('REVERSAL_OF_')
+        ? sourceType.slice('REVERSAL_OF_'.length)
+        : sourceType;
+      const counterpartLines = (entry.lines || []).filter((line: any) => !cashAccountIds.includes(line.accountId));
+      const isInvesting = /ASSET|DEPRECIATION|INVESTMENT/.test(originalSourceType) ||
+        counterpartLines.some((line: any) => line.account?.code?.startsWith('15'));
+      const isFinancing = !isInvesting &&
+        (/CAPITAL|LOAN|EQUITY|FINANCING|OPENING_BALANCE/.test(originalSourceType) ||
+          counterpartLines.some((line: any) => line.account?.accountType === 'EQUITY'));
+      const category: CashFlowItem['category'] = isInvesting ? 'INVESTING' : isFinancing ? 'FINANCING' : 'OPERATING';
+      const item: CashFlowItem = {
+        id: entry.id,
+        date: entry.entryDate,
+        description: lines.find((line: any) => line.description)?.description || entry.description,
+        amount: Math.abs(signedAmount),
+        currency,
+        type: signedAmount > 0 ? 'INFLOW' : 'OUTFLOW',
+        category,
+        reference: entry.reference || undefined,
+        referenceType: entry.sourceType || undefined,
+      };
+      addMovement(item);
+    }
 
     const totalOperatingInflow = operatingInflows.reduce((sum, item) => sum + item.amount, 0);
     const totalOperatingOutflow = operatingOutflows.reduce((sum, item) => sum + item.amount, 0);
@@ -418,6 +438,7 @@ export class ReportService {
       totalFinancingOutflow;
 
     const endingCash = beginningCash + netCashFlow;
+    const endingCashUSD = beginningCashUSD + periodCashUSD;
 
     return {
       fromDate,
@@ -459,6 +480,8 @@ export class ReportService {
       netCashFlow,
       beginningCash,
       endingCash,
+      beginningCashUSD,
+      endingCashUSD,
       generatedAt: new Date(),
     };
   }
@@ -483,6 +506,7 @@ export class ReportService {
             gte: fromDate,
             lte: toDate,
           },
+          status: 'POSTED',
         },
       },
       include: {
@@ -782,6 +806,122 @@ export class ReportService {
   // PDF EXPORT
   // ============================================
 
+  async getCustomerStatement(tenantId: string, customerId: string, fromDate?: Date, toDate?: Date) {
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, tenantId, deletedAt: null },
+      select: { id: true, fullName: true, phone: true },
+    });
+    if (!customer) throw new Error('Customer not found');
+
+    const receivableAccountId = await getAccountIdByRole(tenantId, 'ACCOUNTS_RECEIVABLE');
+    if (!receivableAccountId) throw new Error('Customer receivable account is not configured');
+    const entryDate: Record<string, Date> = {};
+    if (toDate) entryDate.lte = toDate;
+    const lines = await prisma.journalLine.findMany({
+      where: {
+        customerId,
+        accountId: receivableAccountId,
+        entry: { tenantId, status: 'POSTED', ...(Object.keys(entryDate).length ? { entryDate } : {}) },
+      },
+      include: { entry: { select: { entryDate: true, reference: true, description: true, sourceType: true } } },
+      orderBy: [{ entry: { entryDate: 'asc' } }, { createdAt: 'asc' }],
+    });
+
+    let balanceSYP = 0;
+    let balanceUSD = 0;
+    let openingBalanceSYP = 0;
+    let openingBalanceUSD = 0;
+    const transactions: any[] = [];
+    for (const line of lines) {
+      const debitSYP = Number(line.debitSYP);
+      const creditSYP = Number(line.creditSYP);
+      const debitUSD = Number(line.debitUSD);
+      const creditUSD = Number(line.creditUSD);
+      balanceSYP += debitSYP - creditSYP;
+      balanceUSD += debitUSD - creditUSD;
+      if (fromDate && line.entry.entryDate < fromDate) {
+        openingBalanceSYP = balanceSYP;
+        openingBalanceUSD = balanceUSD;
+        continue;
+      }
+      transactions.push({
+        date: line.entry.entryDate,
+        reference: line.entry.reference,
+        description: line.description || line.entry.description,
+        sourceType: line.entry.sourceType,
+        dueDate: line.dueDate,
+        debitSYP,
+        creditSYP,
+        balanceSYP,
+        debitUSD,
+        creditUSD,
+        balanceUSD,
+      });
+    }
+    return {
+      customer,
+      openingBalanceSYP,
+      openingBalanceUSD,
+      closingBalanceSYP: balanceSYP,
+      closingBalanceUSD: balanceUSD,
+      transactions,
+    };
+  }
+
+  async getCashBankMovement(tenantId: string, role: 'CASH' | 'BANK', fromDate?: Date, toDate?: Date) {
+    const accountId = await getAccountIdByRole(tenantId, role);
+    if (!accountId) throw new Error(`${role} posting account is not configured`);
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId, isActive: true },
+      select: { id: true, code: true, nameAr: true },
+    });
+    if (!account) throw new Error(`${role} account not found`);
+
+    const entryDate: Record<string, Date> = {};
+    if (toDate) entryDate.lte = toDate;
+    const lines = await prisma.journalLine.findMany({
+      where: {
+        accountId,
+        entry: { tenantId, status: 'POSTED', ...(Object.keys(entryDate).length ? { entryDate } : {}) },
+      },
+      include: { entry: { select: { entryDate: true, reference: true, description: true, sourceType: true } } },
+      orderBy: [{ entry: { entryDate: 'asc' } }, { createdAt: 'asc' }],
+    });
+
+    let balanceSYP = 0;
+    let balanceUSD = 0;
+    let openingBalanceSYP = 0;
+    let openingBalanceUSD = 0;
+    const movements: any[] = [];
+    for (const line of lines) {
+      const debitSYP = Number(line.debitSYP);
+      const creditSYP = Number(line.creditSYP);
+      const debitUSD = Number(line.debitUSD);
+      const creditUSD = Number(line.creditUSD);
+      balanceSYP += debitSYP - creditSYP;
+      balanceUSD += debitUSD - creditUSD;
+      if (fromDate && line.entry.entryDate < fromDate) {
+        openingBalanceSYP = balanceSYP;
+        openingBalanceUSD = balanceUSD;
+        continue;
+      }
+      movements.push({
+        date: line.entry.entryDate,
+        reference: line.entry.reference,
+        description: line.description || line.entry.description,
+        sourceType: line.entry.sourceType,
+        inflowSYP: debitSYP,
+        outflowSYP: creditSYP,
+        balanceSYP,
+        inflowUSD: debitUSD,
+        outflowUSD: creditUSD,
+        balanceUSD,
+      });
+    }
+
+    return { account, openingBalanceSYP, openingBalanceUSD, closingBalanceSYP: balanceSYP, closingBalanceUSD: balanceUSD, movements };
+  }
+
   async exportBalanceSheetToPDF(
     tenantId: string,
     request: BalanceSheetRequest
@@ -954,16 +1094,18 @@ export class ReportService {
     });
 
     return parts.map((part) => {
-      const status = part.quantity > part.minQuantity ? 'OK' : part.quantity === part.minQuantity ? 'LOW' : 'CRITICAL';
-      const totalValue = Number(part.costSYP) * part.quantity;
+      const quantity = Number(part.quantity);
+      const minQuantity = Number(part.minQuantity);
+      const status = quantity > minQuantity ? 'OK' : quantity === minQuantity ? 'LOW' : 'CRITICAL';
+      const totalValue = Number(part.costSYP) * quantity;
 
       return {
         partId: part.id,
         partName: part.name,
         partNumber: part.partNumber,
         category: part.category?.name || 'Uncategorized',
-        quantity: part.quantity,
-        minQuantity: part.minQuantity,
+        quantity,
+        minQuantity,
         status,
         purchasePrice: Number(part.costSYP),
         salePrice: Number(part.sellingPriceSYP),
@@ -1006,8 +1148,8 @@ export class ReportService {
         invoices: new Set<string>(),
       };
 
-      existing.totalConsumed += t.quantity;
-      existing.totalCost += Number(t.costSYP) * t.quantity;
+      existing.totalConsumed += Number(t.quantity);
+      existing.totalCost += Number(t.costSYP) * Number(t.quantity);
 
       consumptionMap.set(t.partId, existing);
     });
@@ -1118,7 +1260,7 @@ export class ReportService {
       const service = services.find((s) => s.id === item.serviceId);
       if (service?.serviceParts) {
         service.serviceParts.forEach((sp: any) => {
-          partsCost += Number(sp.part.costSYP) * sp.quantity;
+          partsCost += Number(sp.part.costSYP) * Number(sp.quantity);
         });
       }
 
@@ -1206,7 +1348,7 @@ export class ReportService {
         const service = services.find((s) => s.id === item.serviceId);
         if (service?.serviceParts) {
           service.serviceParts.forEach((sp: any) => {
-            const cost = Number(sp.part.costSYP) * sp.quantity;
+            const cost = Number(sp.part.costSYP) * Number(sp.quantity);
             invoicePartsCost += cost;
             monthData.cost += cost;
             customerData.cost += cost;
@@ -1319,7 +1461,7 @@ export class ReportService {
             totalRevenue += Number(item.priceSYP);
             const parts = serviceParts.filter((sp: any) => sp.serviceId === item.serviceId);
             parts.forEach((sp: any) => {
-              totalCost += Number(sp.part.costSYP) * sp.quantity;
+              totalCost += Number(sp.part.costSYP) * Number(sp.quantity);
             });
           });
         });
@@ -1369,8 +1511,8 @@ export class ReportService {
         const partMap = new Map<string, { quantity: number; costSYP: number; minQuantity: number }>();
         inventoryTransactions.forEach((it: any) => {
           const partId = it.partId;
-          const existing = partMap.get(partId) || { quantity: 0, costSYP: 0, minQuantity: it.part.minQuantity || 5 };
-          const quantityChange = it.type === 'IN' ? it.quantity : -it.quantity;
+          const existing = partMap.get(partId) || { quantity: 0, costSYP: 0, minQuantity: Number(it.part.minQuantity || 5) };
+          const quantityChange = it.type === 'IN' ? Number(it.quantity) : -Number(it.quantity);
           existing.quantity += quantityChange;
           existing.costSYP = Number(it.part.costSYP);
           partMap.set(partId, existing);

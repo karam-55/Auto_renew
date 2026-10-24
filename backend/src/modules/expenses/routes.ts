@@ -32,14 +32,19 @@ router.get('/report', authorize(['OWNER', 'MANAGER']), (req, res) => {
   controller.getExpenseReport(req, res);
 });
 
-// Create expense (accessible by OWNER, MANAGER)
-router.post('/', authorize(['OWNER', 'MANAGER']), (req, res) => {
+// Create expense (accessible by OWNER, MANAGER, RECEPTIONIST - front-desk petty expenses)
+router.post('/upload-attachment', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), (req, res) => {
+  const controller = new ExpensesController();
+  controller.uploadExpenseAttachment(req, res);
+});
+
+router.post('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), (req, res) => {
   const controller = new ExpensesController();
   controller.createExpense(req, res);
 });
 
-// Get expenses for tenant (accessible by OWNER, MANAGER)
-router.get('/', authorize(['OWNER', 'MANAGER']), (req, res) => {
+// Get expenses for tenant (accessible by OWNER, MANAGER, RECEPTIONIST)
+router.get('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), (req, res) => {
   const controller = new ExpensesController();
   controller.getExpenses(req, res);
 });

@@ -5,7 +5,7 @@ import prisma from '../../src/config/database';
 // Mock Prisma
 jest.mock('../../src/config/database', () => {
   const client: any = {
-    supplier: { findFirst: jest.fn() },
+    supplier: { findFirst: jest.fn(), update: jest.fn() },
     companySettings: { findUnique: jest.fn().mockResolvedValue({ exchangeRate: 139, taxRate: 0 }) },
     purchaseOrder: {
       findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(),
@@ -27,6 +27,7 @@ jest.mock('../../src/config/database', () => {
 });
 jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
   createStockIntakeJournalEntry: jest.fn().mockResolvedValue({ id: 'stock-entry' }),
+  createStockRevaluationJournalEntry: jest.fn().mockResolvedValue(null),
   ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -43,6 +44,7 @@ describe('PurchaseOrderService', () => {
     (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (prisma.purchaseOrder.findUnique as jest.Mock).mockResolvedValue({ tenantId: mockTenantId });
     (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.supplier.update as jest.Mock).mockResolvedValue({});
   });
 
   describe('createPurchaseOrder', () => {
@@ -935,7 +937,7 @@ describe('PurchaseOrderService', () => {
   });
 
   describe('receivePurchaseOrder', () => {
-    it('receives stock and posts purchase accounting atomically at AVCO cost', async () => {
+    it('receives stock and posts purchase accounting atomically at last purchase price', async () => {
       const currentPart = { id: 'part-1', tenantId: mockTenantId, name: 'Brake Pad', quantity: 2, costSYP: 139, costUSD: 1 };
       const line = { id: 'line-1', partId: 'part-1', quantity: 4, receivedQty: 0, costSYP: 1390, costUSD: 10 };
       const order = {
@@ -957,13 +959,14 @@ describe('PurchaseOrderService', () => {
 
       expect(prisma.part.updateMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 'part-1', tenantId: mockTenantId, quantity: 2 },
-        data: expect.objectContaining({ quantity: { increment: 4 }, costSYP: 973, costUSD: 7 }),
+        data: expect.objectContaining({ quantity: { increment: 4 }, costSYP: 1390, costUSD: 10 }),
       }));
       expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ type: 'PURCHASE', quantity: 4, costSYP: 1390, costUSD: 10 }),
       }));
-      const { createStockIntakeJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
+      const { createStockIntakeJournalEntry, createStockRevaluationJournalEntry } = require('../../src/modules/accounting/automatic-journal-entries');
       expect(createStockIntakeJournalEntry).toHaveBeenCalledWith(transaction, mockTenantId, 'PAYABLE', 'user-1', prisma);
+      expect(createStockRevaluationJournalEntry).toHaveBeenCalledWith(transaction, mockTenantId, 2, 139, 1, 1390, 10, 'user-1', prisma);
       expect(result.status).toBe(OrderStatus.RECEIVED);
     });
   });

@@ -3,9 +3,34 @@ import { ApiClient } from '../api/client'
 import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  STANDARD: 'تسعير عادي',
+  FIXED: 'عملية بسعر ثابت',
+  VARIABLE: 'مواد وكمية متغيرة',
+  JOB_BASED: 'حسب تكلفة أمر الشغل',
+  OIL_PAID: 'زيت مدفوع من المخزون',
+  OIL_WARRANTY: 'زيت كفالة',
+  PANELS: 'حسب الألواح',
+  CUSTOM: 'خدمة مخصصة',
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!)
+}
+
 export class ServicesScreen {
   private allCategories: any[] = []
+  private revenueAccounts: any[] = []
+  private costAccounts: any[] = []
+  private costCenters: any[] = []
   private exchangeRate: number = 0
+  private editingCategoryId: string | null = null
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
@@ -20,24 +45,188 @@ export class ServicesScreen {
     }
   }
 
-  private async loadCategories() {
+  private async loadCategories(content?: HTMLElement) {
     try {
       const res = await this.api.get<any>('/api/service-categories')
       if (res.success !== false && res.data) {
         this.allCategories = Array.isArray(res.data) ? res.data : res.data.data || []
       }
     } catch {
-      // categories will remain empty
+      // Keep the last successfully loaded category list.
     }
+    try {
+      const accountRes = await this.api.get<any>('/api/accounting/accounts/tree', false)
+      if (accountRes.success !== false && accountRes.data) {
+        const tree = Array.isArray(accountRes.data) ? accountRes.data : accountRes.data.data || []
+        const accounts = this.flattenAccounts(tree).filter((account: any) => account.isActive !== false && !(account.children?.length))
+        this.revenueAccounts = accounts.filter((account: any) => account.accountType === 'REVENUE')
+        this.costAccounts = accounts.filter((account: any) => account.accountType === 'COGS')
+      }
+    } catch {
+      this.revenueAccounts = []
+      this.costAccounts = []
+    }
+    try {
+      const costCenterRes = await this.api.get<any>('/api/cost-centers', false)
+      if (costCenterRes.success !== false && costCenterRes.data) {
+        this.costCenters = Array.isArray(costCenterRes.data) ? costCenterRes.data : costCenterRes.data.data || []
+      }
+    } catch {
+      this.costCenters = []
+    }
+    if (content) this.populateCategoryMaps(content)
+  }
+
+  private populateCategoryMaps(content: HTMLElement) {
+    const revenueSelect = content.querySelector('#cat-revenue-account') as HTMLSelectElement | null
+    if (revenueSelect) {
+      const selected = revenueSelect.value
+      revenueSelect.innerHTML = '<option value="">استخدم الحساب الافتراضي للقسم</option>' + this.revenueAccounts.map((account: any) =>
+        `<option value="${escapeHtml(account.id)}">${escapeHtml(account.code)} — ${escapeHtml(account.nameAr)}</option>`
+      ).join('')
+      if (selected) revenueSelect.value = selected
+    }
+    const costAccountSelect = content.querySelector('#cat-cost-account') as HTMLSelectElement | null
+    if (costAccountSelect) {
+      const selected = costAccountSelect.value
+      costAccountSelect.innerHTML = '<option value="">استخدم تكلفة القسم الافتراضية</option>' + this.costAccounts.map((account: any) =>
+        `<option value="${escapeHtml(account.id)}">${escapeHtml(account.code)} — ${escapeHtml(account.nameAr)}</option>`
+      ).join('')
+      if (selected) costAccountSelect.value = selected
+    }
+
+    const costCenterSelect = content.querySelector('#cat-cost-center') as HTMLSelectElement | null
+    if (costCenterSelect) {
+      const selected = costCenterSelect.value
+      costCenterSelect.innerHTML = '<option value="">بدون مركز ربح محدد</option>' + this.costCenters.map((center: any) =>
+        `<option value="${escapeHtml(center.id)}">${escapeHtml(center.code || '')} ${escapeHtml(center.nameAr || center.name)}</option>`
+      ).join('')
+      if (selected) costCenterSelect.value = selected
+    }
+  }
+
+  private flattenAccounts(accounts: any[]): any[] {
+    return accounts.flatMap((account) => [account, ...this.flattenAccounts(account.children || [])])
+  }
+
+  private resetCategoryForm(content: HTMLElement) {
+    this.editingCategoryId = null
+    ;(content.querySelector('#cat-name') as HTMLInputElement).value = ''
+    ;(content.querySelector('#cat-description') as HTMLTextAreaElement).value = ''
+    content.querySelector('#category-form-title')!.textContent = 'إضافة فئة'
+    content.querySelector('#save-category')!.textContent = 'إضافة الفئة'
+    const revenueSelect = content.querySelector('#cat-revenue-account') as HTMLSelectElement
+    if (revenueSelect) revenueSelect.value = ''
+    const costCenterSelect = content.querySelector('#cat-cost-center') as HTMLSelectElement
+    if (costCenterSelect) costCenterSelect.value = ''
+    const costAccountSelect = content.querySelector('#cat-cost-account') as HTMLSelectElement
+    if (costAccountSelect) costAccountSelect.value = ''
+  }
+
+  private renderCategoryList(content: HTMLElement) {
+    const list = content.querySelector('#category-list') as HTMLElement
+    if (!list) return
+    if (this.allCategories.length === 0) {
+      list.innerHTML = '<p class="text-sm text-text-secondary text-center py-4">ما في فئات مسجلة بعد</p>'
+      return
+    }
+
+    list.innerHTML = this.allCategories.map((category: any) => `
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+        <div class="min-w-0">
+          <p class="font-body-md text-on-surface font-semibold">${escapeHtml(category.nameAr || category.name)}</p>
+          <p class="text-xs text-text-secondary mt-1">
+            ${Number(category.serviceCount || 0)} خدمة · ${category.isActive ? 'نشطة' : 'معطلة'}
+            ${category.revenueAccount ? ` · إيراد ${escapeHtml(category.revenueAccount.code)}` : ''}
+            ${category.costAccount ? ` · تكلفة ${escapeHtml(category.costAccount.code)}` : ''}
+            ${category.costCenter ? ` · ${escapeHtml(category.costCenter.code || category.costCenter.nameAr)}` : ''}
+          </p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <button type="button" data-edit-category="${escapeHtml(category.id)}" class="h-9 px-3 rounded-lg border border-border text-on-surface hover:bg-surface-subtle text-sm">تعديل</button>
+          <button type="button" data-toggle-category="${escapeHtml(category.id)}" class="h-9 px-3 rounded-lg border border-border text-on-surface hover:bg-surface-subtle text-sm">
+            ${category.isActive ? 'تعطيل' : 'تفعيل'}
+          </button>
+          <button type="button" data-delete-category="${escapeHtml(category.id)}" ${Number(category.serviceCount || 0) > 0 ? 'disabled title="انقل الخدمات المرتبطة أولاً"' : ''} class="h-9 px-3 rounded-lg border border-error/30 text-error hover:bg-error/5 text-sm disabled:opacity-40 disabled:cursor-not-allowed">حذف</button>
+        </div>
+      </div>
+    `).join('')
+
+    list.querySelectorAll<HTMLButtonElement>('[data-edit-category]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const category = this.allCategories.find((item: any) => item.id === button.dataset.editCategory)
+        if (!category) return
+        this.editingCategoryId = category.id
+        ;(content.querySelector('#cat-name') as HTMLInputElement).value = category.nameAr || category.name || ''
+        ;(content.querySelector('#cat-description') as HTMLTextAreaElement).value = category.description || ''
+        ;(content.querySelector('#cat-revenue-account') as HTMLSelectElement).value = category.revenueAccountId || ''
+        ;(content.querySelector('#cat-cost-account') as HTMLSelectElement).value = category.costAccountId || ''
+        ;(content.querySelector('#cat-cost-center') as HTMLSelectElement).value = category.costCenterId || ''
+        content.querySelector('#category-form-title')!.textContent = 'تعديل الفئة'
+        content.querySelector('#save-category')!.textContent = 'حفظ التعديلات'
+      })
+    })
+
+    list.querySelectorAll<HTMLButtonElement>('[data-toggle-category]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const category = this.allCategories.find((item: any) => item.id === button.dataset.toggleCategory)
+        if (!category) return
+        try {
+          const res = await this.api.put<any>(`/api/service-categories/${category.id}`, { isActive: !category.isActive })
+          if (res.success === false) throw new Error(res.message || 'تعذر تحديث حالة الفئة')
+          await this.loadCategories(content)
+          this.renderCategoryList(content)
+          ;(window as any).toast?.show?.({ message: category.isActive ? 'تم تعطيل الفئة' : 'تم تفعيل الفئة', type: 'success' })
+        } catch (error: any) {
+          ;(window as any).toast?.show?.({ message: error.message || 'تعذر تحديث حالة الفئة', type: 'error' })
+        }
+      })
+    })
+
+    list.querySelectorAll<HTMLButtonElement>('[data-delete-category]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const category = this.allCategories.find((item: any) => item.id === button.dataset.deleteCategory)
+        if (!category || Number(category.serviceCount || 0) > 0) return
+        if (!confirm(`حذف فئة «${category.nameAr || category.name}»؟`)) return
+        try {
+          const res = await this.api.delete<any>(`/api/service-categories/${category.id}`)
+          if (res.success === false) throw new Error(res.message || 'تعذر حذف الفئة')
+          if (this.editingCategoryId === category.id) this.resetCategoryForm(content)
+          await this.loadCategories(content)
+          this.renderCategoryList(content)
+          ;(window as any).toast?.show?.({ message: 'تم حذف الفئة', type: 'success' })
+        } catch (error: any) {
+          ;(window as any).toast?.show?.({ message: error.message || 'تعذر حذف الفئة', type: 'error' })
+        }
+      })
+    })
   }
 
   private populateCategorySelect(el: HTMLElement, selectedValue?: string) {
     const select = el.querySelector('#svc-category') as HTMLSelectElement
     if (!select) return
     const options = this.allCategories.map((c: any) =>
-      `<option value="${c.name}" ${selectedValue === c.name ? 'selected' : ''}>${c.name}</option>`
+      `<option value="${escapeHtml(c.name)}" ${selectedValue === c.name ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
     ).join('')
     select.innerHTML = `<option value="">اختر الفئة</option>` + options
+  }
+
+  private populateServiceRevenueAccountSelect(el: HTMLElement, selectedValue?: string) {
+    const select = el.querySelector('#svc-revenue-account') as HTMLSelectElement | null
+    if (!select) return
+    select.innerHTML = '<option value="">استخدم حساب القسم</option>' + this.revenueAccounts.map((account: any) =>
+      `<option value="${escapeHtml(account.id)}">${escapeHtml(account.code)} — ${escapeHtml(account.nameAr)}</option>`
+    ).join('')
+    select.value = selectedValue || ''
+  }
+
+  private populateServiceCostAccountSelect(el: HTMLElement, selectedValue?: string) {
+    const select = el.querySelector('#svc-cost-account') as HTMLSelectElement | null
+    if (!select) return
+    select.innerHTML = '<option value="">استخدم حساب تكلفة القسم</option>' + this.costAccounts.map((account: any) =>
+      `<option value="${escapeHtml(account.id)}">${escapeHtml(account.code)} — ${escapeHtml(account.nameAr)}</option>`
+    ).join('')
+    select.value = selectedValue || ''
   }
 
   render(): HTMLElement {
@@ -113,14 +302,31 @@ export class ServicesScreen {
       </div>
       <!-- Category Modal -->
       <div id="category-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center" role="dialog" aria-modal="true">
-        <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-md mx-4">
+        <div class="bg-surface-container-lowest rounded-xl shadow-2xl border border-border w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b border-outline-variant/10 bg-surface-subtle flex items-center justify-between">
-            <h3 class="font-headline-md text-lg text-on-surface font-semibold">إضافة فئة خدمات</h3>
+            <h3 class="font-headline-md text-lg text-on-surface font-semibold">إدارة فئات الخدمات</h3>
             <button id="close-category-modal" class="touch-safe w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-text-tertiary" aria-label="إغلاق نافذة الفئة">
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
           <div class="p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h4 class="font-body-lg text-on-surface font-semibold">الفئات الحالية</h4>
+              <div class="flex gap-2">
+                <button id="initialize-departments-btn" class="h-10 px-3 bg-surface-subtle text-on-surface rounded-lg font-body-md border border-border text-sm">
+                  تهيئة الأقسام والخدمات
+                </button>
+                <button id="new-category-btn" class="h-10 px-4 bg-primary text-on-primary rounded-lg font-body-md flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[18px]">add</span>
+                  فئة جديدة
+                </button>
+              </div>
+            </div>
+            <div id="category-list" class="space-y-2 max-h-56 overflow-y-auto">
+              <p class="text-sm text-text-secondary text-center py-4">جاري تحميل الفئات...</p>
+            </div>
+            <div class="border-t border-border pt-4">
+              <h4 id="category-form-title" class="font-body-lg text-on-surface font-semibold mb-3">إضافة فئة</h4>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم الفئة *</label>
               <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="cat-name" placeholder="اسم الفئة" />
@@ -129,10 +335,29 @@ export class ServicesScreen {
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الوصف</label>
               <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="cat-description" rows="2" placeholder="وصف الفئة..."></textarea>
             </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب الإيراد الافتراضي للقسم</label>
+              <select id="cat-revenue-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface">
+                <option value="">استخدم الحساب الافتراضي للنظام</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب التكلفة الافتراضي للقسم</label>
+              <select id="cat-cost-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface">
+                <option value="">استخدم تكلفة القسم الافتراضية</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">مركز الربح / التحليل</label>
+              <select id="cat-cost-center" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface">
+                <option value="">بدون مركز ربح محدد</option>
+              </select>
+            </div>
+            </div>
           </div>
           <div class="p-6 border-t border-outline-variant/10 flex justify-end gap-3">
             <button class="h-[48px] px-6 bg-surface-subtle text-on-surface font-ibmPlexSans font-body-lg rounded-lg border border-border hover:bg-surface-container-low transition-colors" id="cancel-category-modal">إلغاء</button>
-            <button class="h-[48px] px-6 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg transition-all" id="save-category">حفظ</button>
+            <button class="h-[48px] px-6 bg-primary text-on-primary font-ibmPlexSans font-body-lg rounded-lg shadow-sm hover:shadow-lg transition-all" id="save-category">إضافة الفئة</button>
           </div>
         </div>
       </div>
@@ -149,6 +374,27 @@ export class ServicesScreen {
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">اسم الخدمة *</label>
               <input class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="service-name" placeholder="اسم الخدمة" required />
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">رمز الخدمة</label>
+                <input id="svc-code" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 text-on-surface" placeholder="مثال: OIL-001" />
+              </div>
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">وحدة التسعير</label>
+                <input id="svc-pricing-unit" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 text-on-surface" placeholder="عملية، لتر، ساعة..." />
+              </div>
+              <div>
+                <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">نوع السيارة</label>
+                <input id="svc-vehicle-type" class="w-full h-[44px] bg-surface-subtle border border-border rounded-lg px-3 text-on-surface" placeholder="مثال: BYD Qin Plus DMi" />
+              </div>
+            </div>
+            <div>
+              <label for="svc-service-type" class="block font-label-sm text-label-sm text-text-tertiary mb-2">نوع تسعير وتنفيذ الخدمة</label>
+              <select id="svc-service-type" class="w-full min-h-[48px] rounded-lg border border-border bg-surface-subtle px-4 text-on-surface focus:border-primary focus:outline-none">
+                ${Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
+              </select>
+              <p class="mt-1 text-body-xs text-text-tertiary">السعر النهائي وأجور الفني والمواد الفعلية تُسجل في أمر الشغل.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -271,8 +517,24 @@ export class ServicesScreen {
               </div>
             </div>
             <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب الإيراد لهذه الخدمة (اختياري — يتجاوز حساب القسم)</label>
+              <select id="svc-revenue-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface">
+                <option value="">استخدم حساب القسم</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">حساب التكلفة لهذه الخدمة (اختياري — يتجاوز حساب القسم)</label>
+              <select id="svc-cost-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface">
+                <option value="">استخدم حساب تكلفة القسم</option>
+              </select>
+            </div>
+            <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الوصف</label>
               <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="svc-description" rows="2" placeholder="وصف الخدمة..."></textarea>
+            </div>
+            <div>
+              <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">المواصفات / العيارة</label>
+              <textarea class="w-full bg-surface-subtle border border-border rounded-lg p-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow resize-none" id="svc-specification" rows="2" placeholder="نوع الزيت أو المادة أو المواصفات المطلوبة..."></textarea>
             </div>
             <div class="border border-border rounded-lg p-4 space-y-3">
               <div class="flex items-center gap-2">
@@ -308,7 +570,7 @@ export class ServicesScreen {
 
     // Load settings and categories on init
     this.loadExchangeRate()
-    this.loadCategories()
+    this.loadCategories(content)
 
     const filterAndRender = () => {
       const searchInput = content.querySelector('#service-search') as HTMLInputElement
@@ -354,11 +616,29 @@ export class ServicesScreen {
       filterAndRender()
     })
     // Category modal events
-    content.querySelector('#manage-categories-btn')?.addEventListener('click', () => {
+    content.querySelector('#manage-categories-btn')?.addEventListener('click', async () => {
       const modal = content.querySelector('#category-modal') as HTMLElement
       if (modal) {
         modal.classList.remove('hidden')
         modal.classList.add('flex')
+      }
+      this.resetCategoryForm(content)
+      await this.loadCategories(content)
+      this.renderCategoryList(content)
+    })
+    content.querySelector('#new-category-btn')?.addEventListener('click', () => {
+      this.resetCategoryForm(content)
+      ;(content.querySelector('#cat-name') as HTMLInputElement).focus()
+    })
+    content.querySelector('#initialize-departments-btn')?.addEventListener('click', async () => {
+      try {
+        const res = await this.api.post<any>('/api/service-categories/initialize', {})
+        if (res.success === false) throw new Error(res.message || 'تعذر إضافة الأقسام')
+        await this.loadCategories(content)
+        this.renderCategoryList(content)
+        ;(window as any).toast?.show?.({ message: 'تم تجهيز الأقسام والخدمات الافتراضية دون تكرار', type: 'success' })
+      } catch (error: any) {
+        ;(window as any).toast?.show?.({ message: error.message || 'تعذر إضافة الأقسام', type: 'error' })
       }
     })
     content.querySelector('#close-category-modal')?.addEventListener('click', () => {
@@ -367,6 +647,7 @@ export class ServicesScreen {
         modal.classList.add('hidden')
         modal.classList.remove('flex')
       }
+      this.resetCategoryForm(content)
     })
     content.querySelector('#cancel-category-modal')?.addEventListener('click', () => {
       const modal = content.querySelector('#category-modal') as HTMLElement
@@ -374,6 +655,7 @@ export class ServicesScreen {
         modal.classList.add('hidden')
         modal.classList.remove('flex')
       }
+      this.resetCategoryForm(content)
     })
     content.querySelector('#save-category')?.addEventListener('click', async () => {
       const name = (content.querySelector('#cat-name') as HTMLInputElement)?.value.trim()
@@ -383,22 +665,23 @@ export class ServicesScreen {
         return
       }
       try {
-        const res = await this.api.post<any>('/api/service-categories', { name, description })
-        if (res.success !== false) {
-          const modal = content.querySelector('#category-modal') as HTMLElement
-          if (modal) {
-            modal.classList.add('hidden')
-            modal.classList.remove('flex')
-          }
-          ;(content.querySelector('#cat-name') as HTMLInputElement).value = ''
-          ;(content.querySelector('#cat-description') as HTMLTextAreaElement).value = ''
-          await this.loadCategories()
-          ;(window as any).toast?.show?.({ message: 'تم إضافة الفئة بنجاح', type: 'success' })
-        } else {
-          ;(window as any).toast?.show?.({ message: res.message || 'فشل إضافة الفئة', type: 'error' })
-        }
-      } catch {
-        ;(window as any).toast?.show?.({ message: 'حدث خطأ أثناء إضافة الفئة', type: 'error' })
+        const revenueAccountId = (content.querySelector('#cat-revenue-account') as HTMLSelectElement).value || null
+        const costAccountId = (content.querySelector('#cat-cost-account') as HTMLSelectElement).value || null
+        const costCenterId = (content.querySelector('#cat-cost-center') as HTMLSelectElement).value || null
+        const payload = { name, nameAr: name, description, revenueAccountId, costAccountId, costCenterId }
+        const res = this.editingCategoryId
+          ? await this.api.put<any>(`/api/service-categories/${this.editingCategoryId}`, payload)
+          : await this.api.post<any>('/api/service-categories', payload)
+        if (res.success === false) throw new Error(res.message || 'فشل حفظ الفئة')
+        this.resetCategoryForm(content)
+        await this.loadCategories(content)
+        this.renderCategoryList(content)
+        ;(window as any).toast?.show?.({
+          message: 'تم حفظ الفئة بنجاح',
+          type: 'success',
+        })
+      } catch (error: any) {
+        ;(window as any).toast?.show?.({ message: error.message || 'حدث خطأ أثناء حفظ الفئة', type: 'error' })
       }
     })
 
@@ -450,8 +733,9 @@ export class ServicesScreen {
     tbody.innerHTML = services.map((s: any) => `
       <tr class="border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors">
         <td class="px-6 py-4">
-          <div class="font-body-md text-on-surface font-medium">${s.name || '-'}</div>
-          <div class="text-sm text-text-tertiary">${s.description || ''}</div>
+          <div class="font-body-md text-on-surface font-medium">${escapeHtml(s.name || '-')}</div>
+          <div class="text-xs text-text-tertiary">${escapeHtml(s.code || 'بدون رمز')}${s.pricingUnit ? ` · ${escapeHtml(s.pricingUnit)}` : ''}${s.vehicleType ? ` · ${escapeHtml(s.vehicleType)}` : ''} · ${escapeHtml(SERVICE_TYPE_LABELS[s.serviceType] || SERVICE_TYPE_LABELS.STANDARD)}</div>
+          <div class="text-sm text-text-tertiary">${escapeHtml(s.description || '')}</div>
         </td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.category || '-'}</td>
         <td class="px-6 py-4 font-body-md text-on-surface">${s.priceUSD != null && this.exchangeRate > 0 ? Math.round(Number(s.priceUSD) * this.exchangeRate).toLocaleString() + ' ل.س' : s.priceSYP ? Number(s.priceSYP).toLocaleString() + ' ل.س' : '-'}</td>
@@ -768,7 +1052,7 @@ export class ServicesScreen {
           <option value="">اختر المادة</option>
           ${options}
         </select>
-        <input type="number" min="1" value="${quantity}" class="part-qty w-[70px] h-[36px] bg-surface-container-high border border-outline-variant rounded-lg px-2 text-body-sm text-on-surface text-center focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="1" />
+        <input type="number" min="0.001" step="0.001" value="${quantity}" class="part-qty w-[70px] h-[36px] bg-surface-container-high border border-outline-variant rounded-lg px-2 text-body-sm text-on-surface text-center focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="1" />
         <span class="part-cost text-body-xs text-text-tertiary whitespace-nowrap"></span>
         <button type="button" class="remove-part-btn w-[28px] h-[28px] rounded-full hover:bg-error/10 text-error flex items-center justify-center transition-all">
           <span class="material-symbols-outlined text-[16px]">close</span>
@@ -790,7 +1074,7 @@ export class ServicesScreen {
       if (select.value) {
         const part = this.partsData.find((p: any) => p.id === select.value)
         const cost = part?.costSYP ? Number(part.costSYP) : 0
-        const qty = parseInt(qtyInput?.value) || 1
+        const qty = parseFloat(qtyInput?.value) || 1
         const lineTotal = cost * qty
         total += lineTotal
         if (costSpan) costSpan.textContent = `${lineTotal} ل.س`
@@ -854,6 +1138,11 @@ export class ServicesScreen {
     title.textContent = service ? 'تعديل خدمة' : 'خدمة جديدة'
 
     ;(el.querySelector('#service-name') as HTMLInputElement).value = service?.name || ''
+    ;(el.querySelector('#svc-code') as HTMLInputElement).value = service?.code || ''
+    ;(el.querySelector('#svc-pricing-unit') as HTMLInputElement).value = service?.pricingUnit || ''
+    ;(el.querySelector('#svc-vehicle-type') as HTMLInputElement).value = service?.vehicleType || ''
+    ;(el.querySelector('#svc-specification') as HTMLTextAreaElement).value = service?.specification || ''
+    ;(el.querySelector('#svc-service-type') as HTMLSelectElement).value = service?.serviceType || 'STANDARD'
     ;(el.querySelector('#service-price-syp') as HTMLInputElement).value = service?.priceUSD != null && this.exchangeRate > 0
       ? String(Math.round(Number(service.priceUSD) * this.exchangeRate))
       : service?.priceSYP?.toString() || ''
@@ -892,6 +1181,8 @@ export class ServicesScreen {
     ;(el.querySelector('#svc-active') as HTMLInputElement).checked = service ? service.isActive !== false : true
 
     this.populateCategorySelect(el, service?.category || '')
+    this.populateServiceRevenueAccountSelect(el, service?.revenueAccountId || '')
+    this.populateServiceCostAccountSelect(el, service?.costAccountId || '')
 
     // Load departments and setup department/employee logic
     this.loadDepartmentsForService(el).then(() => {
@@ -947,6 +1238,11 @@ export class ServicesScreen {
 
   private async saveService(el: HTMLElement, _editingId: string | null, onDone: () => void) {
     const name = (el.querySelector('#service-name') as HTMLInputElement).value.trim()
+    const code = (el.querySelector('#svc-code') as HTMLInputElement).value.trim() || undefined
+    const pricingUnit = (el.querySelector('#svc-pricing-unit') as HTMLInputElement).value.trim() || undefined
+    const vehicleType = (el.querySelector('#svc-vehicle-type') as HTMLInputElement).value.trim() || undefined
+    const specification = (el.querySelector('#svc-specification') as HTMLTextAreaElement).value.trim() || undefined
+    const serviceType = (el.querySelector('#svc-service-type') as HTMLSelectElement).value || 'STANDARD'
     const priceSYP = parseFloat((el.querySelector('#service-price-syp') as HTMLInputElement).value) || 0
     const priceUSD = parseFloat((el.querySelector('#service-price-usd') as HTMLInputElement).value) || undefined
     const laborCostSYP = parseFloat((el.querySelector('#svc-labor-cost-syp') as HTMLInputElement).value) || undefined
@@ -960,6 +1256,8 @@ export class ServicesScreen {
     const loyaltyPoints = parseInt((el.querySelector('#svc-loyalty') as HTMLInputElement).value) || undefined
     const duration = parseInt((el.querySelector('#svc-duration') as HTMLInputElement).value) || undefined
     const category = (el.querySelector('#svc-category') as HTMLInputElement).value.trim() || undefined
+    const revenueAccountId = (el.querySelector('#svc-revenue-account') as HTMLSelectElement).value || null
+    const costAccountId = (el.querySelector('#svc-cost-account') as HTMLSelectElement).value || null
     const description = (el.querySelector('#svc-description') as HTMLTextAreaElement).value.trim() || undefined
     const hasWarranty = (el.querySelector('#svc-warranty') as HTMLInputElement).checked
     const warrantyDescription = hasWarranty
@@ -980,7 +1278,7 @@ export class ServicesScreen {
       if (select.value && qtyInput.value) {
         parts.push({
           partId: select.value,
-          quantity: parseInt(qtyInput.value) || 1,
+          quantity: parseFloat(qtyInput.value) || 1,
         })
       }
     })
@@ -989,13 +1287,18 @@ export class ServicesScreen {
       ;(window as any).toast?.show?.({ message: 'اسم الخدمة مطلوب', type: 'warning' })
       return
     }
-    if (priceSYP <= 0) {
-      ;(window as any).toast?.show?.({ message: 'السعر بالليرة السورية يجب أن يكون أكبر من صفر', type: 'warning' })
+    if (serviceType === 'FIXED' && priceSYP <= 0 && !(priceUSD && priceUSD > 0)) {
+      ;(window as any).toast?.show?.({ message: 'الخدمة ذات السعر الثابت تحتاج سعراً افتراضياً أكبر من صفر', type: 'warning' })
       return
     }
 
     const payload: any = {
       name,
+      code,
+      pricingUnit,
+      vehicleType,
+      specification,
+      serviceType,
       priceSYP,
       priceUSD,
       laborCostSYP,
@@ -1009,6 +1312,8 @@ export class ServicesScreen {
       loyaltyPoints,
       estimatedDurationMinutes: duration,
       category,
+      revenueAccountId,
+      costAccountId,
       description,
       hasWarranty,
       warrantyDescription,

@@ -63,9 +63,13 @@ router.post('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), (req, res, nex
   getController().createBooking(req, res);
 });
 
-// Update booking (accessible by OWNER, MANAGER, RECEPTIONIST, MECHANIC)
-router.put('/:id', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST', 'MECHANIC']), tenantGuard('Booking'), (req, res, next) => {
+// Update booking (accessible by OWNER, MANAGER, MECHANIC - reception creates only)
+router.put('/:id', authorize(['OWNER', 'MANAGER', 'MECHANIC']), tenantGuard('Booking'), (req, res, next) => {
   getController().updateBooking(req, res);
+});
+
+router.post('/:id/issue-materials', authorize(['OWNER', 'MANAGER', 'MECHANIC']), tenantGuard('Booking'), (req, res, next) => {
+  getController().issueWorkOrderMaterials(req, res);
 });
 
 // Delete booking (accessible by OWNER, MANAGER)
@@ -73,13 +77,13 @@ router.delete('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('Booking'), (
   getController().deleteBooking(req, res);
 });
 
-// Add service to booking (accessible by OWNER, MANAGER, RECEPTIONIST)
-router.post('/:id/services', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), tenantGuard('Booking'), (req, res, next) => {
+// Add service to booking (accessible by OWNER, MANAGER - reception creates bookings only)
+router.post('/:id/services', authorize(['OWNER', 'MANAGER']), tenantGuard('Booking'), (req, res, next) => {
   getController().addServiceToBooking(req, res);
 });
 
-// Remove service from booking (accessible by OWNER, MANAGER, RECEPTIONIST)
-router.delete('/:id/services/:serviceId', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), tenantGuard('Booking'), (req, res, next) => {
+// Remove service from booking (accessible by OWNER, MANAGER)
+router.delete('/:id/services/:serviceId', authorize(['OWNER', 'MANAGER']), tenantGuard('Booking'), (req, res, next) => {
   getController().removeServiceFromBooking(req, res);
 });
 

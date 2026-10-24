@@ -81,7 +81,7 @@ export class BalanceSheetScreen {
 
   private async loadData(c: HTMLElement) {
     try {
-      const res = await this.api.get<any>('/api/reports/balance-sheet')
+      const res = await this.api.get<any>('/api/reports/balance-sheet', false)
       if (!res.success || !res.data) {
         c.querySelectorAll('tbody').forEach(tb => { tb.innerHTML = '<tr><td colspan="2" class="px-4 py-8 text-center text-text-secondary">لا توجد بيانات</td></tr>' })
         return

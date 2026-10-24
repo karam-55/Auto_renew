@@ -16,10 +16,23 @@ export interface Expense {
   amountSYP: number;
   amountUSD: number;
   expenseDate: Date;
+  dueDate?: Date;
   paymentMethod: string;
   reference?: string;
   notes?: string;
   bookingId?: string;
+  bookingServiceId?: string;
+  serviceId?: string;
+  costCenterId?: string;
+  supplierId?: string;
+  quantity?: number;
+  unitCostSYP?: number;
+  unitCostUSD?: number;
+  attachmentUrl?: string;
+  supplier?: { id: string; name: string };
+  originalAmount?: number;
+  originalCurrency?: string;
+  exchangeRateUsed?: number;
   approvedBy?: string;
   approvedAt?: Date;
   isRecurring: boolean;
@@ -39,12 +52,24 @@ export class ExpenseManagementService {
     amountSYP: number,
     amountUSD: number,
     expenseDate: Date,
+    dueDate: Date | undefined,
     paymentMethod: string,
     reference: string | undefined,
     notes: string | undefined,
     isRecurring: boolean,
     recurringFrequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | undefined,
     bookingId?: string,
+    bookingServiceId?: string,
+    serviceId?: string,
+    costCenterId?: string,
+    supplierId?: string,
+    quantity?: number,
+    unitCostSYP?: number,
+    unitCostUSD?: number,
+    attachmentUrl?: string,
+    originalAmount?: number,
+    originalCurrency?: string,
+    exchangeRateUsed?: number,
     client?: Prisma.TransactionClient
   ): Promise<Expense> {
     const db = client || prisma;
@@ -56,13 +81,26 @@ export class ExpenseManagementService {
         amountSYP,
         amountUSD,
         expenseDate,
+        dueDate,
         paymentMethod,
         reference,
         notes,
         bookingId,
+        bookingServiceId,
+        serviceId,
+        costCenterId,
+        supplierId,
+        quantity,
+        unitCostSYP,
+        unitCostUSD,
+        attachmentUrl,
+        originalAmount,
+        originalCurrency,
+        exchangeRateUsed,
         isRecurring,
         recurringFrequency
-      }
+      },
+      include: { supplier: { select: { id: true, name: true } } },
     });
 
     return {
@@ -73,10 +111,23 @@ export class ExpenseManagementService {
       amountSYP: Number(expense.amountSYP),
       amountUSD: Number(expense.amountUSD || 0),
       expenseDate: expense.expenseDate,
+      dueDate: expense.dueDate || undefined,
       paymentMethod: expense.paymentMethod,
       reference: expense.reference || undefined,
       notes: expense.notes || undefined,
       bookingId: expense.bookingId || undefined,
+      bookingServiceId: expense.bookingServiceId || undefined,
+      serviceId: expense.serviceId || undefined,
+      costCenterId: expense.costCenterId || undefined,
+      supplierId: expense.supplierId || undefined,
+      quantity: expense.quantity == null ? undefined : Number(expense.quantity),
+      unitCostSYP: expense.unitCostSYP == null ? undefined : Number(expense.unitCostSYP),
+      unitCostUSD: expense.unitCostUSD == null ? undefined : Number(expense.unitCostUSD),
+      attachmentUrl: expense.attachmentUrl || undefined,
+      supplier: expense.supplier || undefined,
+      originalAmount: expense.originalAmount == null ? undefined : Number(expense.originalAmount),
+      originalCurrency: expense.originalCurrency || undefined,
+      exchangeRateUsed: expense.exchangeRateUsed == null ? undefined : Number(expense.exchangeRateUsed),
       approvedBy: expense.approvedBy || undefined,
       approvedAt: expense.approvedAt || undefined,
       isRecurring: expense.isRecurring,
@@ -90,7 +141,8 @@ export class ExpenseManagementService {
    */
   async getExpense(expenseId: string): Promise<Expense | null> {
     const expense = await prisma.expense.findFirst({
-      where: { id: expenseId, deletedAt: null }
+      where: { id: expenseId, deletedAt: null },
+      include: { supplier: { select: { id: true, name: true } } },
     });
 
     if (!expense) return null;
@@ -103,10 +155,23 @@ export class ExpenseManagementService {
       amountSYP: Number(expense.amountSYP),
       amountUSD: Number(expense.amountUSD || 0),
       expenseDate: expense.expenseDate,
+      dueDate: expense.dueDate || undefined,
       paymentMethod: expense.paymentMethod,
       reference: expense.reference || undefined,
       notes: expense.notes || undefined,
       bookingId: expense.bookingId || undefined,
+      bookingServiceId: expense.bookingServiceId || undefined,
+      serviceId: expense.serviceId || undefined,
+      costCenterId: expense.costCenterId || undefined,
+      supplierId: expense.supplierId || undefined,
+      quantity: expense.quantity == null ? undefined : Number(expense.quantity),
+      unitCostSYP: expense.unitCostSYP == null ? undefined : Number(expense.unitCostSYP),
+      unitCostUSD: expense.unitCostUSD == null ? undefined : Number(expense.unitCostUSD),
+      attachmentUrl: expense.attachmentUrl || undefined,
+      supplier: expense.supplier || undefined,
+      originalAmount: expense.originalAmount == null ? undefined : Number(expense.originalAmount),
+      originalCurrency: expense.originalCurrency || undefined,
+      exchangeRateUsed: expense.exchangeRateUsed == null ? undefined : Number(expense.exchangeRateUsed),
       approvedBy: expense.approvedBy || undefined,
       approvedAt: expense.approvedAt || undefined,
       isRecurring: expense.isRecurring,
@@ -141,7 +206,8 @@ export class ExpenseManagementService {
       where,
       orderBy: { expenseDate: 'desc' },
       take: limit,
-      skip: offset
+      skip: offset,
+      include: { supplier: { select: { id: true, name: true } } },
     });
 
     return expenses.map((e: any) => ({
@@ -152,10 +218,23 @@ export class ExpenseManagementService {
       amountSYP: Number(e.amountSYP),
       amountUSD: Number(e.amountUSD || 0),
       expenseDate: e.expenseDate,
+      dueDate: e.dueDate || undefined,
       paymentMethod: e.paymentMethod,
       reference: e.reference || undefined,
       notes: e.notes || undefined,
         bookingId: e.bookingId || undefined,
+        bookingServiceId: e.bookingServiceId || undefined,
+        serviceId: e.serviceId || undefined,
+        costCenterId: e.costCenterId || undefined,
+        supplierId: e.supplierId || undefined,
+        quantity: e.quantity == null ? undefined : Number(e.quantity),
+        unitCostSYP: e.unitCostSYP == null ? undefined : Number(e.unitCostSYP),
+        unitCostUSD: e.unitCostUSD == null ? undefined : Number(e.unitCostUSD),
+        attachmentUrl: e.attachmentUrl || undefined,
+        supplier: e.supplier || undefined,
+        originalAmount: e.originalAmount == null ? undefined : Number(e.originalAmount),
+        originalCurrency: e.originalCurrency || undefined,
+        exchangeRateUsed: e.exchangeRateUsed == null ? undefined : Number(e.exchangeRateUsed),
       approvedBy: e.approvedBy || undefined,
       approvedAt: e.approvedAt || undefined,
       isRecurring: e.isRecurring,
@@ -316,7 +395,8 @@ export class ExpenseManagementService {
       data: {
         approvedBy,
         approvedAt: new Date()
-      }
+      },
+      include: { supplier: { select: { id: true, name: true } } },
     });
 
     return {
@@ -327,10 +407,23 @@ export class ExpenseManagementService {
       amountSYP: Number(expense.amountSYP),
       amountUSD: Number(expense.amountUSD || 0),
       expenseDate: expense.expenseDate,
+      dueDate: expense.dueDate || undefined,
       paymentMethod: expense.paymentMethod,
       reference: expense.reference || undefined,
       notes: expense.notes || undefined,
       bookingId: expense.bookingId || undefined,
+      bookingServiceId: expense.bookingServiceId || undefined,
+      serviceId: expense.serviceId || undefined,
+      costCenterId: expense.costCenterId || undefined,
+      supplierId: expense.supplierId || undefined,
+      quantity: expense.quantity == null ? undefined : Number(expense.quantity),
+      unitCostSYP: expense.unitCostSYP == null ? undefined : Number(expense.unitCostSYP),
+      unitCostUSD: expense.unitCostUSD == null ? undefined : Number(expense.unitCostUSD),
+      attachmentUrl: expense.attachmentUrl || undefined,
+      supplier: expense.supplier || undefined,
+      originalAmount: expense.originalAmount == null ? undefined : Number(expense.originalAmount),
+      originalCurrency: expense.originalCurrency || undefined,
+      exchangeRateUsed: expense.exchangeRateUsed == null ? undefined : Number(expense.exchangeRateUsed),
       approvedBy: expense.approvedBy || undefined,
       approvedAt: expense.approvedAt || undefined,
       isRecurring: expense.isRecurring,

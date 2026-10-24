@@ -128,6 +128,24 @@ export class BookingController {
     }
   };
 
+  issueWorkOrderMaterials = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const result = await this.bookingService.issueWorkOrderMaterials(
+        req.user!.tenantId,
+        id,
+        req.user!.id,
+        req.body?.items,
+        req.body?.idempotencyKey
+      );
+      logAuditFromRequest(req, 'WORK_ORDER_MATERIALS_ISSUED', 'Booking', id, null, result);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      Logger.error('Issue work-order materials error', error);
+      res.status(400).json({ success: false, error: error.message || 'Failed to issue work-order materials' });
+    }
+  };
+
   deleteBooking = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;

@@ -102,12 +102,12 @@ async function run(dryRun: boolean): Promise<void> {
     const usd = Number(p.costUSD ?? 0);
     const syp = Number(p.costSYP ?? 0);
     if (usd <= 0 && syp <= 0) {
-      unvaluedUnits += p.quantity;
-      unvaluedParts.push(`${p.name} x${p.quantity}`);
+      unvaluedUnits += Number(p.quantity);
+      unvaluedParts.push(`${p.name} x${Number(p.quantity)}`);
       continue;
     }
-    inventoryUSD += p.quantity * usd;
-    inventorySYP += p.quantity * syp;
+    inventoryUSD += Number(p.quantity) * usd;
+    inventorySYP += Number(p.quantity) * syp;
   }
   Logger.info(`Priced inventory value: $${inventoryUSD.toFixed(2)} / ${inventorySYP.toFixed(2)} SYP`);
   if (unvaluedUnits > 0) {

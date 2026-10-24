@@ -3,7 +3,10 @@ import prisma from '../../src/config/database';
 
 jest.mock('../../src/config/database', () => ({
   __esModule: true,
-  default: { service: { findMany: jest.fn(), findFirst: jest.fn() } },
+  default: {
+    service: { findMany: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
+    serviceCategory: { findFirst: jest.fn(), create: jest.fn() },
+  },
 }));
 jest.mock('../../src/services/settings.service', () => ({
   __esModule: true,
@@ -37,5 +40,25 @@ describe('ServiceService live master-data currency mapping', () => {
     expect(result.materialCostSYP).toBe(278);
     expect(result.profitAmountSYP).toBe(278);
     expect(result.priceUSD).toBe(10);
+  });
+
+  it('returns no services for an unknown category without creating one during a read', async () => {
+    (prisma.serviceCategory.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.getServicesByCategory(tenantId, 'unknown department')).resolves.toEqual([]);
+
+    expect(prisma.serviceCategory.create).not.toHaveBeenCalled();
+    expect(prisma.service.findMany).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes a service so bookings and posted invoices retain their reference', async () => {
+    (prisma.service.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    await service.deleteService(tenantId, 'service-1');
+
+    expect(prisma.service.updateMany).toHaveBeenCalledWith({
+      where: { id: 'service-1', tenantId, deletedAt: null },
+      data: { isActive: false, deletedAt: expect.any(Date) },
+    });
   });
 });

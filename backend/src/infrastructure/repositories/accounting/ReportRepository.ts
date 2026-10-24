@@ -372,9 +372,9 @@ export class ReportRepository implements IReportRepository {
         partId: part.id,
         partNumber: part.partNumber,
         partName: part.nameEn || part.name,
-        quantity: part.quantity,
+        quantity: Number(part.quantity),
         unitCost: Number(part.costSYP),
-        totalValue: part.quantity * Number(part.costSYP),
+        totalValue: Number(part.quantity) * Number(part.costSYP),
       }));
     } catch (error) {
       throw new DatabaseError('Failed to get inventory valuation', error);

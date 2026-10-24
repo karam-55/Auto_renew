@@ -73,10 +73,10 @@ const ROLE_PERMISSIONS = {
     'view_reports',
   ],
 
-  RECEPTION: [
+  RECEPTIONIST: [
     'manage_bookings',
     'manage_customers',
-    'view_invoices',
+    'manage_invoices',
     'view_schedule',
     'view_vehicle_history',
   ],

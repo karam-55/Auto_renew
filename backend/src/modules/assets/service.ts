@@ -8,45 +8,94 @@ import {
   AssetResponse,
 } from './types';
 
+const DEPRECIATION_METHODS = new Set(['STRAIGHT_LINE', 'DECLINING_BALANCE']);
+
 export class AssetService {
   // ─── Asset Categories ───
-  async getAllCategories(tenantId: string): Promise<AssetCategoryResponse[]> {
+  async getAllCategories(tenantId: string, includeInactive = false): Promise<AssetCategoryResponse[]> {
     const cats = await prisma.assetCategory.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: { createdAt: 'desc' },
     });
     return cats.map(this.mapCategory);
   }
 
   async createCategory(tenantId: string, input: CreateAssetCategoryInput): Promise<AssetCategoryResponse> {
+    const name = String(input.name || '').trim();
+    const depreciationMethod = input.depreciationMethod || 'STRAIGHT_LINE';
+    const usefulLifeYears = Number(input.usefulLifeYears ?? 5);
+    const salvageValuePercent = Number(input.salvageValuePercent ?? 10);
+    if (!name) throw new Error('Category name is required');
+    this.validateDepreciationSettings(depreciationMethod, usefulLifeYears, salvageValuePercent);
     const cat = await prisma.assetCategory.create({
       data: {
         tenantId,
-        name: input.name,
+        name,
         description: input.description || null,
-        depreciationMethod: input.depreciationMethod || 'STRAIGHT_LINE',
-        usefulLifeYears: input.usefulLifeYears || 5,
+        depreciationMethod,
+        usefulLifeYears,
+        salvageValuePercent,
       },
     });
     return this.mapCategory(cat);
   }
 
   async updateCategory(tenantId: string, id: string, input: UpdateAssetCategoryInput): Promise<AssetCategoryResponse | null> {
-    await prisma.assetCategory.updateMany({
-      where: { id, tenantId },
-      data: {
-        ...(input.name && { name: input.name }),
-        ...(input.description !== undefined && { description: input.description }),
-        ...(input.depreciationMethod && { depreciationMethod: input.depreciationMethod }),
-        ...(input.usefulLifeYears !== undefined && { usefulLifeYears: input.usefulLifeYears }),
-        ...(input.isActive !== undefined && { isActive: input.isActive }),
-      },
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.assetCategory.findFirst({ where: { id, tenantId } });
+      if (!existing) return null;
+
+      const name = input.name !== undefined ? String(input.name).trim() : existing.name;
+      const depreciationMethod = input.depreciationMethod ?? existing.depreciationMethod;
+      const usefulLifeYears = Number(input.usefulLifeYears ?? existing.usefulLifeYears);
+      const salvageValuePercent = Number(input.salvageValuePercent ?? existing.salvageValuePercent);
+      if (!name) throw new Error('Category name is required');
+      this.validateDepreciationSettings(depreciationMethod, usefulLifeYears, salvageValuePercent);
+
+      const category = await tx.assetCategory.update({
+        where: { id },
+        data: {
+          name,
+          ...(input.description !== undefined && { description: input.description }),
+          depreciationMethod,
+          usefulLifeYears,
+          salvageValuePercent,
+          ...(input.isActive !== undefined && { isActive: input.isActive }),
+        },
+      });
+
+      const calculationChanged =
+        depreciationMethod !== existing.depreciationMethod ||
+        usefulLifeYears !== existing.usefulLifeYears;
+      if (calculationChanged) {
+        const assets = await tx.asset.findMany({
+          where: { tenantId, categoryId: id, isActive: true, userAdjustedDepreciation: null },
+          select: { id: true, purchaseCost: true, salvageValue: true },
+        });
+        for (const asset of assets) {
+          const monthlyDepreciation = this.calculateMonthlyDepreciation(
+            Number(asset.purchaseCost),
+            Number(asset.salvageValue),
+            usefulLifeYears,
+            depreciationMethod,
+          );
+          await tx.asset.update({
+            where: { id: asset.id },
+            data: { monthlyDepreciation },
+          });
+        }
+      }
+      return this.mapCategory(category);
     });
-    const cat = await prisma.assetCategory.findFirst({ where: { id, tenantId } });
-    return cat ? this.mapCategory(cat) : null;
   }
 
   async deleteCategory(tenantId: string, id: string): Promise<boolean> {
+    const activeAssets = await prisma.asset.count({
+      where: { tenantId, categoryId: id, isActive: true },
+    });
+    if (activeAssets > 0) {
+      throw new Error('Deactivate or move the category assets before deleting this category');
+    }
     const result = await prisma.assetCategory.updateMany({
       where: { id, tenantId },
       data: { isActive: false },
@@ -55,9 +104,9 @@ export class AssetService {
   }
 
   // ─── Assets ───
-  async getAllAssets(tenantId: string): Promise<AssetResponse[]> {
+  async getAllAssets(tenantId: string, includeInactive = false): Promise<AssetResponse[]> {
     const assets = await prisma.asset.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -65,26 +114,40 @@ export class AssetService {
   }
 
   async createAsset(tenantId: string, input: CreateAssetInput): Promise<AssetResponse> {
+    const name = String(input.name || '').trim();
+    const purchaseCost = Number(input.purchaseCost);
+    const purchaseDate = new Date(input.purchaseDate);
+    if (!name) throw new Error('Asset name is required');
+    if (!Number.isFinite(purchaseCost) || purchaseCost <= 0) throw new Error('Purchase cost must be greater than zero');
+    if (Number.isNaN(purchaseDate.getTime())) throw new Error('A valid purchase date is required');
     const category = await prisma.assetCategory.findFirst({
-      where: { id: input.categoryId, tenantId },
+      where: { id: input.categoryId, tenantId, isActive: true },
     });
+    if (!category) throw new Error('Choose an active asset category in this company');
 
+    const salvageValue = input.salvageValue == null
+      ? Math.round(purchaseCost * Number(category.salvageValuePercent) / 100 * 100) / 100
+      : Number(input.salvageValue);
+    if (!Number.isFinite(salvageValue) || salvageValue < 0 || salvageValue > purchaseCost) {
+      throw new Error('Salvage value must be between zero and the purchase cost');
+    }
+    this.validateUserDepreciation(input.userAdjustedDepreciation);
     const monthlyDep = this.calculateMonthlyDepreciation(
-      input.purchaseCost,
-      input.salvageValue || 0,
-      category?.usefulLifeYears || 5,
-      category?.depreciationMethod || 'STRAIGHT_LINE'
+      purchaseCost,
+      salvageValue,
+      category.usefulLifeYears,
+      category.depreciationMethod,
     );
 
     const asset = await prisma.asset.create({
       data: {
         tenantId,
         categoryId: input.categoryId,
-        name: input.name,
+        name,
         description: input.description || null,
-        purchaseCost: input.purchaseCost,
-        purchaseDate: new Date(input.purchaseDate),
-        salvageValue: input.salvageValue || 0,
+        purchaseCost,
+        purchaseDate,
+        salvageValue,
         monthlyDepreciation: monthlyDep as any,
         userAdjustedDepreciation: input.userAdjustedDepreciation ?? null,
         accumulatedDepreciation: 0,
@@ -97,29 +160,40 @@ export class AssetService {
     const existing = await prisma.asset.findFirst({ where: { id, tenantId } });
     if (!existing) return null;
 
-    let monthlyDep: any = existing.monthlyDepreciation;
-    if (input.purchaseCost !== undefined || input.salvageValue !== undefined) {
-      const category = await prisma.assetCategory.findFirst({
-        where: { id: input.categoryId || existing.categoryId, tenantId },
-      });
-      monthlyDep = this.calculateMonthlyDepreciation(
-        input.purchaseCost ?? Number(existing.purchaseCost),
-        input.salvageValue ?? Number(existing.salvageValue),
-        category?.usefulLifeYears || 5,
-        category?.depreciationMethod || 'STRAIGHT_LINE'
-      );
+    const categoryId = input.categoryId ?? existing.categoryId;
+    const category = await prisma.assetCategory.findFirst({
+      where: { id: categoryId, tenantId, isActive: true },
+    });
+    if (!category) throw new Error('Choose an active asset category in this company');
+
+    const name = input.name !== undefined ? String(input.name).trim() : existing.name;
+    const purchaseCost = Number(input.purchaseCost ?? existing.purchaseCost);
+    const salvageValue = Number(input.salvageValue ?? existing.salvageValue);
+    const purchaseDate = input.purchaseDate ? new Date(input.purchaseDate) : undefined;
+    if (!name) throw new Error('Asset name is required');
+    if (!Number.isFinite(purchaseCost) || purchaseCost <= 0) throw new Error('Purchase cost must be greater than zero');
+    if (!Number.isFinite(salvageValue) || salvageValue < 0 || salvageValue > purchaseCost) {
+      throw new Error('Salvage value must be between zero and the purchase cost');
     }
+    if (purchaseDate && Number.isNaN(purchaseDate.getTime())) throw new Error('A valid purchase date is required');
+    this.validateUserDepreciation(input.userAdjustedDepreciation);
+    const monthlyDep = this.calculateMonthlyDepreciation(
+      purchaseCost,
+      salvageValue,
+      category.usefulLifeYears,
+      category.depreciationMethod,
+    );
 
     await prisma.asset.updateMany({
       where: { id, tenantId },
       data: {
-        ...(input.categoryId && { categoryId: input.categoryId }),
-        ...(input.name && { name: input.name }),
+        categoryId,
+        name,
         ...(input.description !== undefined && { description: input.description }),
-        ...(input.purchaseCost !== undefined && { purchaseCost: input.purchaseCost }),
-        ...(input.purchaseDate && { purchaseDate: new Date(input.purchaseDate) }),
-        ...(input.salvageValue !== undefined && { salvageValue: input.salvageValue }),
-        ...(monthlyDep !== undefined && { monthlyDepreciation: monthlyDep }),
+        purchaseCost,
+        ...(purchaseDate && { purchaseDate }),
+        salvageValue,
+        monthlyDepreciation: monthlyDep,
         ...(input.userAdjustedDepreciation !== undefined && { userAdjustedDepreciation: input.userAdjustedDepreciation }),
         ...(input.isActive !== undefined && { isActive: input.isActive }),
       },
@@ -157,6 +231,24 @@ export class AssetService {
     return Number(monthlyDep.toFixed(2));
   }
 
+  private validateDepreciationSettings(method: string, usefulLifeYears: number, salvageValuePercent: number): void {
+    if (!DEPRECIATION_METHODS.has(method)) {
+      throw new Error('Choose straight-line or declining-balance depreciation');
+    }
+    if (!Number.isInteger(usefulLifeYears) || usefulLifeYears < 1 || usefulLifeYears > 100) {
+      throw new Error('Useful life must be between 1 and 100 years');
+    }
+    if (!Number.isFinite(salvageValuePercent) || salvageValuePercent < 0 || salvageValuePercent > 100) {
+      throw new Error('Salvage value percentage must be between 0 and 100');
+    }
+  }
+
+  private validateUserDepreciation(value?: number | null): void {
+    if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+      throw new Error('Manual monthly depreciation cannot be negative');
+    }
+  }
+
   // ─── Mappers ───
   private mapCategory(cat: any): AssetCategoryResponse {
     return {
@@ -166,6 +258,7 @@ export class AssetService {
       description: cat.description,
       depreciationMethod: cat.depreciationMethod,
       usefulLifeYears: cat.usefulLifeYears,
+      salvageValuePercent: Number(cat.salvageValuePercent ?? 10),
       isActive: cat.isActive,
       createdAt: cat.createdAt,
       updatedAt: cat.updatedAt,
@@ -183,9 +276,9 @@ export class AssetService {
       purchaseCost: Number(asset.purchaseCost),
       purchaseDate: asset.purchaseDate,
       salvageValue: Number(asset.salvageValue),
-      monthlyDepreciation: asset.monthlyDepreciation ? Number(asset.monthlyDepreciation) : null,
-      userAdjustedDepreciation: asset.userAdjustedDepreciation ? Number(asset.userAdjustedDepreciation) : null,
-      accumulatedDepreciation: asset.accumulatedDepreciation ? Number(asset.accumulatedDepreciation) : null,
+      monthlyDepreciation: asset.monthlyDepreciation == null ? null : Number(asset.monthlyDepreciation),
+      userAdjustedDepreciation: asset.userAdjustedDepreciation == null ? null : Number(asset.userAdjustedDepreciation),
+      accumulatedDepreciation: asset.accumulatedDepreciation == null ? null : Number(asset.accumulatedDepreciation),
       isActive: asset.isActive,
       createdAt: asset.createdAt,
       updatedAt: asset.updatedAt,

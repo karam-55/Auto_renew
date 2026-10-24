@@ -4,11 +4,18 @@ export interface ServicePartInput {
 }
 
 export interface CreateServiceInput {
+  code?: string;
   name: string;
   nameAr?: string;
   nameEn?: string;
   description?: string;
+  pricingUnit?: string;
+  vehicleType?: string;
+  specification?: string;
+  serviceType?: string;
   category?: string;
+  revenueAccountId?: string | null;
+  costAccountId?: string | null;
   duration?: number;
   basePrice?: number;
   laborCostSYP?: number;
@@ -33,11 +40,18 @@ export interface CreateServiceInput {
 }
 
 export interface UpdateServiceInput {
+  code?: string;
   name?: string;
   nameAr?: string;
   nameEn?: string;
   description?: string;
+  pricingUnit?: string;
+  vehicleType?: string;
+  specification?: string;
+  serviceType?: string;
   category?: string;
+  revenueAccountId?: string | null;
+  costAccountId?: string | null;
   duration?: number;
   basePrice?: number;
   laborCostSYP?: number;
@@ -76,10 +90,17 @@ export interface ServiceResponse {
   id: string;
   tenantId: string;
   name: string;
+  code: string | null;
   nameAr: string | null;
   nameEn: string | null;
   description: string | null;
+  pricingUnit: string | null;
+  vehicleType: string | null;
+  specification: string | null;
+  serviceType: string;
   category: string | null;
+  revenueAccountId: string | null;
+  costAccountId: string | null;
   duration: number | null;
   basePrice: number | null;
   laborCostSYP: number | null;

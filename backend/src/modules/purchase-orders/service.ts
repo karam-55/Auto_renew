@@ -1,7 +1,8 @@
 import prisma from '../../config/database';
 import settingsService from '../../services/settings.service';
 import { OrderStatus as PrismaOrderStatus } from '@prisma/client';
-import { createStockIntakeJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { isValidQuantity } from '../../utils/quantity';
+import { createStockIntakeJournalEntry, createStockRevaluationJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 import {
   PurchaseOrder,
   PurchaseOrderLine,
@@ -31,7 +32,7 @@ export class PurchaseOrderService {
 
     // Validate items if provided
     for (const item of data.items || []) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+      if (!isValidQuantity(item.quantity)) throw new Error('Item quantity must be positive and use at most three decimal places');
       const suppliedSYP = item.unitCost ?? undefined;
       if (suppliedSYP == null && item.unitCostUSD == null) throw new Error('Item unit cost is required in USD or SYP');
       if (suppliedSYP != null && suppliedSYP < 0 || item.unitCostUSD != null && item.unitCostUSD < 0) {
@@ -311,7 +312,7 @@ export class PurchaseOrderService {
       throw new Error('Part not found');
     }
 
-    if (!Number.isInteger(data.quantity) || data.quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+    if (!isValidQuantity(data.quantity)) throw new Error('Item quantity must be positive and use at most three decimal places');
     if (data.unitCost == null && data.unitCostUSD == null) throw new Error('Item unit cost is required in USD or SYP');
     if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) throw new Error('Item unit cost cannot be negative');
     const rate = await settingsService.getRequiredExchangeRate(tenantId);
@@ -373,8 +374,8 @@ export class PurchaseOrderService {
 
     // Update the line item
     const updateData: any = {};
-    const quantity = data.quantity ?? lineItem.quantity;
-    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('Item quantity must be a positive whole number');
+    const quantity = Number(data.quantity ?? lineItem.quantity);
+    if (!isValidQuantity(quantity)) throw new Error('Item quantity must be positive and use at most three decimal places');
     if (data.quantity !== undefined) updateData.quantity = quantity;
 
     let unitCostSYP = Number(lineItem.costSYP);
@@ -395,7 +396,7 @@ export class PurchaseOrderService {
       updateData.costUSD = unitCostUSD;
     }
     if (data.receivedQuantity !== undefined) {
-      if (!Number.isInteger(data.receivedQuantity) || data.receivedQuantity < 0 || data.receivedQuantity > quantity) {
+      if (!isValidQuantity(data.receivedQuantity, true) || data.receivedQuantity > quantity) {
         throw new Error('Received quantity must be between zero and ordered quantity');
       }
       updateData.receivedQty = data.receivedQuantity;
@@ -583,8 +584,9 @@ export class PurchaseOrderService {
       if (claim.count !== 1) throw new Error('Purchase order status changed; reload and retry');
       await ensureDefaultAccounts(tenantId, tx);
 
+      let payableSYP = 0;
       for (const item of current.items) {
-        const quantity = item.quantity - item.receivedQty;
+        const quantity = Number(item.quantity) - Number(item.receivedQty);
         if (quantity <= 0) continue;
         const part = await tx.part.findFirst({ where: { id: item.partId, tenantId } });
         if (!part) throw new Error(`Part with ID ${item.partId} not found`);
@@ -593,8 +595,8 @@ export class PurchaseOrderService {
         const unitCostUSD = item.costUSD != null
           ? Number(item.costUSD)
           : Math.round((unitCostSYP / exchangeRate) * 100) / 100;
-        const currentQuantity = part.quantity;
-        const newQuantity = currentQuantity + quantity;
+        payableSYP += quantity * unitCostSYP;
+        const currentQuantity = Number(part.quantity);
         const currentCostUSD = part.costUSD != null
           ? Number(part.costUSD)
           : Math.round((Number(part.costSYP || 0) / exchangeRate) * 100) / 100;
@@ -605,12 +607,8 @@ export class PurchaseOrderService {
           where: { id: part.id, tenantId, quantity: currentQuantity },
           data: {
             quantity: { increment: quantity },
-            costSYP: currentQuantity > 0
-              ? (currentCostSYP * currentQuantity + unitCostSYP * quantity) / newQuantity
-              : unitCostSYP,
-            costUSD: currentQuantity > 0
-              ? (currentCostUSD * currentQuantity + unitCostUSD * quantity) / newQuantity
-              : unitCostUSD,
+            costSYP: unitCostSYP,
+            costUSD: unitCostUSD,
           },
         });
         if (stockUpdate.count !== 1) throw new Error(`Stock changed concurrently for part ${part.name}`);
@@ -624,23 +622,32 @@ export class PurchaseOrderService {
             quantity,
             costSYP: unitCostSYP,
             costUSD: unitCostUSD,
-            reference: current.orderNumber,
-            notes: `Received from purchase order ${current.orderNumber}`,
+            reference: `PO:${current.orderNumber}`,
+            notes: `استلام من المورد بموجب طلب الشراء ${current.orderNumber}`,
             createdBy: userId,
           },
-          include: { part: { select: { name: true } } },
+          include: { part: { select: { name: true, nameAr: true } } },
         });
         await createStockIntakeJournalEntry(transaction, tenantId, 'PAYABLE', userId, tx);
+        if (currentQuantity > 0) {
+          await createStockRevaluationJournalEntry(
+            transaction, tenantId, currentQuantity, currentCostSYP, currentCostUSD, unitCostSYP, unitCostUSD, userId, tx
+          );
+        }
         await tx.purchaseOrderItem.update({
           where: { id: item.id },
           data: {
             receivedQty: item.quantity,
             costUSD: unitCostUSD,
-            totalUSD: Math.round(item.quantity * unitCostUSD * 100) / 100,
+            totalUSD: Math.round(Number(item.quantity) * unitCostUSD * 100) / 100,
           },
         });
       }
 
+      await tx.supplier.update({
+        where: { id: current.supplierId },
+        data: { balance: { increment: payableSYP } },
+      });
       return tx.purchaseOrder.findFirst({
         where: { id, tenantId },
         include: {
@@ -691,12 +698,12 @@ export class PurchaseOrderService {
       id: item.id,
       purchaseOrderId: item.purchaseOrderId,
       partId: item.partId,
-      quantity: item.quantity,
+      quantity: Number(item.quantity),
       unitCost: Number(item.costSYP),
       unitCostUSD: item.costUSD == null ? null : Number(item.costUSD),
       totalCost: Number(item.totalSYP),
       totalCostUSD: item.totalUSD == null ? null : Number(item.totalUSD),
-      receivedQuantity: item.receivedQty,
+      receivedQuantity: Number(item.receivedQty),
       part: item.part ? {
         id: item.part.id,
         partNumber: item.part.partNumber,

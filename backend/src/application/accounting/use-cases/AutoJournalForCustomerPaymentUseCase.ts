@@ -30,8 +30,8 @@ export class AutoJournalForCustomerPaymentUseCase {
     }
 
     // Get accounts
-    const cashAccount = await this.accountRepository.findByCode('1110'); // Cash/Bank
-    const accountsReceivableAccount = await this.accountRepository.findByCode('1130'); // AR
+    const cashAccount = await this.accountRepository.findByRole(payment.tenantId, 'CASH');
+    const accountsReceivableAccount = await this.accountRepository.findByRole(payment.tenantId, 'ACCOUNTS_RECEIVABLE');
 
     if (!cashAccount || !accountsReceivableAccount) {
       throw new Error('Required accounts not found in chart of accounts');

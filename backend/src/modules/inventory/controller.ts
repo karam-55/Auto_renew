@@ -21,7 +21,7 @@ export class InventoryController {
         where: { tenantId, deletedAt: null },
         select: { quantity: true, minQuantity: true },
       });
-      const lowStockParts = allParts.filter(p => p.quantity <= p.minQuantity).length;
+      const lowStockParts = allParts.filter(p => Number(p.quantity) <= Number(p.minQuantity)).length;
 
       const totalWarehouses = await prisma.warehouse.count({
         where: { tenantId, deletedAt: null },
@@ -62,7 +62,7 @@ export class InventoryController {
       });
 
       const totalStockValue = parts.reduce((sum, part) => {
-        return sum + ((part.quantity ?? 0) * (part.costSYP?.toNumber() ?? 0));
+        return sum + (Number(part.quantity ?? 0) * (part.costSYP?.toNumber() ?? Number(part.costSYP) ?? 0));
       }, 0);
 
       res.status(200).json({
@@ -102,11 +102,15 @@ export class InventoryController {
         },
         orderBy: { quantity: 'asc' },
       });
-      const lowStockItems = allStockItems.filter(p => p.quantity <= p.minQuantity);
+      const lowStockItems = allStockItems.filter(p => Number(p.quantity) <= Number(p.minQuantity));
 
       res.status(200).json({
         success: true,
-        data: lowStockItems,
+        data: lowStockItems.map((part) => ({
+          ...part,
+          quantity: Number(part.quantity),
+          minQuantity: Number(part.minQuantity),
+        })),
       });
     } catch (error) {
       Logger.error('Get low stock alerts error:', error);

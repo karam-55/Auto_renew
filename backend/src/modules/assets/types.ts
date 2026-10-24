@@ -3,6 +3,7 @@ export interface CreateAssetCategoryInput {
   description?: string;
   depreciationMethod?: string;
   usefulLifeYears?: number;
+  salvageValuePercent?: number;
 }
 
 export interface UpdateAssetCategoryInput {
@@ -10,6 +11,7 @@ export interface UpdateAssetCategoryInput {
   description?: string;
   depreciationMethod?: string;
   usefulLifeYears?: number;
+  salvageValuePercent?: number;
   isActive?: boolean;
 }
 
@@ -20,7 +22,7 @@ export interface CreateAssetInput {
   purchaseCost: number;
   purchaseDate: string;
   salvageValue?: number;
-  userAdjustedDepreciation?: number;
+  userAdjustedDepreciation?: number | null;
 }
 
 export interface UpdateAssetInput {
@@ -31,7 +33,7 @@ export interface UpdateAssetInput {
   purchaseDate?: string;
   salvageValue?: number;
   monthlyDepreciation?: number;
-  userAdjustedDepreciation?: number;
+  userAdjustedDepreciation?: number | null;
   isActive?: boolean;
 }
 
@@ -42,6 +44,7 @@ export interface AssetCategoryResponse {
   description: string | null;
   depreciationMethod: string;
   usefulLifeYears: number;
+  salvageValuePercent: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

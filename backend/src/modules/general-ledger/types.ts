@@ -22,6 +22,7 @@ export interface GeneralLedgerLine {
   debitUSD?: number;
   creditUSD?: number;
   runningBalanceSYP: number;
+  runningBalanceUSD?: number;
   sourceType?: string | null;
   sourceId?: string | null;
 }

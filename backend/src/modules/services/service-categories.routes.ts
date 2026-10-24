@@ -8,6 +8,9 @@ const serviceCategoryController = new ServiceCategoryController();
 // All routes require authentication
 router.use(authenticate);
 
+// Create the accountant-approved top-level service departments if missing.
+router.post('/initialize', authorize(['OWNER', 'MANAGER']), serviceCategoryController.initializeDefaultDepartments.bind(serviceCategoryController));
+
 // Get all service categories
 router.get('/', authorize(['OWNER', 'MANAGER', 'RECEPTIONIST']), serviceCategoryController.getAllCategories.bind(serviceCategoryController));
 

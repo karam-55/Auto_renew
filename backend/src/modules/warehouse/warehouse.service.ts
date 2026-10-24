@@ -119,7 +119,7 @@ export class WarehouseService {
       // PURCHASE and ADJUSTMENT with positive quantity add to stock
       // SALE, CONSUMPTION, and RETURN with positive quantity subtract from stock
       // TRANSFER transactions handle both directions with signed quantities
-      let quantity = transaction.quantity;
+      let quantity = Number(transaction.quantity);
       if (transaction.type === 'SALE' || transaction.type === 'CONSUMPTION' || transaction.type === 'RETURN') {
         quantity = -quantity;
       }

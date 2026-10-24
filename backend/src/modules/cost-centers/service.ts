@@ -12,19 +12,11 @@ import {
 } from './types';
 
 const DEFAULT_CENTERS = [
-  { name: 'ورشة ميكانيك', nameAr: 'ورشة ميكانيك', type: 'WORKSHOP', costDriver: 'LABOR_HOURS', driverQuantity: 600, monthlyBudget: 500000 },
-  { name: 'مستودع مواد', nameAr: 'مستودع مواد', type: 'WAREHOUSE', costDriver: 'MATERIAL_MOVES', driverQuantity: 500, monthlyBudget: 200000 },
-  { name: 'غسيل سيارات', nameAr: 'غسيل سيارات', type: 'CAR_WASH', costDriver: 'SERVICE_COUNT', driverQuantity: 300, monthlyBudget: 100000 },
-  { name: 'استقبال وكاشير', nameAr: 'استقبال وكاشير', type: 'RECEPTION', costDriver: 'INVOICE_COUNT', driverQuantity: 200, monthlyBudget: 150000 },
-  { name: 'إدارة', nameAr: 'إدارة', type: 'ADMIN', costDriver: 'FIXED', driverQuantity: 1, monthlyBudget: 300000 },
-  { name: 'خدمات مشتركة', nameAr: 'خدمات مشتركة', type: 'SHARED', costDriver: 'REVENUE_ALLOCATION', driverQuantity: 1, monthlyBudget: 200000 },
-];
-
-const DEFAULT_ALLOCATIONS = [
-  { from: 'خدمات مشتركة', to: 'ورشة ميكانيك', percent: 50 },
-  { from: 'خدمات مشتركة', to: 'مستودع مواد', percent: 20 },
-  { from: 'خدمات مشتركة', to: 'غسيل سيارات', percent: 15 },
-  { from: 'خدمات مشتركة', to: 'استقبال وكاشير', percent: 15 },
+  { code: 'D01', name: 'الصيانة الميكانيكية', nameAr: 'الصيانة الميكانيكية', type: 'WORKSHOP', costDriver: 'SERVICE_COUNT', driverQuantity: 0, monthlyBudget: 0 },
+  { code: 'D02', name: 'الحماية والتغليف', nameAr: 'الحماية والتغليف', type: 'WORKSHOP', costDriver: 'SERVICE_COUNT', driverQuantity: 0, monthlyBudget: 0 },
+  { code: 'D03', name: 'الغسيل والتلميع', nameAr: 'الغسيل والتلميع', type: 'CAR_WASH', costDriver: 'SERVICE_COUNT', driverQuantity: 0, monthlyBudget: 0 },
+  { code: 'D04', name: 'الأدوات والخدمات المرتبطة', nameAr: 'الأدوات والخدمات المرتبطة', type: 'WORKSHOP', costDriver: 'SERVICE_COUNT', driverQuantity: 0, monthlyBudget: 0 },
+  { code: 'D05', name: 'الإدارة والخدمات المشتركة', nameAr: 'الإدارة والخدمات المشتركة', type: 'ADMIN', costDriver: 'FIXED', driverQuantity: 1, monthlyBudget: 0 },
 ];
 
 export class CostCenterService {
@@ -34,30 +26,13 @@ export class CostCenterService {
     if (existing.length > 0) return existing.map(this.mapCostCenter);
 
     const created = await prisma.$transaction(async (tx) => {
-      const centers: Record<string, string> = {};
       const results = [];
 
       for (const def of DEFAULT_CENTERS) {
         const center = await tx.costCenter.create({
           data: { ...def, tenantId, isDefault: true } as any,
         });
-        centers[def.name] = center.id;
         results.push(center);
-      }
-
-      for (const alloc of DEFAULT_ALLOCATIONS) {
-        const fromId = centers[alloc.from];
-        const toId = centers[alloc.to];
-        if (fromId && toId) {
-          await tx.costCenterAllocation.create({
-            data: {
-              tenantId,
-              fromCenterId: fromId,
-              toCenterId: toId,
-              allocationPercent: alloc.percent,
-            },
-          });
-        }
       }
 
       return results;
@@ -88,6 +63,7 @@ export class CostCenterService {
         tenantId,
         name: input.name,
         nameAr: input.nameAr || input.name,
+        code: input.code || null,
         type: input.type as any,
         costDriver: input.costDriver as any,
         driverQuantity: input.driverQuantity ?? 1,
@@ -106,6 +82,7 @@ export class CostCenterService {
       data: {
         ...(input.name && { name: input.name }),
         ...(input.nameAr && { nameAr: input.nameAr }),
+        ...(input.code !== undefined && { code: input.code || null }),
         ...(input.type && { type: input.type as any }),
         ...(input.costDriver && { costDriver: input.costDriver as any }),
         ...(input.driverQuantity !== undefined && { driverQuantity: input.driverQuantity }),
@@ -234,8 +211,8 @@ export class CostCenterService {
       const budget = Number(center.monthlyBudget || 0);
       const allocated = sharedAllocations[center.id] || 0;
       const totalBudget = budget + allocated;
-      const driverQty = center.driverQuantity || 1;
-      const rate = totalBudget / driverQty;
+      const driverQty = Number(center.driverQuantity || 0);
+      const rate = driverQty > 0 ? totalBudget / driverQty : 0;
 
       let rateUnit = 'ل.س';
       if (center.costDriver === 'LABOR_HOURS') rateUnit = 'ل.س/ساعة';
@@ -410,11 +387,12 @@ export class CostCenterService {
     return {
       id: center.id,
       tenantId: center.tenantId,
+      code: center.code || null,
       name: center.name,
       nameAr: center.nameAr,
       type: center.type,
       costDriver: center.costDriver,
-      driverQuantity: center.driverQuantity || 1,
+      driverQuantity: Number(center.driverQuantity || 0),
       monthlyBudget: Number(center.monthlyBudget || 0),
       actualCost: center.actualCost ? Number(center.actualCost) : null,
       isActive: center.isActive,

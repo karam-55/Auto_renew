@@ -18,6 +18,11 @@ export class InvoiceDetailScreen {
     this.invoiceId = invoiceId
   }
 
+  private canManage(): boolean {
+    const role = (this.auth.getUser()?.role || '').toUpperCase()
+    return ['ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'].includes(role)
+  }
+
   render(): HTMLElement {
     const layout = new AppLayout(this.auth, this.router, 'تفاصيل الفاتورة', 'receipt_long', this.api)
     const content = document.createElement('div')
@@ -153,7 +158,7 @@ export class InvoiceDetailScreen {
         const s = statusMap[inv.status] || { cls: 'bg-surface-container-high text-on-surface-variant', label: inv.status || 'معلقة', glow: 'rgba(115,118,133,0.4)' }
         const cancelBtn = el.querySelector('#cancel-btn') as HTMLButtonElement
         if (cancelBtn) {
-          const canCancel = inv.status !== 'PAID' && inv.status !== 'CANCELLED' && inv.status !== 'PARTIALLY_PAID'
+          const canCancel = this.canManage() && inv.status !== 'PAID' && inv.status !== 'CANCELLED' && inv.status !== 'PARTIALLY_PAID'
           cancelBtn.classList.toggle('hidden', !canCancel)
         }
         card.innerHTML = `
@@ -194,7 +199,7 @@ export class InvoiceDetailScreen {
             </div>
           </div>
 
-          ${inv.status === 'DRAFT' && inv.bookingId ? `
+          ${this.canManage() && inv.status === 'DRAFT' && inv.bookingId ? `
           <div class="border-t border-border pt-6 mb-6">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-2">خدمات الحجز</h3>
             <p class="text-body-md text-on-surface-variant mb-4">هذه الفاتورة مرتبطة بحجز — يمكنك سحب الخدمات الحالية من الحجز لتحديث بنود المسودة قبل الإصدار.</p>
@@ -205,7 +210,7 @@ export class InvoiceDetailScreen {
           </div>
           ` : ''}
 
-          ${inv.status === 'DRAFT' || inv.status === 'ISSUED' ? `
+          ${this.canManage() && (inv.status === 'DRAFT' || inv.status === 'ISSUED') ? `
           <div class="border-t border-border pt-6">
             <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-4">تطبيق خصم</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">

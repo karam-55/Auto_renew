@@ -1,4 +1,5 @@
 export interface CreateCostCenterInput {
+  code?: string;
   name: string;
   nameAr?: string;
   type: string;
@@ -11,6 +12,7 @@ export interface CreateCostCenterInput {
 }
 
 export interface UpdateCostCenterInput {
+  code?: string | null;
   name?: string;
   nameAr?: string;
   type?: string;
@@ -38,6 +40,7 @@ export interface UpdateCostCenterAllocationInput {
 export interface CostCenterResponse {
   id: string;
   tenantId: string;
+  code: string | null;
   name: string;
   nameAr: string | null;
   type: string;

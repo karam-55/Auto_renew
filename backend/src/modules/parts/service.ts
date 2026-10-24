@@ -1,6 +1,8 @@
+import { AccountType } from '@prisma/client';
+import { isValidQuantity } from '../../utils/quantity';
 import prisma from '../../config/database';
 import settingsService from '../../services/settings.service';
-import { createInventoryAdjustmentJournalEntry, createStockIntakeJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { createInventoryAdjustmentJournalEntry, createStockIntakeJournalEntry, createStockRevaluationJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
 import {
   Part,
   CreatePartDto,
@@ -34,10 +36,32 @@ async function fillMissingCurrencyFields(
 }
 
 export class PartService {
+  private async validatePartPostingAccount(
+    tenantId: string,
+    accountId: string | null | undefined,
+    accountType: AccountType
+  ) {
+    if (!accountId) return;
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId, isActive: true, deletedAt: null },
+      include: { children: { select: { id: true } } },
+    });
+    if (!account || account.accountType !== accountType) {
+      throw new Error(`Mapped account must be an active ${accountType} account in this tenant`);
+    }
+    if (account.children.length > 0) {
+      throw new Error('Mapped account must be a leaf account, not a parent');
+    }
+  }
+
   async createPart(tenantId: string, data: CreatePartDto): Promise<Part> {
-    if (data.quantity != null && data.quantity !== 0) {
+    if (data.quantity != null && Number(data.quantity) !== 0) {
       throw new Error('Create the part first, then record initial stock through stock intake');
     }
+    await this.validateSupplier(tenantId, data.supplierId);
+    await this.validatePartPostingAccount(tenantId, data.inventoryAccountId, AccountType.ASSET);
+    await this.validatePartPostingAccount(tenantId, data.costAccountId, AccountType.COGS);
+    await this.validatePartPostingAccount(tenantId, data.revenueAccountId, AccountType.REVENUE);
     await fillMissingCurrencyFields(tenantId, data as any);
     const part = await prisma.part.create({
       data: {
@@ -48,6 +72,9 @@ export class PartService {
         nameEn: data.nameEn,
         description: data.description,
         categoryId: data.categoryId,
+        inventoryAccountId: data.inventoryAccountId || null,
+        costAccountId: data.costAccountId || null,
+        revenueAccountId: data.revenueAccountId || null,
         supplierId: data.supplierId,
         costSYP: data.costSYP,
         costUSD: data.costUSD,
@@ -61,6 +88,7 @@ export class PartService {
         location: data.location,
         isActive: data.isActive ?? true,
       },
+      include: { supplier: { select: { name: true } } },
     });
 
     return this.mapToPartResponse(part);
@@ -122,7 +150,10 @@ export class PartService {
     const [parts, total] = await Promise.all([
       prisma.part.findMany({
         where,
-        include: { category: { select: { id: true, name: true } } },
+        include: {
+          category: { select: { id: true, name: true } },
+          supplier: { select: { name: true } },
+        },
         // limit === 0 → "all rows": omit skip/take so Prisma returns everything.
         skip: isLookupAll ? undefined : (page - 1) * limit,
         take: isLookupAll ? undefined : limit,
@@ -145,7 +176,10 @@ export class PartService {
   async getPartById(id: string, tenantId: string): Promise<Part | null> {
     const part = await prisma.part.findFirst({
       where: { id, tenantId },
-      include: { category: { select: { id: true, name: true } } },
+      include: {
+        category: { select: { id: true, name: true } },
+        supplier: { select: { name: true } },
+      },
     });
 
     if (!part) {
@@ -164,10 +198,16 @@ export class PartService {
     if (!existingPart) {
       throw new Error('Part not found');
     }
-    if (data.quantity != null && data.quantity !== existingPart.quantity) {
+    if (data.quantity != null && Number(data.quantity) !== Number(existingPart.quantity)) {
       throw new Error('Use a recorded inventory adjustment to change part quantity');
     }
+    const supplierId = data.supplierId ?? existingPart.supplierId;
+    if (!supplierId) throw new Error('A supplier is required for every inventory item');
+    await this.validateSupplier(tenantId, supplierId);
 
+    await this.validatePartPostingAccount(tenantId, data.inventoryAccountId, AccountType.ASSET);
+    await this.validatePartPostingAccount(tenantId, data.costAccountId, AccountType.COGS);
+    await this.validatePartPostingAccount(tenantId, data.revenueAccountId, AccountType.REVENUE);
     await fillMissingCurrencyFields(tenantId, data as any);
 
     const part = await prisma.part.update({
@@ -179,7 +219,10 @@ export class PartService {
         nameEn: data.nameEn,
         description: data.description,
         categoryId: data.categoryId,
-        supplierId: data.supplierId,
+        inventoryAccountId: data.inventoryAccountId,
+        costAccountId: data.costAccountId,
+        revenueAccountId: data.revenueAccountId,
+        supplierId,
         costSYP: data.costSYP,
         costUSD: data.costUSD,
         sellingPriceSYP: data.sellingPriceSYP,
@@ -192,10 +235,22 @@ export class PartService {
         location: data.location,
         isActive: data.isActive,
       },
-      include: { category: { select: { id: true, name: true } } },
+      include: {
+        category: { select: { id: true, name: true } },
+        supplier: { select: { name: true } },
+      },
     });
 
     return this.mapToPartResponse(part);
+  }
+
+  private async validateSupplier(tenantId: string, supplierId?: string | null): Promise<void> {
+    if (!supplierId) throw new Error('A supplier is required for every inventory item');
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (!supplier) throw new Error('Choose an active supplier in this company');
   }
 
   async deletePart(id: string, tenantId: string): Promise<void> {
@@ -266,8 +321,8 @@ export class PartService {
     createdBy?: string,
     reason?: string
   ): Promise<Part> {
-    if (!Number.isInteger(quantityChange) || quantityChange === 0) {
-      throw new Error('quantityChange must be a non-zero whole number');
+    if (!isValidQuantity(Math.abs(quantityChange))) {
+      throw new Error('quantityChange must be non-zero and use at most three decimal places');
     }
     if (!reason?.trim()) throw new Error('A reason is required for inventory adjustment');
     const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
@@ -298,7 +353,7 @@ export class PartService {
           createdBy,
           notes: reason.trim(),
         },
-        include: { part: { select: { name: true } } },
+        include: { part: { select: { name: true, nameAr: true } } },
       });
       await ensureDefaultAccounts(tenantId, tx);
       await createInventoryAdjustmentJournalEntry(
@@ -316,9 +371,11 @@ export class PartService {
   }
 
   /**
-   * Stock intake with package→unit conversion and weighted-average cost.
+   * Stock intake with package→unit conversion and last-purchase-price costing.
    * Accepts either `packages` (requires unitsPerPackage on the part) or direct `units`.
    * Records a STOCK_IN InventoryTransaction for a complete movement audit trail.
+   * When existing stock is revalued to the new price, a revaluation journal
+   * entry keeps the ledger inventory balance equal to quantity × last cost.
    */
   async stockIntake(id: string, tenantId: string, data: StockIntakeDto, createdBy?: string): Promise<Part> {
     const hasPackages = data.packages != null;
@@ -336,15 +393,22 @@ export class PartService {
       return await prisma.$transaction(async (tx) => {
       const part = await tx.part.findFirst({ where: { id, tenantId } });
       if (!part) throw new Error('Part not found');
+      const supplierId = data.supplierId || part.supplierId;
+      if (!supplierId) throw new Error('Select a supplier for this stock receipt');
+      const supplier = await tx.supplier.findFirst({
+        where: { id: supplierId, tenantId, isActive: true, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      if (!supplier) throw new Error('Choose an active supplier in this company');
 
       let units: number;
       let unitCostSYP: number;
       let unitCostUSD: number;
       if (hasPackages) {
         const packages = Number(data.packages);
-        const upp = part.unitsPerPackage;
+        const upp = Number(part.unitsPerPackage);
         if (!Number.isInteger(packages) || packages <= 0) throw new Error('Packages must be a positive whole number');
-        if (!upp || upp <= 0) throw new Error('This part has no package conversion configured (unitsPerPackage)');
+        if (!Number.isFinite(upp) || upp <= 0) throw new Error('This part has no package conversion configured (unitsPerPackage)');
         if (data.packageCostSYP == null && data.packageCostUSD == null) throw new Error('Package cost is required in USD or SYP');
         if (data.packageCostSYP != null && data.packageCostSYP < 0 || data.packageCostUSD != null && data.packageCostUSD < 0) {
           throw new Error('Package cost cannot be negative');
@@ -360,7 +424,7 @@ export class PartService {
         unitCostUSD = packageCostUSD / upp;
       } else {
         units = Number(data.units);
-        if (!Number.isInteger(units) || units <= 0) throw new Error('Units must be a positive whole number');
+        if (!isValidQuantity(units)) throw new Error('Units must be positive and use at most three decimal places');
         if (data.unitCostSYP == null && data.unitCostUSD == null) throw new Error('Unit cost is required in USD or SYP');
         if (data.unitCostSYP != null && data.unitCostSYP < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
           throw new Error('Unit cost cannot be negative');
@@ -373,7 +437,7 @@ export class PartService {
           : Number(data.unitCostSYP);
       }
 
-      expectedReference = `INTAKE:${idempotencyKey}:${data.settlementAccount}:${units}:${unitCostSYP}:${unitCostUSD}`;
+      expectedReference = `INTAKE:${idempotencyKey}:${supplierId}:${data.settlementAccount}:${units}:${unitCostSYP}:${unitCostUSD}`;
       const existingIntake = await tx.inventoryTransaction.findFirst({
         where: { tenantId, idempotencyKey },
       });
@@ -389,27 +453,20 @@ export class PartService {
         return this.mapToPartResponse(currentPart, exchangeRate);
       }
 
-      const currentQty = part.quantity;
-      const newQty = currentQty + units;
+      const currentQty = Number(part.quantity);
       const currentCostSYP = part.costUSD != null
         ? Math.round(Number(part.costUSD) * exchangeRate)
         : Number(part.costSYP) || 0;
-      const avgCostSYP = currentQty > 0
-        ? (currentCostSYP * currentQty + unitCostSYP * units) / newQty
-        : unitCostSYP;
       const currentCostUSD = part.costUSD != null
         ? Number(part.costUSD)
         : currentQty > 0 ? Math.round((currentCostSYP / exchangeRate) * 100) / 100 : 0;
-      const avgCostUSD = currentQty > 0
-        ? (currentCostUSD * currentQty + unitCostUSD * units) / newQty
-        : unitCostUSD;
       const intakeNote = hasPackages
-        ? `Stock intake: ${data.packages} ${part.purchaseUnitName || 'package(s)'} × ${part.unitsPerPackage} ${part.baseUnitName || 'unit(s)'}`
-        : `Stock intake: ${units} ${part.baseUnitName || 'unit(s)'}`;
+        ? `استلام ${data.packages} ${part.purchaseUnitName || 'عبوة'} من ${supplier.name}، بما يعادل ${units} ${part.baseUnitName || 'وحدة'}`
+        : `استلام ${units} ${part.baseUnitName || 'وحدة'} من ${supplier.name}`;
 
       const updated = await tx.part.updateMany({
         where: { id, tenantId, quantity: currentQty },
-        data: { quantity: { increment: units }, costSYP: avgCostSYP, costUSD: avgCostUSD },
+        data: { quantity: { increment: units }, costSYP: unitCostSYP, costUSD: unitCostUSD },
       });
       if (updated.count !== 1) throw new Error('Stock changed concurrently; retry the intake');
 
@@ -418,6 +475,7 @@ export class PartService {
         data: {
           tenantId,
           partId: id,
+          supplierId,
           type: 'STOCK_IN',
           quantity: units,
           costSYP: unitCostSYP,
@@ -427,9 +485,24 @@ export class PartService {
           createdBy,
           notes: data.notes?.trim() || intakeNote,
         },
-        include: { part: { select: { name: true } } },
+        include: {
+          part: { select: { name: true, nameAr: true } },
+          supplier: { select: { id: true, name: true } },
+        },
       });
       await createStockIntakeJournalEntry(transaction, tenantId, data.settlementAccount, createdBy || null, tx);
+      if (currentQty > 0) {
+        await createStockRevaluationJournalEntry(
+          transaction, tenantId, currentQty, currentCostSYP, currentCostUSD, unitCostSYP, unitCostUSD, createdBy || null, tx
+        );
+      }
+      if (data.settlementAccount === 'PAYABLE') {
+        const payableSYP = Math.round(unitCostSYP * units * 100) / 100;
+        await tx.supplier.update({
+          where: { id: supplierId },
+          data: { balance: { increment: payableSYP } },
+        });
+      }
 
       const updatedPart = await tx.part.findFirst({
         where: { id, tenantId },
@@ -465,7 +538,7 @@ export class PartService {
     });
 
     // Filter parts where quantity <= minQuantity
-    const lowStockParts = parts.filter((part) => part.isActive && part.quantity <= part.minQuantity);
+    const lowStockParts = parts.filter((part) => part.isActive && Number(part.quantity) <= Number(part.minQuantity));
 
     const exchangeRate = Number((await settingsService.getSettings(tenantId)).exchangeRate);
     return Promise.all(lowStockParts.map((part) => this.mapToPartResponse(part, exchangeRate)));
@@ -484,17 +557,21 @@ export class PartService {
       nameEn: part.nameEn,
       description: part.description,
       categoryId: part.categoryId,
+      inventoryAccountId: part.inventoryAccountId,
+      costAccountId: part.costAccountId,
+      revenueAccountId: part.revenueAccountId,
       category: part.category ? { id: part.category.id, name: part.category.name } : undefined,
       supplierId: part.supplierId,
+      supplierName: part.supplier?.name,
       costSYP: costUSD != null && rate > 0 ? Math.round(costUSD * rate) : Number(part.costSYP),
       costUSD,
       sellingPriceSYP: sellingPriceUSD != null && rate > 0 ? Math.round(sellingPriceUSD * rate) : Number(part.sellingPriceSYP),
       sellingPriceUSD,
-      quantity: part.quantity,
-      minQuantity: part.minQuantity,
+      quantity: Number(part.quantity),
+      minQuantity: Number(part.minQuantity),
       baseUnitName: part.baseUnitName,
       purchaseUnitName: part.purchaseUnitName,
-      unitsPerPackage: part.unitsPerPackage,
+      unitsPerPackage: part.unitsPerPackage != null ? Number(part.unitsPerPackage) : undefined,
       location: part.location,
       isActive: part.isActive,
       createdAt: part.createdAt,

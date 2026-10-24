@@ -1,6 +1,7 @@
 import { IAccountRepository } from '../../../application/accounting/interfaces/IAccountRepository';
 import { PrismaService } from '../../database/prisma.service';
 import { DatabaseError } from '../../errors/database-error';
+import { DEFAULT_ACCOUNT_CODES } from '../../../modules/accounting/chart-of-accounts.defaults';
 
 export class AccountRepository implements IAccountRepository {
   async findById(id: string): Promise<any | null> {
@@ -24,6 +25,33 @@ export class AccountRepository implements IAccountRepository {
       return account;
     } catch (error) {
       throw new DatabaseError('Failed to find account by code', error);
+    }
+  }
+
+  async findByRole(tenantId: string, role: string): Promise<any | null> {
+    try {
+      const prisma = PrismaService.getInstance();
+      if (!(role in DEFAULT_ACCOUNT_CODES)) return null;
+      const mapping = await prisma.accountPostingMap.findFirst({
+        where: { tenantId, mappingKey: role },
+        include: { account: true },
+      });
+      if (mapping) {
+        if (!mapping.isActive || !mapping.account.isActive || mapping.account.deletedAt || mapping.account.tenantId !== tenantId) {
+          return null;
+        }
+        return mapping.account;
+      }
+      return prisma.account.findFirst({
+        where: {
+          tenantId,
+          code: DEFAULT_ACCOUNT_CODES[role as keyof typeof DEFAULT_ACCOUNT_CODES],
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError('Failed to find account by posting role', error);
     }
   }
 

@@ -203,7 +203,7 @@ export class WarehouseService {
     let usedCapacity = 0;
     for (const transaction of inventoryTransactions) {
       // Assuming quantity represents units of capacity
-      usedCapacity += Math.abs(transaction.quantity);
+      usedCapacity += Math.abs(Number(transaction.quantity));
     }
 
     return {

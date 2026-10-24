@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { isValidQuantity } from '../../utils/quantity';
 import {
   InventoryCount,
   CreateInventoryCountInput,
@@ -139,9 +140,9 @@ export class InventoryCountService {
           partId: item.partId,
           partName: item.part.name,
           partCode: item.part.partNumber,
-          expectedQty: item.expectedQty,
-          actualQty: item.actualQty,
-          varianceQty: item.varianceQty,
+          expectedQty: Number(item.expectedQty),
+          actualQty: Number(item.actualQty),
+          varianceQty: Number(item.varianceQty),
           unitCostSYP: item.unitCostSYP,
           unitCostUSD: item.unitCostUSD,
           varianceSYP: item.varianceSYP,
@@ -233,9 +234,9 @@ export class InventoryCountService {
       partId: item.partId,
       partName: item.part.name,
       partCode: item.part.code,
-      expectedQty: item.expectedQty,
-      actualQty: item.actualQty,
-      varianceQty: item.varianceQty,
+      expectedQty: Number(item.expectedQty),
+      actualQty: Number(item.actualQty),
+      varianceQty: Number(item.varianceQty),
       unitCostSYP: item.unitCostSYP,
       unitCostUSD: item.unitCostUSD,
       varianceSYP: item.varianceSYP,
@@ -302,7 +303,7 @@ export class InventoryCountService {
 
     // Update inventory quantities based on count
     for (const item of count.items) {
-      const variance = item.actualQty - item.expectedQty;
+      const variance = Number(item.actualQty) - Number(item.expectedQty);
       
       if (variance !== 0 && count.warehouseId) {
         // Create inventory transaction to adjust quantity
@@ -315,8 +316,10 @@ export class InventoryCountService {
             quantity: Math.abs(variance),
             costSYP: item.part.costSYP,
             costUSD: item.part.costUSD,
-            reference: `Inventory count ${count.countNumber}`,
-            notes: `Inventory count adjustment for ${item.part.name}`,
+            reference: `COUNT:${count.countNumber}`,
+            notes: variance > 0
+              ? `زيادة رصيد ${item.part.nameAr || item.part.name} نتيجة الجرد`
+              : `نقص رصيد ${item.part.nameAr || item.part.name} نتيجة الجرد`,
           },
         });
 
@@ -324,7 +327,7 @@ export class InventoryCountService {
         await prisma.part.update({
           where: { id: item.partId },
           data: {
-            quantity: item.actualQty,
+            quantity: Number(item.actualQty),
           },
         });
       }
@@ -395,6 +398,9 @@ export class InventoryCountService {
     if (!part) {
       throw new Error('Part not found');
     }
+    if (!isValidQuantity(data.actualQty, true)) {
+      throw new Error('Counted quantity must be non-negative and use at most three decimal places');
+    }
 
     // Check if item already exists
     const existingItem = await prisma.inventoryCountItem.findFirst({
@@ -408,7 +414,8 @@ export class InventoryCountService {
       throw new Error('Item already exists in count');
     }
 
-    const varianceQty = data.actualQty - data.expectedQty;
+    const expectedQty = Number(part.quantity);
+    const varianceQty = data.actualQty - expectedQty;
     const varianceSYP = varianceQty * Number(part.costSYP);
 
     const item = await prisma.inventoryCountItem.create({
@@ -416,7 +423,7 @@ export class InventoryCountService {
         tenantId,
         countId: countId,
         partId: data.partId,
-        expectedQty: data.expectedQty,
+        expectedQty,
         actualQty: data.actualQty,
         varianceQty,
         unitCostSYP: part.costSYP,
@@ -434,9 +441,9 @@ export class InventoryCountService {
       partId: item.partId,
       partName: part.name,
       partCode: part.partNumber,
-      expectedQty: item.expectedQty,
-      actualQty: item.actualQty,
-      varianceQty: item.varianceQty,
+      expectedQty: Number(item.expectedQty),
+      actualQty: Number(item.actualQty),
+      varianceQty: Number(item.varianceQty),
       unitCostSYP: Number(item.unitCostSYP),
       unitCostUSD: item.unitCostUSD ? Number(item.unitCostUSD) : null,
       varianceSYP: Number(item.varianceSYP),
@@ -472,7 +479,10 @@ export class InventoryCountService {
       throw new Error('Cannot update items in completed count');
     }
 
-    const varianceQty = data.actualQty - item.expectedQty;
+    if (!isValidQuantity(data.actualQty, true)) {
+      throw new Error('Counted quantity must be non-negative and use at most three decimal places');
+    }
+    const varianceQty = data.actualQty - Number(item.expectedQty);
     const varianceSYP = varianceQty * Number(item.part.costSYP);
 
     const updatedItem = await prisma.inventoryCountItem.update({
@@ -493,9 +503,9 @@ export class InventoryCountService {
       partId: updatedItem.partId,
       partName: item.part.name,
       partCode: item.part.partNumber,
-      expectedQty: updatedItem.expectedQty,
-      actualQty: updatedItem.actualQty,
-      varianceQty: updatedItem.varianceQty,
+      expectedQty: Number(updatedItem.expectedQty),
+      actualQty: Number(updatedItem.actualQty),
+      varianceQty: Number(updatedItem.varianceQty),
       unitCostSYP: Number(updatedItem.unitCostSYP),
       unitCostUSD: updatedItem.unitCostUSD ? Number(updatedItem.unitCostUSD) : null,
       varianceSYP: Number(updatedItem.varianceSYP),

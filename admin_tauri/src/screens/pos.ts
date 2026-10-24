@@ -4,11 +4,21 @@ import { Router } from '../router'
 import { AppLayout } from '../components/layout'
 import { loadExchangeRate, sypFromUsd, fmtUsd } from '../utils/currency'
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!)
+}
+
 export class PosScreen {
   private auth: AuthService
   private api: ApiClient
   private router: Router
-  private cart: { id: string; name: string; price: number; priceUSD: number | null; qty: number }[] = []
+  private cart: { id: string; itemType: 'PART' | 'SERVICE'; name: string; price: number; priceUSD: number | null; qty: number; availableQty: number | null }[] = []
   private taxRate = 0
 
   constructor(auth: AuthService, api: ApiClient, router: Router) {
@@ -18,15 +28,15 @@ export class PosScreen {
   }
 
   render(): HTMLElement {
-    const layout = new AppLayout(this.auth, this.router, 'نقطة البيع (POS, this.api)', 'point_of_sale')
+    const layout = new AppLayout(this.auth, this.router, 'نقاط البيع', 'point_of_sale', this.api)
     const content = document.createElement('div')
     content.className = 'page-enter max-w-[1600px] mx-auto'
     content.innerHTML = `
       <div class="space-y-stack-lg">
         <div class="flex items-center justify-between page-enter">
           <div>
-            <h1 class="font-beVietnamPro text-headline-md text-on-surface">نقطة البيع</h1>
-            <p class="text-body-md text-on-surface-variant mt-1">إنشاء فواتير ومعالجة المدفوعات</p>
+            <h1 class="font-beVietnamPro text-headline-md text-on-surface">نقاط البيع</h1>
+            <p class="text-body-md text-on-surface-variant mt-1">اختيار خدمات القسم وقطع المخزون، ثم إنشاء الفاتورة</p>
           </div>
           <button class="h-12 btn-secondary-gradient text-white font-body-md rounded-xl shadow-lg shadow-secondary/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 px-6" id="quick-invoice-btn">
             <span class="material-symbols-outlined text-[20px]">receipt_long</span>
@@ -43,10 +53,25 @@ export class PosScreen {
                 <input class="w-full h-12 bg-white/50 border border-glass-border rounded-xl pr-10 pl-4 font-body-md text-on-surface placeholder:text-on-surface-variant input-glow transition-all" placeholder="البحث عن منتج أو خدمة..." id="pos-search"/>
               </div>
             </div>
-            <!-- Product Grid -->
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="pos-products">
+            <div id="pos-departments" class="flex flex-wrap gap-2">
+              <div class="skeleton-shimmer h-9 rounded-lg w-40"></div>
+            </div>
+            <div class="glass-card rounded-2xl p-card-padding">
+              <div class="flex items-center justify-between mb-3">
+                <h3 id="pos-department-title" class="font-headline-md text-lg text-on-surface font-semibold">خدمات القسم</h3>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="pos-services">
+                <div class="col-span-full flex items-center justify-center py-8">
+                  <div class="skeleton-shimmer h-4 rounded w-32"></div>
+                </div>
+              </div>
+            </div>
+            <div class="glass-card rounded-2xl p-card-padding">
+              <h3 class="font-headline-md text-lg text-on-surface font-semibold mb-3">قطع ومنتجات المخزون</h3>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="pos-products">
               <div class="col-span-full flex items-center justify-center py-12">
                 <div class="skeleton-shimmer h-4 rounded w-32"></div>
+              </div>
               </div>
             </div>
           </div>
@@ -76,7 +101,7 @@ export class PosScreen {
               </div>
               <button class="w-full mt-4 h-12 btn-primary-gradient text-white font-body-md rounded-xl shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2" id="checkout-btn">
                 <span class="material-symbols-outlined text-[20px]">payments</span>
-                إتمام الدفع
+                إنشاء الفاتورة
               </button>
               <button class="w-full mt-2 h-10 bg-surface-subtle text-on-surface font-body-md rounded-xl border border-border hover:bg-surface-container-low transition-all flex items-center justify-center gap-2 text-sm" id="clear-cart-btn">
                 <span class="material-symbols-outlined text-[18px]">delete</span>
@@ -87,22 +112,13 @@ export class PosScreen {
         </div>
       </div>
     `
-    // Event delegation on product grid (performance fix)
-    const grid = content.querySelector('#pos-products') as HTMLElement
-    if (grid) {
-      grid.addEventListener('click', (e) => {
-        const btn = (e.target as HTMLElement).closest('button[data-product-id]') as HTMLButtonElement | null
-        if (btn) {
-          const id = btn.getAttribute('data-product-id')!
-          const name = btn.getAttribute('data-product-name') || '-'
-          const price = parseFloat(btn.getAttribute('data-product-price') || '0')
-          const priceUSD = parseFloat(btn.getAttribute('data-product-price-usd') || '')
-          this.addToCart(id, name, price, Number.isFinite(priceUSD) ? priceUSD : null)
-          this.renderCart(content)
-        }
-      })
-    }
+    this.attachItemGrid(content, '#pos-products', 'PART')
+    this.attachItemGrid(content, '#pos-services', 'SERVICE')
+    content.querySelector('#pos-search')?.addEventListener('input', (event) => {
+      this.applySearchFilter(content, (event.target as HTMLInputElement).value)
+    })
     this.loadProducts(content)
+    this.loadDepartments(content)
     content.querySelector('#quick-invoice-btn')?.addEventListener('click', () => {
       this.router.navigate('/invoices/new')
     })
@@ -116,12 +132,16 @@ export class PosScreen {
     return layout.render(content)
   }
 
-  private addToCart(id: string, name: string, price: number, priceUSD: number | null) {
-    const existing = this.cart.find(item => item.id === id)
+  private addToCart(id: string, itemType: 'PART' | 'SERVICE', name: string, price: number, priceUSD: number | null, availableQty: number | null) {
+    const existing = this.cart.find(item => item.id === id && item.itemType === itemType)
     if (existing) {
+      if (itemType === 'PART' && availableQty != null && existing.qty >= availableQty) {
+        ;(window as any).toast?.show?.({ message: 'الكمية المطلوبة أكبر من المتوفر بالمخزون', type: 'warning' })
+        return
+      }
       existing.qty++
     } else {
-      this.cart.push({ id, name, price, priceUSD, qty: 1 })
+      this.cart.push({ id, itemType, name, price, priceUSD, qty: 1, availableQty })
     }
   }
 
@@ -174,6 +194,144 @@ export class PosScreen {
     if (totalEl) totalEl.textContent = `${total.toLocaleString('ar-SA')} ل.س${totalUSD != null ? ` · $${fmtUsd(totalUSD)}` : ''}`
   }
 
+  private attachItemGrid(el: HTMLElement, selector: string, itemType: 'PART' | 'SERVICE') {
+    const grid = el.querySelector(selector) as HTMLElement | null
+    grid?.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-product-id]')
+      if (!button) return
+      const id = button.dataset.productId
+      if (!id) return
+      const name = button.dataset.productName || '-'
+      const price = Number(button.dataset.productPrice || 0)
+      const rawUsd = button.dataset.productPriceUsd
+      const priceUSD = rawUsd ? Number(rawUsd) : null
+      const rawStock = button.dataset.stockQuantity
+      const availableQty = itemType === 'PART' && rawStock != null ? Number(rawStock) : null
+      this.addToCart(id, itemType, name, price, Number.isFinite(priceUSD) ? priceUSD : null, availableQty)
+      this.renderCart(el)
+    })
+  }
+
+  private applySearchFilter(el: HTMLElement, value: string) {
+    const query = value.trim().toLocaleLowerCase()
+    el.querySelectorAll<HTMLButtonElement>('#pos-products button[data-product-id], #pos-services button[data-product-id]')
+      .forEach((button) => {
+        button.classList.toggle('hidden', !button.dataset.productName?.toLocaleLowerCase().includes(query))
+      })
+  }
+
+  private async loadDepartments(el: HTMLElement) {
+    const tabs = el.querySelector('#pos-departments') as HTMLElement
+    const servicesGrid = el.querySelector('#pos-services') as HTMLElement
+    try {
+      const response = await this.api.get<any>('/api/service-categories')
+      const raw = response.data
+      const categories: any[] = Array.isArray(raw) ? raw : (raw?.data || [])
+      const departmentOrder = [
+        'الصيانة الميكانيكية والفنية',
+        'الغسيل والخدمات السريعة',
+        'الحماية والعناية والتجديد',
+      ]
+      const activeCategories = categories
+        .filter((category) => category.isActive && !category.deletedAt)
+        .sort((left, right) => {
+          const leftName = left.nameAr || left.name
+          const rightName = right.nameAr || right.name
+          const leftIndex = departmentOrder.indexOf(leftName)
+          const rightIndex = departmentOrder.indexOf(rightName)
+          if (leftIndex >= 0 || rightIndex >= 0) {
+            return (leftIndex < 0 ? departmentOrder.length : leftIndex) -
+              (rightIndex < 0 ? departmentOrder.length : rightIndex)
+          }
+          return String(leftName).localeCompare(String(rightName), 'ar')
+        })
+
+      if (activeCategories.length === 0) {
+        tabs.innerHTML = '<p class="text-sm text-text-secondary">أضف الأقسام الثلاثة من «الخدمات ← فئات الخدمات» أولاً.</p>'
+        servicesGrid.innerHTML = '<div class="col-span-full text-center py-8 text-text-secondary">لا توجد أقسام خدمات مفعّلة</div>'
+        return
+      }
+
+      tabs.innerHTML = activeCategories.map((category) => `
+        <button type="button"
+          class="pos-department-tab h-10 px-4 rounded-lg border border-border bg-surface-subtle text-on-surface hover:border-primary transition-colors"
+          data-category-id="${escapeHtml(category.id)}">
+          ${escapeHtml(category.nameAr || category.name)}
+        </button>
+      `).join('')
+
+      tabs.querySelectorAll<HTMLButtonElement>('.pos-department-tab').forEach((button) => {
+        button.addEventListener('click', () => {
+          const category = activeCategories.find((item) => item.id === button.dataset.categoryId)
+          if (category) this.loadServicesForDepartment(el, category)
+        })
+      })
+
+      await this.loadServicesForDepartment(el, activeCategories[0])
+    } catch {
+      tabs.innerHTML = '<p class="text-sm text-error">تعذر تحميل أقسام الخدمات</p>'
+      servicesGrid.innerHTML = '<div class="col-span-full text-center py-8 text-error">حدث خطأ في تحميل خدمات القسم</div>'
+    }
+  }
+
+  private async loadServicesForDepartment(el: HTMLElement, category: any) {
+    const tabs = el.querySelector('#pos-departments') as HTMLElement
+    const title = el.querySelector('#pos-department-title') as HTMLElement
+    const grid = el.querySelector('#pos-services') as HTMLElement
+    title.textContent = category.nameAr || category.name
+
+    tabs.querySelectorAll<HTMLButtonElement>('.pos-department-tab').forEach((button) => {
+      const active = button.dataset.categoryId === category.id
+      button.classList.toggle('bg-primary', active)
+      button.classList.toggle('text-white', active)
+      button.classList.toggle('border-primary', active)
+      button.classList.toggle('bg-surface-subtle', !active)
+      button.classList.toggle('text-on-surface', !active)
+    })
+    grid.innerHTML = '<div class="col-span-full py-8 text-center text-text-secondary">جاري تحميل الخدمات...</div>'
+
+    try {
+      const response = await this.api.get<any>(`/api/services/category/${encodeURIComponent(category.name)}`)
+      const raw = response.data
+      const services: any[] = Array.isArray(raw) ? raw : (raw?.services || raw?.data || [])
+      const sellable = services.filter((service) =>
+        service.isActive && (Number(service.priceSYP || 0) > 0 || Number(service.priceUSD || 0) > 0)
+      )
+
+      if (sellable.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-8 text-center text-text-secondary">ما في خدمات مسعّرة للبيع المباشر بهالقسم. الخدمات ذات السعر المتغير أو المرتبطة بأمر شغل لازم تتسعّر قبل إضافتها.</div>'
+        return
+      }
+
+      const colors = ['primary', 'secondary', 'tertiary', 'info', 'warning']
+      const icons = ['build', 'car_repair', 'oil_barrel', 'air', 'cleaning_services']
+      grid.innerHTML = sellable.map((service, index) => {
+        const priceUSD = service.priceUSD == null ? null : Number(service.priceUSD)
+        const priceSYP = Number(service.priceSYP || 0)
+        return `
+          <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden"
+            data-product-id="${escapeHtml(service.id)}"
+            data-product-name="${escapeHtml(service.nameAr || service.name || '-')}"
+            data-product-price="${priceSYP}"
+            data-product-price-usd="${priceUSD ?? ''}">
+            <div class="absolute inset-x-0 top-0 h-1 bg-${colors[index % colors.length]}"></div>
+            <div class="w-12 h-12 rounded-xl bg-primary-container/10 text-primary flex items-center justify-center transition-all group-hover:scale-110">
+              <span class="material-symbols-outlined text-[24px]">${icons[index % icons.length]}</span>
+            </div>
+            <div class="text-center">
+              <h4 class="font-body-md text-on-surface font-semibold mb-1">${escapeHtml(service.nameAr || service.name || '-')}</h4>
+              ${priceUSD != null ? `<p class="text-sm text-text-tertiary font-semibold">$${fmtUsd(priceUSD)}</p>` : ''}
+              <p class="text-financial-data text-primary font-bold">${priceSYP.toLocaleString('ar-SA')} ل.س</p>
+            </div>
+          </button>
+        `
+      }).join('')
+      this.applySearchFilter(el, (el.querySelector('#pos-search') as HTMLInputElement).value)
+    } catch {
+      grid.innerHTML = '<div class="col-span-full py-8 text-center text-error">تعذر تحميل خدمات هالقسم</div>'
+    }
+  }
+
   private checkout() {
     if (this.cart.length === 0) {
       ;(window as any).toast?.show?.({ message: 'يرجى إضافة منتجات إلى السلة أولاً', type: 'warning' })
@@ -190,7 +348,12 @@ export class PosScreen {
       const res = await this.api.get<any>('/api/parts?limit=0')
       const grid = el.querySelector('#pos-products')!
       if (res.success && res.data) {
-        const items = Array.isArray(res.data) ? res.data : res.data.data || []
+        const rows: any[] = Array.isArray(res.data) ? res.data : res.data.data || []
+        const items = rows.filter((item: any) =>
+          item.isActive !== false &&
+          Number(item.quantity || 0) > 0 &&
+          (Number(item.sellingPriceSYP || 0) > 0 || Number(item.sellingPriceUSD || 0) > 0)
+        )
         if (items.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-on-surface-variant font-body-md"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">shopping_basket</span><br/>لا توجد منتجات</div>'; return }
         try {
           const settings = await this.api.get<any>('/api/settings/exchange-rate', false)
@@ -218,19 +381,21 @@ export class PosScreen {
             info: 'rgba(8,145,178,0.3)', warning: 'rgba(217,119,6,0.3)',
           }
           return `
-            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${item.id}" data-product-name="${item.name || '-'}" data-product-price="${priceSYP}" data-product-price-usd="${priceUSD ?? ''}">
+            <button class="glass-card p-4 rounded-2xl hover-lift-8 flex flex-col items-center gap-3 group text-right w-full relative overflow-hidden" data-product-id="${escapeHtml(item.id)}" data-product-name="${escapeHtml(item.nameAr || item.name || '-')}" data-product-price="${priceSYP}" data-product-price-usd="${priceUSD ?? ''}" data-stock-quantity="${Number(item.quantity)}">
               <div class="absolute inset-x-0 top-0 h-1 bg-${color}"></div>
               <div class="w-12 h-12 rounded-xl ${colorCls[color]} flex items-center justify-center transition-all group-hover:scale-110" style="box-shadow:0 4px 12px ${glow[color]}">
                 <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">${icon}</span>
               </div>
               <div class="text-center">
-                <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${item.name || '-'}</h4>
+                <h4 class="font-body-md text-on-surface font-semibold mb-1 group-hover:text-primary transition-colors">${escapeHtml(item.nameAr || item.name || '-')}</h4>
                 ${item.sellingPriceUSD != null ? `<p class="text-sm text-text-tertiary font-semibold">$${fmtUsd(item.sellingPriceUSD)}</p>` : ''}
                 <p class="text-financial-data text-primary font-bold">${priceSYP.toLocaleString('ar-SA')} ل.س</p>
+                <p class="text-xs text-text-secondary">المتوفر: ${Number(item.quantity).toLocaleString('ar-SA')}</p>
               </div>
             </button>
           `
         }).join('')
+        this.applySearchFilter(el, (el.querySelector('#pos-search') as HTMLInputElement).value)
       }
     } catch { el.querySelector('#pos-products')!.innerHTML = '<div class="col-span-full text-center py-12 text-error font-body-md"><span class="material-symbols-outlined text-4xl mb-2">error</span><br/>حدث خطأ</div>' }
   }

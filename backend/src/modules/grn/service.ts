@@ -11,7 +11,8 @@ import {
   PaginationParams,
   PaginatedResponse,
 } from './types';
-import { createGRNJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { createGRNJournalEntry, createStockRevaluationJournalEntry, ensureDefaultAccounts } from '../accounting/automatic-journal-entries';
+import { isValidQuantity } from '../../utils/quantity';
 
 export class GRNService {
   async createGRN(tenantId: string, data: CreateGRNDto, userId?: string): Promise<GoodsReceiptNote> {
@@ -55,15 +56,14 @@ export class GRNService {
     // Validate lines quantities and costs
     for (const line of data.lines) {
       const damagedQuantity = line.damagedQuantity ?? 0;
-      if (!Number.isInteger(line.orderedQuantity) || line.orderedQuantity < 0 ||
-          !Number.isInteger(line.receivedQuantity) || line.receivedQuantity < 0 ||
-          !Number.isInteger(damagedQuantity) || damagedQuantity < 0 || damagedQuantity > line.receivedQuantity) {
-        throw new Error('GRN quantities must be non-negative whole numbers and damaged quantity cannot exceed received quantity');
+      if (!isValidQuantity(line.orderedQuantity, true) || !isValidQuantity(line.receivedQuantity, true) ||
+          !isValidQuantity(damagedQuantity, true) || damagedQuantity > line.receivedQuantity) {
+        throw new Error('GRN quantities must be non-negative and use at most three decimal places');
       }
       if (line.receivedQuantity > line.orderedQuantity) throw new Error('Received quantity cannot exceed ordered quantity');
       const purchaseOrderLine = purchaseOrder.items.find((item) => item.partId === line.partId);
       if (!purchaseOrderLine) throw new Error(`Part ${line.partId} is not included in the purchase order`);
-      if (line.orderedQuantity > purchaseOrderLine.quantity - purchaseOrderLine.receivedQty) {
+      if (line.orderedQuantity > Number(purchaseOrderLine.quantity) - Number(purchaseOrderLine.receivedQty)) {
         throw new Error(`GRN quantity exceeds the outstanding order quantity for part ${line.partId}`);
       }
       if (line.unitCost != null && line.unitCost < 0 || line.unitCostUSD != null && line.unitCostUSD < 0) {
@@ -103,6 +103,8 @@ export class GRNService {
     if (!receivedDate || isNaN(receivedDate.getTime())) {
       receivedDate = new Date();
     }
+    const dueDate = data.dueDate ? new Date(data.dueDate) : undefined;
+    if (data.dueDate && Number.isNaN(dueDate?.getTime())) throw new Error('Invalid supplier due date');
 
     const grn = await prisma.goodsReceiptNote.create({
       data: {
@@ -112,6 +114,7 @@ export class GRNService {
         warehouseId: data.warehouseId,
         grnNumber,
         receivedDate,
+        dueDate,
         status: 'DRAFT' as any,
         receivedBy: userId || 'SYSTEM',
         notes: data.notes,
@@ -318,6 +321,8 @@ export class GRNService {
     if (!existingGRN) {
       throw new Error('Goods Receipt Note not found');
     }
+    const dueDate = data.dueDate ? new Date(data.dueDate) : undefined;
+    if (data.dueDate && Number.isNaN(dueDate?.getTime())) throw new Error('Invalid supplier due date');
 
     const grn = await prisma.goodsReceiptNote.update({
       where: { id },
@@ -325,6 +330,7 @@ export class GRNService {
         supplierId: data.supplierId,
         warehouseId: data.warehouseId,
         receivedDate: data.receivedDate,
+        dueDate,
         status: data.status,
         notes: data.notes,
       },
@@ -401,9 +407,10 @@ export class GRNService {
     const part = await prisma.part.findFirst({ where: { id: data.partId, tenantId } });
     if (!part) throw new Error('Part not found');
     const damagedQuantity = data.damagedQuantity ?? 0;
-    if (!Number.isInteger(data.orderedQuantity) || !Number.isInteger(data.receivedQuantity) || !Number.isInteger(damagedQuantity) ||
-        data.orderedQuantity < 0 || data.receivedQuantity < 0 || data.receivedQuantity > data.orderedQuantity || damagedQuantity < 0 || damagedQuantity > data.receivedQuantity) {
-      throw new Error('GRN quantities must be non-negative whole numbers and received quantity cannot exceed ordered quantity');
+    if (!isValidQuantity(data.orderedQuantity, true) || !isValidQuantity(data.receivedQuantity, true) ||
+        !isValidQuantity(damagedQuantity, true) || data.receivedQuantity > data.orderedQuantity ||
+        damagedQuantity > data.receivedQuantity) {
+      throw new Error('GRN quantities must be non-negative and use at most three decimal places');
     }
     if (data.unitCost == null && data.unitCostUSD == null) throw new Error('Unit cost is required in USD or SYP');
     if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) throw new Error('Unit cost cannot be negative');
@@ -450,12 +457,12 @@ export class GRNService {
       throw new Error('Cannot modify lines in completed or cancelled GRN');
     }
 
-    const receivedQuantity = data.receivedQuantity ?? existingLine.receivedQuantity;
-    const damagedQuantity = data.damagedQuantity ?? existingLine.damagedQuantity;
-    const orderedQuantity = data.orderedQuantity ?? existingLine.orderedQuantity;
-    if (!Number.isInteger(receivedQuantity) || !Number.isInteger(damagedQuantity) || !Number.isInteger(orderedQuantity) ||
-        receivedQuantity < 0 || damagedQuantity < 0 || damagedQuantity > receivedQuantity || receivedQuantity > orderedQuantity) {
-      throw new Error('GRN quantities must be non-negative whole numbers and damaged quantity cannot exceed received quantity');
+    const receivedQuantity = Number(data.receivedQuantity ?? existingLine.receivedQuantity);
+    const damagedQuantity = Number(data.damagedQuantity ?? existingLine.damagedQuantity);
+    const orderedQuantity = Number(data.orderedQuantity ?? existingLine.orderedQuantity);
+    if (!isValidQuantity(receivedQuantity, true) || !isValidQuantity(damagedQuantity, true) ||
+        !isValidQuantity(orderedQuantity, true) || damagedQuantity > receivedQuantity || receivedQuantity > orderedQuantity) {
+      throw new Error('GRN quantities must be non-negative and use at most three decimal places');
     }
 
     if (data.unitCost != null && data.unitCost < 0 || data.unitCostUSD != null && data.unitCostUSD < 0) {
@@ -528,6 +535,7 @@ export class GRNService {
         include: { lines: { include: { part: true } }, supplier: true },
       });
       if (!current) throw new Error('Goods Receipt Note not found');
+      let payableSYP = 0;
       if (current.status !== 'DRAFT' && current.status !== 'PENDING') {
         throw new Error('Only draft or pending GRNs can be completed');
       }
@@ -541,16 +549,16 @@ export class GRNService {
       await ensureDefaultAccounts(tenantId, tx);
 
       for (const line of current.lines) {
-        const netQuantity = line.receivedQuantity - Number(line.damagedQuantity || 0);
+        const netQuantity = Number(line.receivedQuantity) - Number(line.damagedQuantity || 0);
         const unitCostSYP = Number(line.unitCost);
         const unitCostUSD = line.unitCostUSD != null
           ? Number(line.unitCostUSD)
           : Math.round((unitCostSYP / exchangeRate) * 100) / 100;
+        payableSYP += Number(line.receivedQuantity) * unitCostSYP;
 
         if (netQuantity > 0) {
           const part = line.part;
-          const currentQuantity = part.quantity;
-          const newQuantity = currentQuantity + netQuantity;
+          const currentQuantity = Number(part.quantity);
           const currentCostUSD = part.costUSD != null
             ? Number(part.costUSD)
             : Math.round((Number(part.costSYP || 0) / exchangeRate) * 100) / 100;
@@ -561,29 +569,33 @@ export class GRNService {
             where: { id: part.id, tenantId, quantity: currentQuantity },
             data: {
               quantity: { increment: netQuantity },
-              costSYP: currentQuantity > 0
-                ? (currentCostSYP * currentQuantity + unitCostSYP * netQuantity) / newQuantity
-                : unitCostSYP,
-              costUSD: currentQuantity > 0
-                ? (currentCostUSD * currentQuantity + unitCostUSD * netQuantity) / newQuantity
-                : unitCostUSD,
+              costSYP: unitCostSYP,
+              costUSD: unitCostUSD,
             },
           });
           if (updatedPart.count !== 1) throw new Error(`Stock changed concurrently for part ${part.name}`);
 
-          await tx.inventoryTransaction.create({
+          const stockInTransaction = await tx.inventoryTransaction.create({
             data: {
               tenantId,
               partId: line.partId,
+              warehouseId: current.warehouseId,
+              supplierId: current.supplierId,
               type: 'STOCK_IN',
               quantity: netQuantity,
               costSYP: unitCostSYP,
               costUSD: unitCostUSD,
-              reference: current.grnNumber,
-              notes: `Received via GRN ${current.grnNumber}`,
+              reference: `GRN:${current.grnNumber}`,
+              notes: `استلام من المورد ${current.supplier?.name || 'المورد'} بموجب سند استلام ${current.grnNumber}`,
               createdBy: userId,
             },
+            include: { part: { select: { name: true, nameAr: true } } },
           });
+          if (currentQuantity > 0) {
+            await createStockRevaluationJournalEntry(
+              stockInTransaction, tenantId, currentQuantity, currentCostSYP, currentCostUSD, unitCostSYP, unitCostUSD, userId, tx
+            );
+          }
         }
 
         const purchaseOrderLine = await tx.purchaseOrderItem.findFirst({
@@ -601,7 +613,7 @@ export class GRNService {
         where: { purchaseOrderId: current.purchaseOrderId },
         select: { quantity: true, receivedQty: true },
       });
-      if (purchaseOrderLines.length > 0 && purchaseOrderLines.every((line) => line.receivedQty >= line.quantity)) {
+      if (purchaseOrderLines.length > 0 && purchaseOrderLines.every((line) => Number(line.receivedQty) >= Number(line.quantity))) {
         await tx.purchaseOrder.update({
           where: { id: current.purchaseOrderId },
           data: { status: 'RECEIVED' },
@@ -619,6 +631,10 @@ export class GRNService {
         })),
       };
       await createGRNJournalEntry(journalGRN, tenantId, userId, tx);
+      await tx.supplier.update({
+        where: { id: current.supplierId },
+        data: { balance: { increment: payableSYP } },
+      });
       return tx.goodsReceiptNote.findFirst({
         where: { id, tenantId },
         include: {
@@ -717,6 +733,7 @@ export class GRNService {
       supplierId: grn.supplierId,
       warehouseId: grn.warehouseId,
       receivedDate: grn.receivedDate,
+      dueDate: grn.dueDate,
       status: grn.status,
       receivedBy: grn.receivedBy,
       notes: grn.notes,
@@ -729,9 +746,9 @@ export class GRNService {
         id: line.id,
         grnId: line.grnId,
         partId: line.partId,
-        orderedQuantity: line.orderedQuantity,
-        receivedQuantity: line.receivedQuantity,
-        damagedQuantity: line.damagedQuantity,
+        orderedQuantity: Number(line.orderedQuantity),
+        receivedQuantity: Number(line.receivedQuantity),
+        damagedQuantity: Number(line.damagedQuantity),
         unitCost: Number(line.unitCost),
         unitCostUSD: line.unitCostUSD == null ? null : Number(line.unitCostUSD),
         totalCost: Number(line.totalCost),

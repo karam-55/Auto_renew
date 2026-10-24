@@ -134,6 +134,7 @@ export class GeneralLedgerService {
         debitUSD,
         creditUSD,
         runningBalanceSYP: section.closingBalanceSYP,
+        runningBalanceUSD: section.closingBalanceUSD,
         sourceType: line.entry.sourceType,
         sourceId: line.entry.sourceId,
       };

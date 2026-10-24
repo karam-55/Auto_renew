@@ -8,6 +8,7 @@ jest.mock('../../src/config/database', () => {
     part: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     warehouse: { findFirst: jest.fn() },
     supplier: { findFirst: jest.fn() },
+    booking: { findFirst: jest.fn() },
     companySettings: { findUnique: jest.fn().mockResolvedValue({ exchangeRate: 139 }) },
     inventoryTransaction: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   };
@@ -24,6 +25,7 @@ jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
   createInventoryAdjustmentJournalEntry: jest.fn().mockResolvedValue({ id: 'adjustment-entry' }),
   createStockConsumptionJournalEntry: jest.fn().mockResolvedValue({ id: 'cogs-entry' }),
   createStockIntakeJournalEntry: jest.fn().mockResolvedValue({ id: 'stock-entry' }),
+  createStockRevaluationJournalEntry: jest.fn().mockResolvedValue(null),
   ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -37,6 +39,50 @@ describe('InventoryTransactionService', () => {
     (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
     (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (prisma.part.update as jest.Mock).mockResolvedValue({});
+  });
+
+  describe('getPartHistory', () => {
+    it('returns Arabic destination details for the customer, vehicle and service that consumed a part', async () => {
+      (prisma.part.findFirst as jest.Mock).mockResolvedValue({
+        id: 'part-1',
+        tenantId: mockTenantId,
+      });
+      (prisma.inventoryTransaction.findMany as jest.Mock).mockResolvedValue([{
+        id: 'movement-1',
+        tenantId: mockTenantId,
+        partId: 'part-1',
+        type: 'CONSUMPTION',
+        quantity: 2.5,
+        costSYP: 100,
+        costUSD: null,
+        reference: 'WORKORDER:booking-1',
+        bookingId: 'booking-1',
+        notes: 'Material issued for work order booking-1',
+        createdAt: new Date('2026-10-24T09:00:00Z'),
+        updatedAt: new Date('2026-10-24T09:00:00Z'),
+        part: { id: 'part-1', nameAr: 'زيت محرك', baseUnitName: 'لتر' },
+        booking: {
+          id: 'booking-1',
+          customer: { fullName: 'أحمد علي' },
+          vehicle: { make: 'هيونداي', model: 'إلنترا', licensePlate: '123456' },
+        },
+        bookingService: { service: { nameAr: 'تبديل زيت' } },
+      }]);
+      (prisma.inventoryTransaction.count as jest.Mock).mockResolvedValue(1);
+
+      const result = await inventoryTransactionService.getPartHistory(mockTenantId, 'part-1');
+
+      expect(result.data[0]).toMatchObject({
+        partName: 'زيت محرك',
+        unitName: 'لتر',
+        transactionLabel: 'استهلاك في عمل',
+        direction: 'OUT',
+        customerName: 'أحمد علي',
+        vehicleDescription: 'هيونداي إلنترا (123456)',
+        serviceName: 'تبديل زيت',
+        destinationDescription: 'العميل أحمد علي · السيارة هيونداي إلنترا (123456) · خدمة تبديل زيت',
+      });
+    });
   });
 
   describe('createInventoryTransaction', () => {
@@ -141,12 +187,16 @@ describe('InventoryTransactionService', () => {
       (prisma.part.findFirst as jest.Mock).mockResolvedValue(mockPart);
       (prisma.part.findUnique as jest.Mock).mockResolvedValue(mockPart);
       (prisma.warehouse.findFirst as jest.Mock).mockResolvedValue(mockWarehouse);
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue({ id: 'booking-1', tenantId: mockTenantId });
       (prisma.inventoryTransaction.create as jest.Mock).mockResolvedValue(mockTransaction);
       (prisma.part.update as jest.Mock).mockResolvedValue({ ...mockPart, quantity: 45 });
 
       const result = await inventoryTransactionService.createInventoryTransaction(mockTenantId, transactionData);
 
       expect(result.transactionType).toBe('CONSUMPTION');
+      expect(prisma.inventoryTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ bookingId: 'booking-1' }),
+      }));
     });
 
     it('should throw error if part not found', async () => {

@@ -1,5 +1,7 @@
+import { AccountType } from '@prisma/client';
 import prisma from '../../config/database';
 import settingsService from '../../services/settings.service';
+import { isValidQuantity } from '../../utils/quantity';
 import { CreateServiceInput, UpdateServiceInput, ServiceResponse } from './types';
 
 function fillCurrencyPair(syp: number, usd: number, exchangeRate: number): { syp: number; usd: number } {
@@ -13,8 +15,10 @@ export class ServiceService {
     const services = await prisma.service.findMany({
       where: {
         tenantId,
+        deletedAt: null,
         ...(includeInactive ? {} : { isActive: true }),
       },
+      include: { category: true },
       orderBy: { name: 'asc' },
       // limit === 0 means "all rows" → pass undefined to Prisma (no take).
       // limit > 0 → apply take (and skip for pagination).
@@ -30,6 +34,7 @@ export class ServiceService {
     return prisma.service.count({
       where: {
         tenantId,
+        deletedAt: null,
         ...(includeInactive ? {} : { isActive: true }),
       },
     });
@@ -37,8 +42,9 @@ export class ServiceService {
 
   async getServiceById(tenantId: string, serviceId: string): Promise<ServiceResponse | null> {
     const service = await prisma.service.findFirst({
-      where: { id: serviceId, tenantId },
+      where: { id: serviceId, tenantId, deletedAt: null },
       include: {
+        category: true,
         serviceParts: {
           include: {
             part: true,
@@ -55,14 +61,29 @@ export class ServiceService {
   }
 
   async getServicesByCategory(tenantId: string, category: string): Promise<ServiceResponse[]> {
-    // Resolve category name to categoryId
-    const categoryId = await this.resolveCategoryId(tenantId, category);
+    const categoryRecord = await prisma.serviceCategory.findFirst({
+      where: {
+        tenantId,
+        deletedAt: null,
+        isActive: true,
+        OR: [
+          { id: category },
+          { name: { equals: category, mode: 'insensitive' } },
+          { nameAr: { equals: category, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!categoryRecord) return [];
+
     const services = await prisma.service.findMany({
       where: {
         tenantId,
-        categoryId: categoryId || undefined,
+        categoryId: categoryRecord.id,
+        deletedAt: null,
         isActive: true,
       },
+      include: { category: true },
       orderBy: { name: 'asc' },
     });
 
@@ -74,12 +95,14 @@ export class ServiceService {
     const services = await prisma.service.findMany({
       where: {
         tenantId,
+        deletedAt: null,
         isActive: true,
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { description: { contains: query, mode: 'insensitive' } },
         ],
       },
+      include: { category: true },
       orderBy: { name: 'asc' },
     });
 
@@ -97,10 +120,14 @@ export class ServiceService {
       where: {
         tenantId,
         name: { equals: trimmed, mode: 'insensitive' },
+        deletedAt: null,
       },
     });
-    if (existing) {
+    if (existing?.isActive) {
       return existing.id;
+    }
+    if (existing) {
+      throw new Error('Service category is inactive');
     }
     // Create new category if not found
     const newCategory = await prisma.serviceCategory.create({
@@ -114,8 +141,34 @@ export class ServiceService {
     return newCategory.id;
   }
 
+  private async validatePostingAccount(tenantId: string, accountId: string | null | undefined, accountType: AccountType) {
+    if (!accountId) return;
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId, isActive: true, deletedAt: null },
+      include: { children: { select: { id: true } } },
+    });
+    if (!account || account.accountType !== accountType) {
+      throw new Error(`Service posting account must be an active ${accountType} account in this tenant`);
+    }
+    if (account.children.length > 0) {
+      throw new Error('Service posting account must be a leaf account, not a parent');
+    }
+  }
+
   async createService(tenantId: string, data: CreateServiceInput): Promise<ServiceResponse> {
+    if (data.code?.trim()) {
+      const duplicate = await prisma.service.findFirst({
+        where: { tenantId, code: data.code.trim(), deletedAt: null },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error('Service code already exists for this tenant');
+    }
     const categoryId = await this.resolveCategoryId(tenantId, data.category);
+    await this.validatePostingAccount(tenantId, data.revenueAccountId, AccountType.REVENUE);
+    await this.validatePostingAccount(tenantId, data.costAccountId, AccountType.COGS);
+    for (const part of data.parts || []) {
+      if (!isValidQuantity(part.quantity)) throw new Error('Material quantity must be positive and use at most three decimal places');
+    }
     const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
 
     // Auto-calculate laborCost if departmentId is provided
@@ -225,11 +278,18 @@ export class ServiceService {
     const service = await prisma.service.create({
       data: {
         tenantId,
+        code: data.code?.trim() || null,
         name: data.name,
         nameAr: data.nameAr,
         nameEn: data.nameEn,
         description: data.description,
+        pricingUnit: data.pricingUnit,
+        vehicleType: data.vehicleType,
+        specification: data.specification,
+        serviceType: data.serviceType || 'STANDARD',
         categoryId,
+        revenueAccountId: data.revenueAccountId || null,
+        costAccountId: data.costAccountId || null,
         duration: data.duration,
         basePrice: data.basePrice,
         laborCostSYP: laborCostSYP,
@@ -251,6 +311,7 @@ export class ServiceService {
         ...(data.departmentId ? { departmentId: data.departmentId } : {}),
         ...(data.assignedEmployeeId ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
+      include: { category: true },
     });
 
     // Create ServicePart records if parts provided
@@ -270,17 +331,29 @@ export class ServiceService {
   async updateService(tenantId: string, serviceId: string, data: UpdateServiceInput): Promise<ServiceResponse> {
     // Check if service exists and belongs to tenant
     const existingService = await prisma.service.findFirst({
-      where: { id: serviceId, tenantId },
+      where: { id: serviceId, tenantId, deletedAt: null },
     });
 
     if (!existingService) {
       throw new Error('Service not found');
+    }
+    if (data.code?.trim() && data.code.trim() !== existingService.code) {
+      const duplicate = await prisma.service.findFirst({
+        where: { tenantId, code: data.code.trim(), id: { not: serviceId }, deletedAt: null },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error('Service code already exists for this tenant');
     }
 
     const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
     const categoryId = data.category !== undefined
       ? await this.resolveCategoryId(tenantId, data.category)
       : undefined;
+    await this.validatePostingAccount(tenantId, data.revenueAccountId, AccountType.REVENUE);
+    await this.validatePostingAccount(tenantId, data.costAccountId, AccountType.COGS);
+    for (const part of data.parts || []) {
+      if (!isValidQuantity(part.quantity)) throw new Error('Material quantity must be positive and use at most three decimal places');
+    }
 
     // IFRS-compliant price calculation for update
     let finalPriceSYP = data.priceSYP;
@@ -406,11 +479,18 @@ export class ServiceService {
     const service = await prisma.service.update({
       where: { id: serviceId },
       data: {
+        ...(data.code !== undefined ? { code: data.code?.trim() || null } : {}),
         name: data.name,
         nameAr: data.nameAr,
         nameEn: data.nameEn,
         description: data.description,
+        pricingUnit: data.pricingUnit,
+        vehicleType: data.vehicleType,
+        specification: data.specification,
+        ...(data.serviceType !== undefined ? { serviceType: data.serviceType } : {}),
         ...(categoryId !== undefined ? { categoryId } : {}),
+        ...(data.revenueAccountId !== undefined ? { revenueAccountId: data.revenueAccountId } : {}),
+        ...(data.costAccountId !== undefined ? { costAccountId: data.costAccountId } : {}),
         duration: data.duration,
         basePrice: data.basePrice,
         laborCostSYP: laborCostSYP,
@@ -432,6 +512,7 @@ export class ServiceService {
         ...(data.departmentId !== undefined ? { departmentId: data.departmentId } : {}),
         ...(data.assignedEmployeeId !== undefined ? { assignedEmployeeId: data.assignedEmployeeId } : {}),
       },
+      include: { category: true },
     });
 
     // Update ServicePart records if parts provided
@@ -454,36 +535,13 @@ export class ServiceService {
   }
 
   async deleteService(tenantId: string, serviceId: string): Promise<void> {
-    // Check if service exists and belongs to tenant
-    const existingService = await prisma.service.findFirst({
-      where: { id: serviceId, tenantId },
+    const result = await prisma.service.updateMany({
+      where: { id: serviceId, tenantId, deletedAt: null },
+      data: { isActive: false, deletedAt: new Date() },
     });
-
-    if (!existingService) {
+    if (result.count === 0) {
       throw new Error('Service not found');
     }
-
-    // Check if service is used in any bookings
-    const bookingServicesCount = await prisma.bookingService.count({
-      where: { serviceId },
-    });
-
-    if (bookingServicesCount > 0) {
-      throw new Error('Cannot delete service that is used in bookings');
-    }
-
-    // Check if service is used in any invoices
-    const invoiceItemsCount = await prisma.invoiceItem.count({
-      where: { serviceId },
-    });
-
-    if (invoiceItemsCount > 0) {
-      throw new Error('Cannot delete service that is used in invoices');
-    }
-
-    await prisma.service.delete({
-      where: { id: serviceId },
-    });
   }
 
   // Service Parts CRUD
@@ -590,7 +648,7 @@ export class ServiceService {
         id: sp.id,
         partId: sp.partId,
         partName: sp.part?.name || sp.part?.nameAr || 'غير مسمى',
-        quantity: sp.quantity,
+        quantity: Number(sp.quantity),
         unitCostSYP,
         unitCostUSD,
         totalCostSYP: sp.quantity * unitCostSYP,
@@ -602,10 +660,17 @@ export class ServiceService {
       id: service.id,
       tenantId: service.tenantId,
       name: service.name,
+      code: service.code || null,
       nameAr: service.nameAr,
       nameEn: service.nameEn,
       description: service.description,
+      pricingUnit: service.pricingUnit || null,
+      vehicleType: service.vehicleType || null,
+      specification: service.specification || null,
+      serviceType: service.serviceType || 'STANDARD',
       category: service.category?.name || service.categoryId || null,
+      revenueAccountId: service.revenueAccountId || null,
+      costAccountId: service.costAccountId || null,
       duration: service.duration,
       basePrice: priceUSD != null && rate > 0 ? priceSYP : service.basePrice == null ? null : Number(service.basePrice),
       laborCostSYP: moneySYP(service.laborCostSYP, service.laborCostUSD),

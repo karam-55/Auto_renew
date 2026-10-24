@@ -34,13 +34,13 @@ export class ChartOfAccountsScreen {
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
   render(): HTMLElement {
-    const layout = new AppLayout(this.auth, this.router, 'شجرة الحسابات', 'account_tree', this.api)
+    const layout = new AppLayout(this.auth, this.router, 'دليل الحسابات', 'account_tree', this.api)
     const c = document.createElement('div')
     c.className = 'page-enter min-h-screen bg-background p-gutter'
     c.innerHTML = [
       '<div class="max-w-7xl mx-auto space-y-stack-lg">',
       '  <div class="flex items-center justify-between">',
-      '    <h1 class="font-beVietnamPro text-headline-md text-on-surface">شجرة الحسابات</h1>',
+      '    <h1 class="font-beVietnamPro text-headline-md text-on-surface">دليل الحسابات</h1>',
       '    <button id="btn-add-account" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md flex items-center gap-2 hover:bg-primary-dark transition-colors">',
       '      <span class="material-symbols-outlined text-[18px]">add</span>',
       '      إضافة حساب',

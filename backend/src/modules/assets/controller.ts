@@ -7,7 +7,7 @@ export class AssetController {
   async getAllCategories(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user!.tenantId;
-      const cats = await assetService.getAllCategories(tenantId);
+      const cats = await assetService.getAllCategories(tenantId, req.query.includeInactive === 'true');
       res.json({ success: true, data: cats });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -56,7 +56,7 @@ export class AssetController {
   async getAllAssets(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user!.tenantId;
-      const assets = await assetService.getAllAssets(tenantId);
+      const assets = await assetService.getAllAssets(tenantId, req.query.includeInactive === 'true');
       res.json({ success: true, data: assets });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

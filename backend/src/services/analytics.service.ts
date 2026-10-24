@@ -358,11 +358,11 @@ class AnalyticsService {
 
     // Low stock items
     const lowStockItems = parts
-      .filter(item => item.quantity <= (item.minQuantity || 0))
+      .filter(item => Number(item.quantity) <= Number(item.minQuantity || 0))
       .map(item => ({
         itemName: item.name,
-        currentStock: item.quantity,
-        minStock: item.minQuantity || 0,
+        currentStock: Number(item.quantity),
+        minStock: Number(item.minQuantity || 0),
       }));
 
     // Stock movements

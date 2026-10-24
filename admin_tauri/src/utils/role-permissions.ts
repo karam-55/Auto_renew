@@ -14,7 +14,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
     '/dashboard', '/bookings', '/bookings/new', '/bookings/existing',
     '/invoices', '/pos', '/services', '/inventory', '/inventory/warehouses',
     '/inventory/suppliers', '/inventory/purchase-orders', '/customers', '/dealers',
-    '/loyalty', '/accounting', '/accounting/chart-of-accounts', '/accounting/journal-entries',
+    '/loyalty', '/accounting', '/accounting/chart-of-accounts', '/accounting/account-mappings', '/accounting/journal-entries',
     '/accounting/general-ledger', '/accounting/trial-balance', '/accounting/balance-sheet',
     '/accounting/income-statement', '/accounting/cash-flow', '/cost-centers', '/assets',
     '/hr', '/workshop-map', '/reports', '/reports/revenue', '/reports/inventory',
@@ -23,14 +23,14 @@ const ROLE_ROUTES: Record<string, string[]> = {
   ],
   RECEPTIONIST: [
     '/dashboard', '/bookings', '/bookings/new', '/bookings/existing',
-    '/invoices', '/pos', '/services', '/inventory', '/customers', '/dealers',
-    '/loyalty', '/notifications', '/workshop-map',
+    '/invoices', '/pos', '/customers',
+    '/work-orders', '/expenses', '/payments',
   ],
   MECHANIC: [
     '/dashboard', '/bookings', '/services', '/inventory', '/workshop-map', '/notifications',
   ],
   ACCOUNTANT: [
-    '/dashboard', '/invoices', '/accounting', '/accounting/chart-of-accounts',
+    '/dashboard', '/invoices', '/accounting', '/accounting/chart-of-accounts', '/accounting/account-mappings',
     '/accounting/journal-entries', '/accounting/general-ledger', '/accounting/trial-balance',
     '/accounting/balance-sheet', '/accounting/income-statement', '/accounting/cash-flow',
     '/cost-centers', '/assets', '/reports', '/reports/revenue', '/analytics',
@@ -98,7 +98,7 @@ export const UI_PERMISSIONS = {
   VIEW_ANALYTICS: ['ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'],
   CREATE_INVOICE: ['ADMIN', 'OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES', 'CASHIER'],
   CREATE_BOOKING: ['ADMIN', 'OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES'],
-  EDIT_BOOKING: ['ADMIN', 'OWNER', 'MANAGER', 'RECEPTIONIST', 'SALES'],
+  EDIT_BOOKING: ['ADMIN', 'OWNER', 'MANAGER', 'SALES'],
   ASSIGN_MECHANIC: ['ADMIN', 'OWNER', 'MANAGER'],
 } as const
 

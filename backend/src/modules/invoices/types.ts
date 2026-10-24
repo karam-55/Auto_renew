@@ -5,6 +5,8 @@ export interface InvoiceItem {
   invoiceId: string;
   partId: string | null;
   serviceId: string | null;
+  bookingServiceId: string | null;
+  bookingServiceMaterialId: string | null;
   description: string;
   quantity: number;
   priceSYP: number;
@@ -52,6 +54,8 @@ export interface Invoice {
 export interface CreateInvoiceItemDto {
   partId?: string;
   serviceId?: string;
+  bookingServiceId?: string;
+  bookingServiceMaterialId?: string;
   description: string;
   quantity: number;
   priceSYP: number;

@@ -68,6 +68,7 @@ integrationDescribe('Inventory Integration Tests', () => {
       const partData = {
         partNumber: 'INT-001',
         name: 'Integration Test Part',
+        supplierId: supplier.id,
         costSYP: 50000,
         sellingPriceSYP: 75000,
         quantity: 0,
@@ -82,7 +83,7 @@ integrationDescribe('Inventory Integration Tests', () => {
         nameEn: null,
         description: null,
         categoryId: null,
-        supplierId: null,
+        supplierId: supplier.id,
         costUSD: null,
         sellingPriceUSD: null,
         location: null,
@@ -331,6 +332,7 @@ integrationDescribe('Inventory Integration Tests', () => {
       const partData = {
         partNumber: 'INT-002',
         name: 'Integration Test Part 2',
+        supplierId: 'supplier-integration-2',
         costSYP: 30000,
         sellingPriceSYP: 45000,
         quantity: 50,
@@ -345,7 +347,7 @@ integrationDescribe('Inventory Integration Tests', () => {
         nameEn: null,
         description: null,
         categoryId: null,
-        supplierId: null,
+        supplierId: partData.supplierId,
         costUSD: null,
         sellingPriceUSD: null,
         location: null,

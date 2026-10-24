@@ -304,7 +304,7 @@ export class SetupWizardScreen {
       <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> الإعدادات المالية</div>
       <p class="text-body-md text-text-secondary pr-6">سعر الصرف: ${d2.exchangeRate || '-'} | الضريبة: ${d2.taxRate ?? '-'}%</p>
       <hr class="border-border" />
-      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> شجرة الحسابات</div>
+      <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> دليل الحسابات</div>
       <p class="text-body-md text-text-secondary pr-6">${(this.stepData[3]?.createDefaultAccounts ?? true) ? 'سيتم إنشاء الحسابات الافتراضية' : 'تم تخطي إنشاء الحسابات'}</p>
       <hr class="border-border" />
       <div class="flex items-center gap-2 text-primary font-headline-sm"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> المستخدمون</div>

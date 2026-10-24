@@ -10,7 +10,8 @@ jest.mock('../../src/config/database', () => {
     customer: { findFirst: jest.fn() },
     vehicle: { findFirst: jest.fn() },
     booking: { findFirst: jest.fn() },
-    bookingService: { findMany: jest.fn() },
+    bookingService: { findFirst: jest.fn(), findMany: jest.fn() },
+    bookingServiceMaterial: { findFirst: jest.fn() },
     expense: { aggregate: jest.fn() },
     taxRate: { findFirst: jest.fn() },
     part: { findFirst: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
@@ -63,6 +64,10 @@ describe('InvoiceService accounting and stock lifecycle', () => {
   beforeEach(() => {
     service = new InvoiceService();
     jest.clearAllMocks();
+    (prisma.invoice.findFirst as jest.Mock).mockReset();
+    (prisma.invoice.findUnique as jest.Mock).mockReset();
+    (prisma.bookingServiceMaterial.findFirst as jest.Mock).mockReset();
+    (prisma.bookingService.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.$transaction as jest.Mock).mockImplementation((operation: any) => operation(prisma));
     (prisma.customer.findFirst as jest.Mock).mockResolvedValue({ id: 'customer-1', tenantId });
     (prisma.invoice.count as jest.Mock).mockResolvedValue(0);
@@ -107,6 +112,7 @@ describe('InvoiceService accounting and stock lifecycle', () => {
     const invoice = {
       id: 'invoice-1', tenantId, invoiceNumber: 'INV-2026-00001', status: InvoiceStatus.DRAFT,
       invoiceDate: new Date('2026-10-08'), customerId: null, customer: null, paidSYP: 0, paidUSD: 0,
+      totalSYP: 2780, totalUSD: 20,
       items: [{ id: 'item-1', partId: 'part-1', serviceId: null, quantity: 2, priceSYP: 1390, priceUSD: 10,
         description: 'Part', totalSYP: 2780, totalUSD: 20 }],
     };
@@ -135,6 +141,48 @@ describe('InvoiceService accounting and stock lifecycle', () => {
     expect(result.status).toBe(InvoiceStatus.ISSUED);
     await expect(service.finalizeInvoice(tenantId, invoice.id, 'user-1')).rejects.toThrow('Can only finalize invoices in DRAFT status');
     expect(prisma.inventoryTransaction.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not consume work-order material a second time when it was issued before invoicing', async () => {
+    const invoice = {
+      id: 'invoice-wo',
+      tenantId,
+      invoiceNumber: 'INV-WO-1',
+      status: InvoiceStatus.DRAFT,
+      invoiceDate: new Date('2026-10-08'),
+      bookingId: 'booking-1',
+      customerId: null,
+      customer: null,
+      paidSYP: 0,
+      paidUSD: 0,
+      totalSYP: 1000,
+      totalUSD: 1,
+      items: [{
+        id: 'item-wo',
+        bookingServiceId: 'booking-service-1',
+        bookingServiceMaterialId: 'material-1',
+        serviceId: 'service-1',
+        partId: 'part-1',
+        quantity: 2,
+        priceSYP: 500,
+        priceUSD: 0.5,
+        description: 'Oil',
+        totalSYP: 1000,
+        totalUSD: 1,
+        service: { category: { costCenterId: 'center-1' } },
+      }],
+    };
+    (prisma.invoice.findFirst as jest.Mock).mockResolvedValueOnce(invoice).mockResolvedValueOnce({ ...invoice, status: InvoiceStatus.ISSUED });
+    (prisma.invoice.findUnique as jest.Mock).mockResolvedValue({ ...invoice, status: InvoiceStatus.ISSUED });
+    (prisma.bookingServiceMaterial.findFirst as jest.Mock).mockResolvedValue({ issuedQuantity: 2 });
+
+    const result = await service.finalizeInvoice(tenantId, invoice.id, 'user-1');
+
+    expect(prisma.part.updateMany).not.toHaveBeenCalled();
+    expect(prisma.inventoryTransaction.create).not.toHaveBeenCalled();
+    expect(require('../../src/modules/accounting/automatic-journal-entries').createInvoiceJournalEntry)
+      .toHaveBeenCalledWith(expect.objectContaining({ id: invoice.id }), tenantId, 'user-1', prisma);
+    expect(result.status).toBe(InvoiceStatus.ISSUED);
   });
 
   it('reverses the invoice and each linked consumption exactly once on cancellation', async () => {
@@ -179,8 +227,8 @@ describe('InvoiceService accounting and stock lifecycle', () => {
       };
       (prisma.invoice.findFirst as jest.Mock).mockResolvedValue(invoice);
       (prisma.bookingService.findMany as jest.Mock).mockResolvedValue([
-        { serviceId: 'svc-1', priceSYP: 1000, priceUSD: 10, service: { name: 'تغيير زيت' }, materials: [] },
-        { serviceId: 'svc-2', priceSYP: 2000, priceUSD: null, service: { name: 'فحص' }, materials: [] },
+        { serviceId: 'svc-1', priceSYP: 1000, priceUSD: 10, priceFinalized: true, service: { name: 'تغيير زيت' }, materials: [] },
+        { serviceId: 'svc-2', priceSYP: 2000, priceUSD: null, priceFinalized: true, service: { name: 'فحص' }, materials: [] },
       ]);
       (prisma.expense.aggregate as jest.Mock).mockResolvedValue({ _sum: { amountSYP: null, amountUSD: null } });
       (prisma.invoice.update as jest.Mock).mockImplementation(({ data }: any) => Promise.resolve({ ...invoice, ...data }));
@@ -210,7 +258,7 @@ describe('InvoiceService accounting and stock lifecycle', () => {
         .rejects.toThrow('Invoice is not linked to a booking');
     });
 
-    it('prefills job-priced services from JOB_PURCHASE expenses and bills oil at sale price', async () => {
+    it('uses the approved job service sale price separately from direct-purchase cost', async () => {
       const invoice = {
         id: 'inv-job', tenantId, invoiceNumber: 'INV-2026-00002', status: InvoiceStatus.DRAFT,
         bookingId: 'booking-job', taxRateId: null, discountType: 'FIXED',
@@ -218,21 +266,21 @@ describe('InvoiceService accounting and stock lifecycle', () => {
       };
       (prisma.invoice.findFirst as jest.Mock).mockResolvedValue(invoice);
       (prisma.bookingService.findMany as jest.Mock).mockResolvedValue([
-        { serviceId: 'svc-spray', priceSYP: 0, priceUSD: 0, service: { name: 'بخ السيارة', serviceType: 'JOB_BASED' }, materials: [] },
-        { serviceId: 'svc-oil', priceSYP: 0, priceUSD: 0, service: { name: 'تغيير زيت دوري', serviceType: 'OIL_PAID' },
-          materials: [{ partId: 'oil-1', quantity: 4, part: { name: 'Oil 5W30', nameAr: 'زيت 5W30', sellingPriceSYP: 500, sellingPriceUSD: 3.6 } }] },
+        { id: 'bs-spray', serviceId: 'svc-spray', quantity: 1, priceSYP: 4000, priceUSD: 28.78, priceFinalized: true, service: { name: 'بخ السيارة', serviceType: 'JOB_BASED' }, materials: [] },
+        { id: 'bs-oil', serviceId: 'svc-oil', quantity: 1, priceSYP: 0, priceUSD: 0, priceFinalized: true, service: { name: 'تغيير زيت دوري', serviceType: 'OIL_PAID' },
+          materials: [{ id: 'mat-oil', bookingServiceId: 'bs-oil', partId: 'oil-1', quantity: 4, issuedQuantity: 4, part: { name: 'Oil 5W30', nameAr: 'زيت 5W30', sellingPriceSYP: 500, sellingPriceUSD: 3.6 } }] },
       ]);
       (prisma.expense.aggregate as jest.Mock).mockResolvedValue({ _sum: { amountSYP: 7000, amountUSD: 50 } });
       (prisma.invoice.update as jest.Mock).mockImplementation(({ data }: any) => Promise.resolve({ ...invoice, ...data }));
 
       await service.syncInvoiceFromBooking(tenantId, invoice.id);
 
-      // Job line prefilled with 7000 job-purchase total; oil line 4 × 500 = 2000 → subtotal 9000
+      // The job purchase is cost-only; sale price comes from the work-order service line.
       expect(prisma.invoice.update).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ subtotalSYP: 9000 }),
+        data: expect.objectContaining({ subtotalSYP: 6000 }),
       }));
       const createdItems = (prisma.invoiceItem.create as jest.Mock).mock.calls.map((c: any) => c[0].data);
-      expect(createdItems.find((i: any) => i.serviceId === 'svc-spray').priceSYP).toBe(7000);
+      expect(createdItems.find((i: any) => i.serviceId === 'svc-spray').priceSYP).toBe(4000);
       const oilItem = createdItems.find((i: any) => i.partId === 'oil-1');
       expect(oilItem.quantity).toBe(4);
       expect(oilItem.priceSYP).toBe(500);
@@ -247,8 +295,8 @@ describe('InvoiceService accounting and stock lifecycle', () => {
       };
       (prisma.invoice.findFirst as jest.Mock).mockResolvedValue(invoice);
       (prisma.bookingService.findMany as jest.Mock).mockResolvedValue([
-        { serviceId: 'svc-ow', priceSYP: 0, priceUSD: 0, service: { name: 'تغيير زيت كفالة', serviceType: 'OIL_WARRANTY' },
-          materials: [{ partId: 'oil-1', quantity: 3.5, part: { name: 'Oil', nameAr: 'زيت', sellingPriceSYP: 500, sellingPriceUSD: 3.6 } }] },
+        { id: 'bs-oil-warranty', serviceId: 'svc-ow', quantity: 1, priceSYP: 0, priceUSD: 0, priceFinalized: true, service: { name: 'تغيير زيت كفالة', serviceType: 'OIL_WARRANTY' },
+          materials: [{ id: 'mat-oil-warranty', bookingServiceId: 'bs-oil-warranty', partId: 'oil-1', quantity: 3.5, issuedQuantity: 3.5, part: { name: 'Oil', nameAr: 'زيت', sellingPriceSYP: 500, sellingPriceUSD: 3.6 } }] },
       ]);
       (prisma.expense.aggregate as jest.Mock).mockResolvedValue({ _sum: { amountSYP: null, amountUSD: null } });
       (prisma.invoice.update as jest.Mock).mockImplementation(({ data }: any) => Promise.resolve({ ...invoice, ...data }));
