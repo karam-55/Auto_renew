@@ -340,8 +340,16 @@ export class InventoryScreen {
               </select>
               <p class="mt-1 text-xs text-text-secondary">يُختار تلقائياً المورد الأساسي للمادة، ويمكن تغييره لهذا الاستلام فقط.</p>
             </div>
-            <!-- Package mode (part has unitsPerPackage) -->
-            <div id="intake-package-fields" class="space-y-4">
+            <!-- Package intake toggle (only when part has a package conversion) -->
+            <div id="intake-package-toggle-row" class="hidden rounded-xl border border-border bg-surface-subtle p-4">
+              <label class="flex items-center gap-3 cursor-pointer select-none" for="intake-use-package">
+                <input type="checkbox" id="intake-use-package" class="w-5 h-5 accent-primary" />
+                <span class="font-body-md text-on-surface font-semibold">استلمت البضاعة بعبوة مغلقة</span>
+              </label>
+              <p class="mt-1 text-xs text-text-secondary pr-8" id="intake-package-toggle-hint"></p>
+            </div>
+            <!-- Package mode (checkbox ticked + part has unitsPerPackage) -->
+            <div id="intake-package-fields" class="space-y-4 hidden">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2"><span id="intake-packages-label">عدد الأطرد المستلمة</span> *</label>
                 <input type="number" min="0" step="1" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-packages" placeholder="مثال: 2" />
@@ -356,10 +364,9 @@ export class InventoryScreen {
                   <input type="number" min="0" step="0.01" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-package-cost-usd" placeholder="0.00" />
                 </div>
               </div>
-              <div id="intake-preview" class="hidden rounded-xl border border-secondary/30 bg-secondary/5 p-4 text-body-sm text-on-surface"></div>
             </div>
-            <!-- Unit mode (part without package config) -->
-            <div id="intake-unit-fields" class="space-y-4 hidden">
+            <!-- Unit mode (default) -->
+            <div id="intake-unit-fields" class="space-y-4">
               <div>
                 <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">الكمية المضافة *</label>
                 <input type="number" min="0" step="0.001" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="intake-units" placeholder="0" />
@@ -375,6 +382,7 @@ export class InventoryScreen {
                 </div>
               </div>
             </div>
+            <div id="intake-preview" class="hidden rounded-xl border border-secondary/30 bg-secondary/5 p-4 text-body-sm text-on-surface"></div>
             <div>
               <label class="block font-label-sm text-label-sm text-text-tertiary mb-2">طريقة تسجيل تكلفة الاستلام *</label>
               <select id="intake-settlement-account" class="w-full h-[48px] bg-surface-subtle border border-border rounded-lg px-4 font-ibmPlexSans font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none">
@@ -410,6 +418,10 @@ export class InventoryScreen {
       wireUsdSypPair(
         c.querySelector('#intake-package-cost-usd') as HTMLInputElement,
         c.querySelector('#intake-package-cost') as HTMLInputElement
+      )
+      wireUsdSypPair(
+        c.querySelector('#intake-unit-cost-usd') as HTMLInputElement,
+        c.querySelector('#intake-unit-cost') as HTMLInputElement
       )
     })
 
@@ -497,7 +509,11 @@ export class InventoryScreen {
     intakeModalEl?.addEventListener('click', (e) => {
       if (e.target === intakeModalEl) this.closeModal(c, '#intake-modal')
     })
-    ;['#intake-packages', '#intake-package-cost', '#intake-package-cost-usd'].forEach(sel => {
+    c.querySelector('#intake-use-package')?.addEventListener('change', (e) => {
+      this.setIntakeMode(c, (e.currentTarget as HTMLInputElement).checked)
+    })
+    ;['#intake-packages', '#intake-package-cost', '#intake-package-cost-usd',
+      '#intake-units', '#intake-unit-cost', '#intake-unit-cost-usd'].forEach(sel => {
       c.querySelector(sel)?.addEventListener('input', () => this.updateIntakePreview(c))
     })
     c.querySelector('#submit-intake-btn')?.addEventListener('click', async () => {
@@ -583,9 +599,6 @@ export class InventoryScreen {
     const nameEl = el.querySelector('#intake-part-name') as HTMLElement
     const idEl = el.querySelector('#intake-part-id') as HTMLInputElement
     const idempotencyKeyEl = el.querySelector('#intake-idempotency-key') as HTMLInputElement
-    const pkgFields = el.querySelector('#intake-package-fields') as HTMLElement
-    const unitFields = el.querySelector('#intake-unit-fields') as HTMLElement
-    const preview = el.querySelector('#intake-preview') as HTMLElement
     const packagesIn = el.querySelector('#intake-packages') as HTMLInputElement
     const pkgCostIn = el.querySelector('#intake-package-cost') as HTMLInputElement
     const pkgCostUsdIn = el.querySelector('#intake-package-cost-usd') as HTMLInputElement
@@ -622,47 +635,83 @@ export class InventoryScreen {
     if (unitCostUsdIn) unitCostUsdIn.value = ''
     if (settlementSelect) settlementSelect.value = ''
     if (notesIn) notesIn.value = ''
-    if (preview) preview.classList.add('hidden')
 
-    const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
+    const canUsePackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
     const pkgLabel = el.querySelector('#intake-packages-label') as HTMLElement
     const pkgCostLabel = el.querySelector('#intake-package-cost-label') as HTMLElement
     const unitCostLabel = el.querySelector('#intake-unit-cost-label') as HTMLElement
+    const toggleRow = el.querySelector('#intake-package-toggle-row') as HTMLElement
+    const toggleBox = el.querySelector('#intake-use-package') as HTMLInputElement
+    const toggleHint = el.querySelector('#intake-package-toggle-hint') as HTMLElement
     const purchaseUnit = part?.purchaseUnitName || 'طرد'
     const baseUnit = part?.baseUnitName || 'وحدة'
     if (pkgLabel) pkgLabel.textContent = `عدد ${purchaseUnit} المستلمة`
-    if (pkgCostLabel) pkgCostLabel.textContent = `سعر ${purchaseUnit} (ل.س)`
-    if (unitCostLabel) unitCostLabel.textContent = `تكلفة ${baseUnit} (ل.س)`
-    if (pkgFields) pkgFields.classList.toggle('hidden', !hasPackage)
-    if (unitFields) unitFields.classList.toggle('hidden', hasPackage)
+    if (pkgCostLabel) pkgCostLabel.textContent = `سعر ${purchaseUnit} الكامل (ل.س)`
+    if (unitCostLabel) unitCostLabel.textContent = `تكلفة ${baseUnit} الواحد (ل.س)`
+    if (toggleRow) toggleRow.classList.toggle('hidden', !canUsePackage)
+    if (toggleBox) toggleBox.checked = false
+    if (toggleHint) {
+      toggleHint.textContent = canUsePackage
+        ? `فعّل هذا الخيار إذا اشتريت ${purchaseUnit} كاملة — الواحد يحتوي ${part.unitsPerPackage} ${baseUnit}`
+        : ''
+    }
+    this.setIntakeMode(el, false)
 
     modal.classList.remove('hidden')
     modal.classList.add('flex')
-    setTimeout(() => (hasPackage ? packagesIn : unitsIn)?.focus(), 100)
+    setTimeout(() => unitsIn?.focus(), 100)
+  }
+
+  private setIntakeMode(el: HTMLElement, usePackage: boolean) {
+    const pkgFields = el.querySelector('#intake-package-fields') as HTMLElement
+    const unitFields = el.querySelector('#intake-unit-fields') as HTMLElement
+    const preview = el.querySelector('#intake-preview') as HTMLElement
+    pkgFields?.classList.toggle('hidden', !usePackage)
+    unitFields?.classList.toggle('hidden', usePackage)
+    preview?.classList.add('hidden')
+    const target = (usePackage
+      ? el.querySelector('#intake-packages')
+      : el.querySelector('#intake-units')) as HTMLInputElement | null
+    setTimeout(() => target?.focus(), 50)
   }
 
   private updateIntakePreview(el: HTMLElement) {
     const preview = el.querySelector('#intake-preview') as HTMLElement
-    const packagesIn = el.querySelector('#intake-packages') as HTMLInputElement
-    const pkgCostIn = el.querySelector('#intake-package-cost') as HTMLInputElement
-    const pkgCostUsdIn = el.querySelector('#intake-package-cost-usd') as HTMLInputElement
-    if (!preview || !packagesIn) return
-    const packages = parseFloat(packagesIn.value)
-    const cost = parseFloat(pkgCostIn?.value || '')
-    if (!packages || packages <= 0 || isNaN(cost) || cost < 0) {
+    if (!preview) return
+    const part = this.currentIntakePart
+    const upp = Number(part?.unitsPerPackage || 0)
+    const usePackage = (el.querySelector('#intake-use-package') as HTMLInputElement)?.checked === true && upp > 0
+    const baseUnit = part?.baseUnitName || 'وحدة'
+
+    if (usePackage) {
+      const packages = parseFloat((el.querySelector('#intake-packages') as HTMLInputElement)?.value || '')
+      const cost = parseFloat((el.querySelector('#intake-package-cost') as HTMLInputElement)?.value || '')
+      if (!packages || packages <= 0 || isNaN(cost) || cost < 0) {
+        preview.classList.add('hidden')
+        return
+      }
+      const units = packages * upp
+      const unitCost = cost / upp
+      const usdCost = parseFloat((el.querySelector('#intake-package-cost-usd') as HTMLInputElement)?.value || '')
+      let html = `سيضاف <b>${units}</b> ${this.esc(baseUnit)} · تكلفة الوحدة <b>${this.fmt(unitCost)} ل.س</b>`
+      if (!isNaN(usdCost) && usdCost > 0) {
+        html += ` · <b>$${this.fmtUsd(usdCost / upp)}</b>`
+      }
+      preview.innerHTML = html
+      preview.classList.remove('hidden')
+      return
+    }
+
+    const units = parseFloat((el.querySelector('#intake-units') as HTMLInputElement)?.value || '')
+    const unitCost = parseFloat((el.querySelector('#intake-unit-cost') as HTMLInputElement)?.value || '')
+    if (!units || units <= 0 || isNaN(unitCost) || unitCost < 0) {
       preview.classList.add('hidden')
       return
     }
-    // Read conversion from the part stored on the modal state
-    const part = this.currentIntakePart
-    const upp = part?.unitsPerPackage || 0
-    if (!upp) { preview.classList.add('hidden'); return }
-    const units = packages * upp
-    const unitCost = cost / upp
-    const usdCost = parseFloat(pkgCostUsdIn?.value || '')
-    let html = `سيضاف <b>${units}</b> ${this.esc(part?.baseUnitName || 'وحدة')} · تكلفة الوحدة <b>${this.fmt(unitCost)} ل.س</b>`
+    const usdCost = parseFloat((el.querySelector('#intake-unit-cost-usd') as HTMLInputElement)?.value || '')
+    let html = `سيضاف <b>${units}</b> ${this.esc(baseUnit)} · الإجمالي <b>${this.fmt(units * unitCost)} ل.س</b>`
     if (!isNaN(usdCost) && usdCost > 0) {
-      html += ` · <b>$${this.fmtUsd(usdCost / upp)}</b>`
+      html += ` · <b>$${this.fmtUsd(units * usdCost)}</b>`
     }
     preview.innerHTML = html
     preview.classList.remove('hidden')
@@ -677,7 +726,8 @@ export class InventoryScreen {
     const idempotencyKey = (el.querySelector('#intake-idempotency-key') as HTMLInputElement)?.value
     if (!idempotencyKey) { ;(window as any).toast?.show?.({ message: 'تعذر إنشاء مفتاح الاستلام، أغلق النافذة وافتحها مجدداً', type: 'error' }); return }
     const part = this.currentIntakePart
-    const hasPackage = part?.unitsPerPackage != null && part.unitsPerPackage > 0
+    const hasPackage = (el.querySelector('#intake-use-package') as HTMLInputElement)?.checked === true
+      && part?.unitsPerPackage != null && part.unitsPerPackage > 0
 
     let payload: Record<string, unknown> = {}
     const settlementAccount = (el.querySelector('#intake-settlement-account') as HTMLSelectElement)?.value
