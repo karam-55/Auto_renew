@@ -118,7 +118,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
             ${{ secrets.SERVER_USER }}@178.105.209.59 "
-              set -e
+              set -eo pipefail
               cd /opt/auto-renew/deploy
 
               # Backup PostgreSQL before any deploy or schema change
