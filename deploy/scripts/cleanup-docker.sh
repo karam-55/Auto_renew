@@ -13,9 +13,6 @@ docker network prune -f >> "$LOG_FILE" 2>&1
 docker image prune -f >> "$LOG_FILE" 2>&1
 docker buildx prune -f >> "$LOG_FILE" 2>&1
 
-# Remove unused volumes (only dangling, not mounted)
-docker volume prune -f >> "$LOG_FILE" 2>&1
-
 # Clean old Docker logs from /var/lib/docker/containers
 find /var/lib/docker/containers -type f -name '*.log' -size +100M -exec sh -c 'cat /dev/null > "$1"' _ {} \; 2>/dev/null || true
 
