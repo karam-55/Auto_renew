@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { getAccountIdByRole } from '../accounting/automatic-journal-entries';
+import { buildBalanceSheet, buildIncomeStatement, buildTrialBalance, LedgerLine, loadLedgerTotals } from '../accounting/ledger';
 import {
   BalanceSheetRequest,
   BalanceSheetResponse,
@@ -38,101 +39,42 @@ export class ReportService {
     tenantId: string,
     request: BalanceSheetRequest
   ): Promise<BalanceSheetResponse> {
-    const currency = request.currency || 'SYP';
-    const { fromDate, toDate } = request;
-    const asOfDate = toDate || new Date();
-
-    // Get all active accounts for the tenant
-    const accounts = await prisma.account.findMany({
-      where: { tenantId, isActive: true },
-      orderBy: { code: 'asc' },
-    });
+    const currency = request.currency === 'USD' ? 'USD' : 'SYP';
+    const asOfDate = request.toDate || new Date();
 
     // Get all journal lines UP TO asOfDate (cumulative — balance sheet is a snapshot)
-    const journalLines = await prisma.journalLine.findMany({
-      where: {
-        entry: {
-          tenantId,
-          entryDate: { lte: asOfDate },
-          status: 'POSTED',
-        },
-      },
-      include: {
-        account: true,
-      },
-    });
-
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({ where: { tenantId }, orderBy: { code: 'asc' } }),
+      loadLedgerTotals(tenantId, { to: asOfDate }),
+    ]);
     // Calculate cumulative balance per account using proper debit/credit rules
-    const accountBalances = new Map<string, number>();
-    journalLines.forEach((line) => {
-      const current = accountBalances.get(line.accountId) || 0;
-      const debit = Number(line.debitSYP) || 0;
-      const credit = Number(line.creditSYP) || 0;
+    const statement = buildBalanceSheet(accounts, totals, currency);
 
-      // Debit increases balance for: ASSET, EXPENSE, COGS
-      // Credit increases balance for: LIABILITY, EQUITY, REVENUE
-      if (line.account.accountType === 'ASSET' || line.account.accountType === 'EXPENSE' || line.account.accountType === 'COGS') {
-        accountBalances.set(line.accountId, current + debit - credit);
-      } else {
-        accountBalances.set(line.accountId, current + credit - debit);
-      }
+    const toAccount = (line: LedgerLine): BalanceSheetAccount => ({
+      accountId: line.accountId,
+      accountCode: line.code,
+      accountName: line.nameEn || line.nameAr,
+      accountNameAr: line.nameAr,
+      accountType: line.accountType,
+      balance: line.amount,
+      currency,
     });
 
-    // Calculate Retained Earnings = cumulative Revenue - cumulative Expenses up to asOfDate
-    let retainedEarnings = 0;
-    journalLines.forEach((line) => {
-      const debit = Number(line.debitSYP) || 0;
-      const credit = Number(line.creditSYP) || 0;
-      if (line.account.accountType === 'REVENUE') {
-        retainedEarnings += credit - debit;
-      } else if (line.account.accountType === 'EXPENSE' || line.account.accountType === 'COGS') {
-        retainedEarnings -= debit - credit;
-      }
-    });
-
-    // Build balance sheet sections
-    const assetAccounts: BalanceSheetAccount[] = [];
-    const liabilityAccounts: BalanceSheetAccount[] = [];
-    const equityAccounts: BalanceSheetAccount[] = [];
-
-    accounts.forEach((account) => {
-      const balance = accountBalances.get(account.id) || 0;
-      const bsAccount: BalanceSheetAccount = {
-        accountId: account.id,
-        accountCode: account.code,
-        accountName: account.nameEn || account.nameAr,
-        accountNameAr: account.nameAr,
-        accountType: account.accountType,
-        balance,
-        currency,
-      };
-
-      if (account.accountType === 'ASSET') {
-        assetAccounts.push(bsAccount);
-      } else if (account.accountType === 'LIABILITY') {
-        liabilityAccounts.push(bsAccount);
-      } else if (account.accountType === 'EQUITY') {
-        equityAccounts.push(bsAccount);
-      }
-    });
-
+    const equityAccounts = statement.equity.map(toAccount);
     // Add Retained Earnings as a separate equity line item if non-zero
-    if (Math.abs(retainedEarnings) >= 0.01) {
+    if (statement.currentPeriodResult !== 0) {
       equityAccounts.push({
-        accountId: 'retained-earnings',
-        accountCode: '3999',
-        accountName: 'Retained Earnings',
-        accountNameAr: 'الأرباح المحتجزة',
-        accountType: 'EQUITY' as AccountType,
-        balance: retainedEarnings,
+        accountId: 'current-period-result',
+        accountCode: '',
+        accountName: 'Current period result',
+        accountNameAr: 'نتيجة الفترة الجارية (غير مقفلة)',
+        accountType: AccountType.EQUITY,
+        balance: statement.currentPeriodResult,
         currency,
       });
     }
 
-    const totalAssets = assetAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-    const totalLiabilities = liabilityAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-    const totalEquity = equityAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-
+    // Build balance sheet sections
     return {
       reportDate: asOfDate,
       currency,
@@ -140,16 +82,16 @@ export class ReportService {
         sectionType: 'ASSETS',
         sectionName: 'Assets',
         sectionNameAr: 'الأصول',
-        accounts: assetAccounts,
-        total: totalAssets,
+        accounts: statement.assets.map(toAccount),
+        total: statement.totalAssets,
         currency,
       },
       liabilities: {
         sectionType: 'LIABILITIES',
         sectionName: 'Liabilities',
         sectionNameAr: 'الخصوم',
-        accounts: liabilityAccounts,
-        total: totalLiabilities,
+        accounts: statement.liabilities.map(toAccount),
+        total: statement.totalLiabilities,
         currency,
       },
       equity: {
@@ -157,13 +99,15 @@ export class ReportService {
         sectionName: 'Equity',
         sectionNameAr: 'حقوق الملكية',
         accounts: equityAccounts,
-        total: totalEquity,
+        total: statement.totalEquity,
         currency,
       },
-      totalAssets,
-      totalLiabilities,
-      totalEquity,
-      isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
+      totalAssets: statement.totalAssets,
+      totalLiabilities: statement.totalLiabilities,
+      totalEquity: statement.totalEquity,
+      totalLiabilitiesAndEquity: statement.totalLiabilitiesAndEquity,
+      difference: statement.difference,
+      isBalanced: statement.isBalanced,
       generatedAt: new Date(),
     };
   }
@@ -176,89 +120,27 @@ export class ReportService {
     tenantId: string,
     request: ProfitLossRequest
   ): Promise<ProfitLossResponse> {
-    const currency = request.currency || 'SYP';
+    const currency = request.currency === 'USD' ? 'USD' : 'SYP';
     const { fromDate, toDate } = request;
 
     // Get journal lines for revenue and expense accounts
-    const journalLines = await prisma.journalLine.findMany({
-      where: {
-        entry: {
-          tenantId,
-          entryDate: {
-            gte: fromDate,
-            lte: toDate,
-          },
-          status: 'POSTED',
-        },
-        account: {
-          accountType: {
-            in: ['REVENUE', 'COGS', 'EXPENSE'],
-          },
-        },
-      },
-      include: {
-        account: true,
-      },
-    });
-
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({ where: { tenantId }, orderBy: { code: 'asc' } }),
+      loadLedgerTotals(tenantId, { from: fromDate, to: toDate }),
+    ]);
     // Calculate amounts per account
-    const accountAmounts = new Map<string, number>();
-    journalLines.forEach((line) => {
-      const currentAmount = accountAmounts.get(line.accountId) || 0;
-      const debit = Number(line.debitSYP);
-      const credit = Number(line.creditSYP);
-
-      // Revenue: credit increases, debit decreases (contra-revenue)
-      // COGS & Expense: debit increases, credit decreases
-      if (line.account.accountType === 'REVENUE') {
-        accountAmounts.set(line.accountId, currentAmount + credit - debit);
-      } else {
-        accountAmounts.set(line.accountId, currentAmount + debit - credit);
-      }
-    });
-
     // Get revenue, COGS and expense accounts
-    const accounts = await prisma.account.findMany({
-      where: {
-        tenantId,
-        isActive: true,
-        accountType: {
-          in: ['REVENUE', 'COGS', 'EXPENSE'],
-        },
-      },
+    const statement = buildIncomeStatement(accounts, totals, currency);
+
+    const toAccount = (line: LedgerLine): ProfitLossAccount => ({
+      accountId: line.accountId,
+      accountCode: line.code,
+      accountName: line.nameEn || line.nameAr,
+      accountNameAr: line.nameAr,
+      accountType: line.accountType,
+      amount: line.amount,
+      currency,
     });
-
-    const revenueAccounts: ProfitLossAccount[] = [];
-    const cogsAccounts: ProfitLossAccount[] = [];
-    const expenseAccounts: ProfitLossAccount[] = [];
-
-    accounts.forEach((account) => {
-      const amount = accountAmounts.get(account.id) || 0;
-      const profitLossAccount: ProfitLossAccount = {
-        accountId: account.id,
-        accountCode: account.code,
-        accountName: account.nameEn || account.nameAr,
-        accountNameAr: account.nameAr,
-        accountType: account.accountType,
-        amount,
-        currency,
-      };
-
-      if (account.accountType === 'REVENUE') {
-        revenueAccounts.push(profitLossAccount);
-      } else if (account.accountType === 'COGS') {
-        cogsAccounts.push(profitLossAccount);
-      } else {
-        expenseAccounts.push(profitLossAccount);
-      }
-    });
-
-    const totalRevenue = revenueAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-    const totalCOGS = cogsAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-    const totalExpenses = expenseAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-    const grossProfit = totalRevenue - totalCOGS;
-    const netProfit = grossProfit - totalExpenses;
-    const netProfitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     return {
       fromDate,
@@ -268,29 +150,29 @@ export class ReportService {
         sectionType: 'REVENUE',
         sectionName: 'Revenue',
         sectionNameAr: 'الإيرادات',
-        accounts: revenueAccounts,
-        total: totalRevenue,
+        accounts: statement.revenue.map(toAccount),
+        total: statement.totalRevenue,
         currency,
       },
       cogs: {
         sectionType: 'COGS',
         sectionName: 'Cost of Goods Sold',
         sectionNameAr: 'تكلفة البضاعة المباعة',
-        accounts: cogsAccounts,
-        total: totalCOGS,
+        accounts: statement.cogs.map(toAccount),
+        total: statement.totalCogs,
         currency,
       },
-      grossProfit,
+      grossProfit: statement.grossProfit,
       expenses: {
         sectionType: 'EXPENSE',
         sectionName: 'Expenses',
         sectionNameAr: 'المصروفات التشغيلية',
-        accounts: expenseAccounts,
-        total: totalExpenses,
+        accounts: statement.expenses.map(toAccount),
+        total: statement.totalExpenses,
         currency,
       },
-      netProfit,
-      netProfitMargin,
+      netProfit: statement.netIncome,
+      netProfitMargin: statement.netMargin,
       generatedAt: new Date(),
     };
   }
@@ -494,86 +376,37 @@ export class ReportService {
     tenantId: string,
     request: TrialBalanceRequest
   ): Promise<TrialBalanceResponse> {
-    const currency = request.currency || 'SYP';
+    const currency = request.currency === 'USD' ? 'USD' : 'SYP';
     const { fromDate, toDate } = request;
 
     // Get all journal lines within date range
-    const journalLines = await prisma.journalLine.findMany({
-      where: {
-        entry: {
-          tenantId,
-          entryDate: {
-            gte: fromDate,
-            lte: toDate,
-          },
-          status: 'POSTED',
-        },
-      },
-      include: {
-        account: true,
-      },
-    });
-
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({ where: { tenantId }, orderBy: { code: 'asc' } }),
+      loadLedgerTotals(tenantId, { from: fromDate, to: toDate }),
+    ]);
     // Calculate debit/credit totals per account
-    const accountTotals = new Map<string, { debit: number; credit: number }>();
-    journalLines.forEach((line) => {
-      const current = accountTotals.get(line.accountId) || { debit: 0, credit: 0 };
-      current.debit += Number(line.debitSYP);
-      current.credit += Number(line.creditSYP);
-      accountTotals.set(line.accountId, current);
-    });
-
-    // Get all active accounts
-    const accounts = await prisma.account.findMany({
-      where: { tenantId, isActive: true },
-    });
-
-    const trialBalanceAccounts: TrialBalanceAccount[] = [];
-
-    accounts.forEach((account) => {
-      const totals = accountTotals.get(account.id) || { debit: 0, credit: 0 };
-
-      // Balance depends on account type per GAAP:
-      // ASSET, EXPENSE: normal debit balance = debit - credit
-      // LIABILITY, EQUITY, REVENUE: normal credit balance = credit - debit
-      let balance = 0;
-      let balanceType: 'DEBIT' | 'CREDIT';
-      if (account.accountType === 'ASSET' || account.accountType === 'COGS' || account.accountType === 'EXPENSE') {
-        balance = totals.debit - totals.credit;
-        balanceType = balance >= 0 ? 'DEBIT' : 'CREDIT';
-      } else {
-        balance = totals.credit - totals.debit;
-        balanceType = balance >= 0 ? 'CREDIT' : 'DEBIT';
-      }
-
-      trialBalanceAccounts.push({
-        accountId: account.id,
-        accountCode: account.code,
-        accountName: account.nameEn || account.nameAr,
-        accountNameAr: account.nameAr,
-        accountType: account.accountType,
-        debitTotal: totals.debit,
-        creditTotal: totals.credit,
-        balance: Math.abs(balance),
-        balanceType,
-        currency,
-      });
-    });
-
-    const totalDebit = trialBalanceAccounts.reduce((sum, acc) => sum + acc.debitTotal, 0);
-    const totalCredit = trialBalanceAccounts.reduce((sum, acc) => sum + acc.creditTotal, 0);
-    const difference = totalDebit - totalCredit;
-    const isBalanced = Math.abs(difference) < 0.01;
+    const trialBalance = buildTrialBalance(accounts, totals, currency);
 
     return {
       fromDate,
       toDate,
       currency,
-      accounts: trialBalanceAccounts,
-      totalDebit,
-      totalCredit,
-      isBalanced,
-      difference,
+      accounts: trialBalance.rows.map((row) => ({
+        accountId: row.accountId,
+        accountCode: row.code,
+        accountName: row.nameEn || row.nameAr,
+        accountNameAr: row.nameAr,
+        accountType: row.accountType,
+        debitTotal: row.grossDebit,
+        creditTotal: row.grossCredit,
+        balance: row.debit > 0 ? row.debit : row.credit,
+        balanceType: row.debit > 0 ? 'DEBIT' : 'CREDIT',
+        currency,
+      })),
+      totalDebit: trialBalance.totalDebit,
+      totalCredit: trialBalance.totalCredit,
+      isBalanced: trialBalance.isBalanced,
+      difference: trialBalance.difference,
       generatedAt: new Date(),
     };
   }

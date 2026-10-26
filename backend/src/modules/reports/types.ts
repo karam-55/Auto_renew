@@ -38,6 +38,8 @@ export interface BalanceSheetResponse {
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  difference: number;
   isBalanced: boolean;
   generatedAt: Date;
 }

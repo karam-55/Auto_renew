@@ -12,6 +12,10 @@ const TYPE_LABELS: Record<string, string> = {
   EXPENSE: 'مصروفات',
 }
 
+type Currency = 'SYP' | 'USD'
+
+const CURRENCY_LABELS: Record<Currency, string> = { SYP: 'ل.س', USD: '$' }
+
 interface AccountNode {
   id: string
   code: string
@@ -25,11 +29,38 @@ interface AccountNode {
   level?: number
 }
 
+const esc = (value: string): string =>
+  value.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string))
+
+const amountText = (value: number): string => {
+  const body = Math.abs(value).toLocaleString('ar-SA', { maximumFractionDigits: 2 })
+  return value < 0 ? `−${body}` : body
+}
+
+const amountTone = (value: number): string => {
+  if (value > 0) return 'text-success'
+  if (value < 0) return 'text-error'
+  return 'text-text-tertiary'
+}
+
+const signChip = (label: string, value: number): string => {
+  const tone = value > 0 ? 'bg-success/10 text-success' : value < 0 ? 'bg-error/10 text-error' : 'bg-surface-subtle text-text-tertiary'
+  const word = value > 0 ? 'موجب' : value < 0 ? 'سالب' : 'صفر'
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-label-sm text-label-sm ${tone}"><span dir="ltr">${label}</span> ${word}</span>`
+}
+
+const DEBIT_NORMAL_TYPES = ['ASSET', 'COGS', 'EXPENSE']
+
+
+const todayIso = (): string => new Date().toLocaleDateString('en-CA')
+
 export class ChartOfAccountsScreen {
   private accounts: AccountNode[] = []
   private allFlat: AccountNode[] = []
   private currentPage = 1
   private itemsPerPage = 15
+  private editingId: string | null = null
+  private balanceAccount: AccountNode | null = null
 
   constructor(private auth: AuthService, private api: ApiClient, private router: Router) {}
 
@@ -40,7 +71,10 @@ export class ChartOfAccountsScreen {
     c.innerHTML = [
       '<div class="max-w-7xl mx-auto space-y-stack-lg">',
       '  <div class="flex items-center justify-between">',
-      '    <h1 class="font-beVietnamPro text-headline-md text-on-surface">دليل الحسابات</h1>',
+      '    <div>',
+      '      <h1 class="font-beVietnamPro text-headline-md text-on-surface">دليل الحسابات</h1>',
+      '      <p class="text-body-sm text-text-secondary mt-1">الأرصدة محسوبة من القيود المرحّلة: <span class="text-success font-semibold">موجب</span> = رصيد طبيعي لجهة الحساب · <span class="text-error font-semibold">سالب</span> = رصيد عكسي</p>',
+      '    </div>',
       '    <button id="btn-add-account" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md flex items-center gap-2 hover:bg-primary-dark transition-colors">',
       '      <span class="material-symbols-outlined text-[18px]">add</span>',
       '      إضافة حساب',
@@ -61,11 +95,13 @@ export class ChartOfAccountsScreen {
       '            <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">اسم الحساب</th>',
       '            <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">النوع</th>',
       '            <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">الرصيد (ل.س)</th>',
+      '            <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">الرصيد ($)</th>',
+      '            <th class="px-6 py-4 text-right font-label-sm text-label-sm text-text-tertiary uppercase">الإشارة</th>',
       '            <th class="px-6 py-4 text-center font-label-sm text-label-sm text-text-tertiary uppercase">إجراءات</th>',
       '          </tr>',
       '        </thead>',
       '        <tbody id="table-tbody">',
-      '          <tr><td colspan="5" class="px-6 py-8 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>',
+      '          <tr><td colspan="7" class="px-6 py-8 text-center text-text-secondary"><div class="skeleton-shimmer h-4 rounded w-32 mx-auto"></div></td></tr>',
       '        </tbody>',
       '      </table>',
       '    </div>',
@@ -108,10 +144,7 @@ export class ChartOfAccountsScreen {
       '          <option value="">— بدون —</option>',
       '        </select>',
       '      </div>',
-      '      <div>',
-      '        <label class="block font-label-sm text-text-secondary mb-1">الرصيد الافتتاحي (ل.س)</label>',
-      '        <input id="modal-balance" type="number" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr" value="0"/>',
-      '      </div>',
+      '      <p class="text-body-sm text-text-tertiary">الرصيد الافتتاحي يُضاف بعد إنشاء الحساب من زر «تعديل الرصيد»، فيُسجَّل كقيد محاسبي.</p>',
       '    </div>',
       '    <div class="flex justify-end gap-2 mt-6">',
       '      <button id="modal-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>',
@@ -120,26 +153,47 @@ export class ChartOfAccountsScreen {
       '  </div>',
       '</div>',
       '<div id="balance-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center" role="dialog" aria-modal="true">',
-      '  <div class="bg-surface rounded-xl shadow-2xl border border-border w-full max-w-sm p-6 m-4">',
-      '    <h2 class="font-headline-sm text-on-surface mb-4">تعديل الرصيد</h2>',
-      '    <p id="balance-account-name" class="text-text-secondary font-body-md mb-2"></p>',
-      '    <p id="balance-current" class="text-primary font-body-md mb-4 font-bold"></p>',
+      '  <div class="bg-surface rounded-xl shadow-2xl border border-border w-full max-w-md p-6 m-4">',
+      '    <h2 class="font-headline-sm text-on-surface mb-1">تعديل رصيد الحساب</h2>',
+      '    <p id="balance-account-name" class="text-text-secondary font-body-md"></p>',
+      '    <p id="balance-current" class="font-body-md font-bold mt-1 mb-4"></p>',
       '    <div class="space-y-4">',
-      '      <div>',
-      '        <label class="block font-label-sm text-text-secondary mb-1">نوع العملية</label>',
-      '        <select id="balance-operation" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">',
-      '          <option value="add">إضافة (+)</option>',
-      '          <option value="subtract">خصم (-)</option>',
-      '        </select>',
+      '      <div class="grid grid-cols-2 gap-3">',
+      '        <div>',
+      '          <label class="block font-label-sm text-text-secondary mb-1">العملة</label>',
+      '          <select id="balance-currency" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">',
+      '            <option value="SYP">ليرة سورية جديدة (ل.س)</option>',
+      '            <option value="USD">دولار أمريكي ($)</option>',
+      '          </select>',
+      '        </div>',
+      '        <div>',
+      '          <label class="block font-label-sm text-text-secondary mb-1">نوع التعديل</label>',
+      '          <select id="balance-operation" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface">',
+      '            <option value="ADD">زيادة الرصيد</option>',
+      '            <option value="SUBTRACT">تخفيض الرصيد</option>',
+      '            <option value="SET">تعيين الرصيد إلى</option>',
+      '          </select>',
+      '        </div>',
       '      </div>',
       '      <div>',
-      '        <label class="block font-label-sm text-text-secondary mb-1">المبلغ (ل.س)</label>',
-      '        <input id="balance-amount" type="number" min="0" step="0.01" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr"/>',
+      '        <label id="balance-amount-label" class="block font-label-sm text-text-secondary mb-1">المبلغ</label>',
+      '        <input id="balance-amount" type="number" step="0.01" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr"/>',
       '      </div>',
+      '      <div class="grid grid-cols-2 gap-3">',
+      '        <div>',
+      '          <label class="block font-label-sm text-text-secondary mb-1">تاريخ القيد</label>',
+      '          <input id="balance-date" type="date" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface" dir="ltr"/>',
+      '        </div>',
+      '        <div>',
+      '          <label class="block font-label-sm text-text-secondary mb-1">البيان (اختياري)</label>',
+      '          <input id="balance-notes" class="w-full h-10 bg-surface-subtle border border-border rounded-lg px-3 font-body-md text-on-surface"/>',
+      '        </div>',
+      '      </div>',
+      '      <p class="text-body-sm text-text-tertiary">يُسجَّل قيد مرحّل مقابل حساب «الأرصدة الافتتاحية»، ويظهر فوراً في الميزانية وقائمة الدخل.</p>',
       '    </div>',
       '    <div class="flex justify-end gap-2 mt-6">',
       '      <button id="balance-cancel" class="h-10 px-4 rounded-lg font-body-md text-text-secondary hover:bg-surface-subtle transition-colors">إلغاء</button>',
-      '      <button id="balance-save" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md hover:bg-primary-dark transition-colors">حفظ</button>',
+      '      <button id="balance-save" class="h-10 px-4 bg-primary text-white rounded-lg font-body-md hover:bg-primary-dark transition-colors">حفظ التعديل</button>',
       '    </div>',
       '  </div>',
       '</div>',
@@ -164,6 +218,8 @@ export class ChartOfAccountsScreen {
     // Balance modal
     c.querySelector('#balance-cancel')?.addEventListener('click', () => this.closeBalanceModal(c))
     c.querySelector('#balance-save')?.addEventListener('click', () => this.saveBalance(c))
+    c.querySelector('#balance-currency')?.addEventListener('change', () => this.refreshBalanceForm(c))
+    c.querySelector('#balance-operation')?.addEventListener('change', () => this.refreshBalanceForm(c))
   }
 
   private flattenTree(nodes: AccountNode[], level = 0): AccountNode[] {
@@ -179,7 +235,7 @@ export class ChartOfAccountsScreen {
 
   private async loadData(c: HTMLElement) {
     try {
-      const res = await this.api.get<any>('/api/accounting/accounts/tree')
+      const res = await this.api.get<any>('/api/accounting/accounts/tree?includeInactive=true', false)
       const tbody = c.querySelector('#table-tbody')!
       if (res.success && res.data) {
         this.accounts = Array.isArray(res.data) ? res.data : res.data.data || []
@@ -187,11 +243,11 @@ export class ChartOfAccountsScreen {
         this.renderTable(c)
         this.populateParentSelect(c)
       } else {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد بيانات</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد بيانات</td></tr>'
       }
     } catch (err: any) {
       const tbody = c.querySelector('#table-tbody')
-      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ: ' + err.message + '</td></tr>'
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-error font-body-md">حدث خطأ: ' + esc(String(err?.message || err)) + '</td></tr>'
     }
   }
 
@@ -201,10 +257,10 @@ export class ChartOfAccountsScreen {
     if (search) {
       const q = search.toLowerCase()
       items = items.filter(a => (a.code?.toLowerCase().includes(q) || a.nameAr?.toLowerCase().includes(q)))
-      this.currentPage = 1 // Reset to page 1 on search
+      this.currentPage = 1
     }
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد بيانات</td></tr>'
+      tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-text-secondary font-body-md">لا توجد بيانات</td></tr>'
       this.renderPagination(c, 0, 0)
       return
     }
@@ -215,98 +271,48 @@ export class ChartOfAccountsScreen {
 
     tbody.innerHTML = ''
     for (const item of pageItems) {
-      const indent = (item.level || 0) * 24
-      const balance = Number(item.balanceSYP || 0).toLocaleString('ar-SA')
-      const tr = document.createElement('tr')
-      tr.className = 'border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors'
-      tr.setAttribute('data-id', item.id)
-
-      // Code cell
-      const tdCode = document.createElement('td')
-      tdCode.className = 'px-6 py-4 font-body-md text-on-surface'
-      tdCode.setAttribute('dir', 'ltr')
-      tdCode.textContent = item.code || '-'
-      tr.appendChild(tdCode)
-
-      // Name cell
-      const tdName = document.createElement('td')
-      tdName.className = 'px-6 py-4 font-body-md text-on-surface'
-      const nameDiv = document.createElement('div')
-      nameDiv.style.paddingRight = indent + 'px'
-      nameDiv.textContent = item.nameAr || '-'
-      tdName.appendChild(nameDiv)
-      tr.appendChild(tdName)
-
-      // Type cell
-      const tdType = document.createElement('td')
-      tdType.className = 'px-6 py-4 font-body-md text-text-secondary'
-      tdType.textContent = TYPE_LABELS[item.accountType] || item.accountType || '-'
-      tr.appendChild(tdType)
-
-      // Balance cell
-      const tdBalance = document.createElement('td')
-      tdBalance.className = 'px-6 py-4 text-financial-data text-on-surface'
-      tdBalance.setAttribute('dir', 'ltr')
-      tdBalance.textContent = balance
-      tr.appendChild(tdBalance)
-
-      // Actions cell
-      const tdActions = document.createElement('td')
-      tdActions.className = 'px-6 py-4'
-      const actionsDiv = document.createElement('div')
-      actionsDiv.className = 'flex items-center justify-center gap-1'
-
-      const editBtn = document.createElement('button')
-      editBtn.className = 'action-edit touch-safe w-8 h-8 rounded-lg hover:bg-primary/10 text-primary flex items-center justify-center'
-      editBtn.title = 'تعديل'
-      editBtn.setAttribute('aria-label', 'تعديل الحساب')
-      const editIcon = document.createElement('span')
-      editIcon.className = 'material-symbols-outlined text-[18px]'
-      editIcon.setAttribute('aria-hidden', 'true')
-      editIcon.textContent = 'edit'
-      editBtn.appendChild(editIcon)
-      actionsDiv.appendChild(editBtn)
-
-      const balanceBtn = document.createElement('button')
-      balanceBtn.className = 'action-balance touch-safe w-8 h-8 rounded-lg hover:bg-tertiary/10 text-tertiary flex items-center justify-center'
-      balanceBtn.title = 'إضافة رصيد'
-      balanceBtn.setAttribute('aria-label', 'تعديل رصيد الحساب')
-      const balanceIcon = document.createElement('span')
-      balanceIcon.className = 'material-symbols-outlined text-[18px]'
-      balanceIcon.setAttribute('aria-hidden', 'true')
-      balanceIcon.textContent = 'payments'
-      balanceBtn.appendChild(balanceIcon)
-      actionsDiv.appendChild(balanceBtn)
-
-      const deleteBtn = document.createElement('button')
-      deleteBtn.className = 'action-delete touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center'
-      deleteBtn.title = 'حذف'
-      deleteBtn.setAttribute('aria-label', 'حذف الحساب')
-      const deleteIcon = document.createElement('span')
-      deleteIcon.className = 'material-symbols-outlined text-[18px]'
-      deleteIcon.setAttribute('aria-hidden', 'true')
-      deleteIcon.textContent = 'delete'
-      deleteBtn.appendChild(deleteIcon)
-      actionsDiv.appendChild(deleteBtn)
-
-      tdActions.appendChild(actionsDiv)
-      tr.appendChild(tdActions)
-
-      tbody.appendChild(tr)
+      tbody.appendChild(this.buildRow(c, item))
     }
 
-    // Attach row actions
-    tbody.querySelectorAll('.action-edit').forEach((btn, i) => {
-      btn.addEventListener('click', () => this.openModal(c, pageItems[i]))
-    })
-    tbody.querySelectorAll('.action-balance').forEach((btn, i) => {
-      btn.addEventListener('click', () => this.openBalanceModal(c, pageItems[i]))
-    })
-    tbody.querySelectorAll('.action-delete').forEach((btn, i) => {
-      btn.addEventListener('click', () => this.deleteAccount(c, pageItems[i]))
-    })
-
     this.renderPagination(c, items.length, totalPages)
+  }
+
+  private buildRow(c: HTMLElement, item: AccountNode): HTMLTableRowElement {
+    const tr = document.createElement('tr')
+    tr.className = 'border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors'
+    tr.setAttribute('data-id', item.id)
+    const isParent = (item.children?.length || 0) > 0
+    const indent = (item.level || 0) * 24
+
+    tr.innerHTML = `
+      <!-- Code cell -->
+      <td class="px-6 py-4 font-body-md text-on-surface" dir="ltr">${esc(item.code || '-')}</td>
+      <!-- Name cell -->
+      <td class="px-6 py-4 font-body-md text-on-surface"><div style="padding-right:${indent}px" class="${isParent ? 'font-semibold' : ''}">${esc(item.nameAr || '-')}</div></td>
+      <!-- Type cell -->
+      <td class="px-6 py-4 font-body-md text-text-secondary">${esc(TYPE_LABELS[item.accountType] || item.accountType || '-')}</td>
+      <!-- Balance cell -->
+      <td class="px-6 py-4 text-financial-data font-body-md ${amountTone(item.balanceSYP)}" dir="ltr">${amountText(item.balanceSYP)}</td>
+      <td class="px-6 py-4 text-financial-data font-body-md ${amountTone(item.balanceUSD)}" dir="ltr">${amountText(item.balanceUSD)}</td>
+      <td class="px-6 py-4"><div class="flex items-center gap-2">${signChip('ل.س', item.balanceSYP)}${signChip('$', item.balanceUSD)}</div></td>
+      <!-- Actions cell -->
+      <td class="px-6 py-4">
+        <div class="flex items-center justify-center gap-1">
+          <button class="action-edit touch-safe w-8 h-8 rounded-lg hover:bg-primary/10 text-primary flex items-center justify-center" title="تعديل" aria-label="تعديل الحساب">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
+          </button>
+          ${isParent ? '' : '<button class="action-balance touch-safe w-8 h-8 rounded-lg hover:bg-tertiary/10 text-tertiary flex items-center justify-center" title="تعديل الرصيد" aria-label="تعديل رصيد الحساب"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span></button>'}
+          <button class="action-delete touch-safe w-8 h-8 rounded-lg hover:bg-error/10 text-error flex items-center justify-center" title="حذف" aria-label="حذف الحساب">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
+          </button>
+        </div>
+      </td>`
+
+    // Attach row actions
+    tr.querySelector('.action-edit')?.addEventListener('click', () => this.openModal(c, item))
+    tr.querySelector('.action-balance')?.addEventListener('click', () => this.openBalanceModal(c, item))
+    tr.querySelector('.action-delete')?.addEventListener('click', () => this.deleteAccount(c, item))
+    return tr
   }
 
   private renderPagination(c: HTMLElement, totalItems: number, totalPages: number) {
@@ -360,13 +366,9 @@ export class ChartOfAccountsScreen {
     if (!select) return
     select.innerHTML = '<option value="">— بدون —</option>'
     for (const acc of this.allFlat) {
-      const label = acc.code + ' — ' + acc.nameAr
-      select.innerHTML += '<option value="' + acc.id + '">' + label + '</option>'
+      select.innerHTML += '<option value="' + acc.id + '">' + esc(acc.code + ' — ' + acc.nameAr) + '</option>'
     }
   }
-
-  private editingId: string | null = null
-  private balanceAccountId: string | null = null
 
   private openModal(c: HTMLElement, account: AccountNode | null) {
     this.editingId = account?.id || null
@@ -379,7 +381,6 @@ export class ChartOfAccountsScreen {
     ;(c.querySelector('#modal-nameEn') as HTMLInputElement).value = account?.nameEn || ''
     ;(c.querySelector('#acc-type') as HTMLSelectElement).value = account?.accountType || 'ASSET'
     ;(c.querySelector('#modal-parent') as HTMLSelectElement).value = account?.parentId || ''
-    ;(c.querySelector('#modal-balance') as HTMLInputElement).value = String(account?.balanceSYP || 0)
 
     modal.classList.remove('hidden')
     modal.classList.add('flex')
@@ -397,17 +398,16 @@ export class ChartOfAccountsScreen {
     const nameAr = (c.querySelector('#acc-name') as HTMLInputElement).value.trim()
     const nameEn = (c.querySelector('#modal-nameEn') as HTMLInputElement).value.trim()
     const accountType = (c.querySelector('#acc-type') as HTMLSelectElement).value
-    const parentId = (c.querySelector('#modal-parent') as HTMLSelectElement).value || undefined
-    const balanceSYP = parseFloat((c.querySelector('#modal-balance') as HTMLInputElement).value) || 0
+    const parentId = (c.querySelector('#modal-parent') as HTMLSelectElement).value || null
 
     if (!code || !nameAr) { ;(window as any).toast?.show?.({ message: 'الرمز والاسم مطلوبان', type: 'warning' }); return }
 
     try {
-      if (this.editingId) {
-        await this.api.put(`/api/accounts/${this.editingId}`, { code, nameAr, nameEn, accountType, parentId, balanceSYP, balanceUSD: 0 })
-      } else {
-        await this.api.post('/api/accounting/accounts', { code, nameAr, nameEn, parentId, accountType, balanceSYP, balanceUSD: 0 })
-      }
+      const body = { code, nameAr, nameEn, accountType, parentId }
+      const res = this.editingId
+        ? await this.api.put<any>(`/api/accounts/${this.editingId}`, body)
+        : await this.api.post<any>('/api/accounts', body)
+      if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'تعذر حفظ الحساب', type: 'error' }); return }
       this.closeModal(c)
       await this.loadData(c)
     } catch (err: any) {
@@ -415,13 +415,35 @@ export class ChartOfAccountsScreen {
     }
   }
 
+  private balanceCurrency(c: HTMLElement): Currency {
+    return (c.querySelector('#balance-currency') as HTMLSelectElement).value === 'USD' ? 'USD' : 'SYP'
+  }
+
+  private refreshBalanceForm(c: HTMLElement) {
+    const account = this.balanceAccount
+    if (!account) return
+    const currency = this.balanceCurrency(c)
+    const value = currency === 'USD' ? account.balanceUSD : account.balanceSYP
+    const normalSide = DEBIT_NORMAL_TYPES.includes(account.accountType) ? 'مدين' : 'دائن'
+    const operation = (c.querySelector('#balance-operation') as HTMLSelectElement).value
+    ;(c.querySelector('#balance-current') as HTMLElement).innerHTML =
+      `الرصيد الحالي: <span dir="ltr" class="${value < 0 ? 'text-error' : 'text-on-surface'}">${amountText(value)}</span> ${CURRENCY_LABELS[currency]} <span class="text-text-tertiary font-normal">(طبيعة الحساب: ${normalSide})</span>`
+    ;(c.querySelector('#balance-amount-label') as HTMLElement).textContent =
+      operation === 'SET'
+        ? `الرصيد المطلوب (${CURRENCY_LABELS[currency]})`
+        : `المبلغ (${CURRENCY_LABELS[currency]})`
+  }
+
   private openBalanceModal(c: HTMLElement, account: AccountNode) {
-    this.balanceAccountId = account.id
+    this.balanceAccount = account
     const modal = c.querySelector('#balance-modal') as HTMLElement
     ;(c.querySelector('#balance-account-name') as HTMLElement).textContent = `${account.code} — ${account.nameAr}`
-    ;(c.querySelector('#balance-current') as HTMLElement).textContent = `الرصيد الحالي: ${Number(account.balanceSYP || 0).toLocaleString('ar-SA')} ل.س`
-    ;(c.querySelector('#balance-operation') as HTMLSelectElement).value = 'add'
+    ;(c.querySelector('#balance-currency') as HTMLSelectElement).value = 'SYP'
+    ;(c.querySelector('#balance-operation') as HTMLSelectElement).value = 'ADD'
     ;(c.querySelector('#balance-amount') as HTMLInputElement).value = ''
+    ;(c.querySelector('#balance-date') as HTMLInputElement).value = todayIso()
+    ;(c.querySelector('#balance-notes') as HTMLInputElement).value = ''
+    this.refreshBalanceForm(c)
     modal.classList.remove('hidden')
     modal.classList.add('flex')
   }
@@ -430,23 +452,33 @@ export class ChartOfAccountsScreen {
     const modal = c.querySelector('#balance-modal') as HTMLElement
     modal.classList.add('hidden')
     modal.classList.remove('flex')
-    this.balanceAccountId = null
+    this.balanceAccount = null
   }
 
   private async saveBalance(c: HTMLElement) {
+    const account = this.balanceAccount
+    if (!account) return
+    const currency = this.balanceCurrency(c)
+    const mode = (c.querySelector('#balance-operation') as HTMLSelectElement).value
     const amount = parseFloat((c.querySelector('#balance-amount') as HTMLInputElement).value)
-    const operation = (c.querySelector('#balance-operation') as HTMLSelectElement).value
-    if (!this.balanceAccountId || isNaN(amount) || amount < 0) { ;(window as any).toast?.show?.({ message: 'المبلغ مطلوب ويجب أن يكون موجباً', type: 'warning' }); return }
+    const entryDate = (c.querySelector('#balance-date') as HTMLInputElement).value
+    const notes = (c.querySelector('#balance-notes') as HTMLInputElement).value.trim()
+
+    if (!Number.isFinite(amount) || (mode !== 'SET' && amount <= 0)) {
+      ;(window as any).toast?.show?.({ message: 'أدخل مبلغاً صحيحاً أكبر من صفر', type: 'warning' })
+      return
+    }
 
     try {
-      // Find account and update balance
-      const account = this.allFlat.find(a => a.id === this.balanceAccountId)
-      if (!account) return
-      const currentBalance = Number(account.balanceSYP) || 0
-      const delta = operation === 'subtract' ? -amount : amount
-      const newBalance = currentBalance + delta
-      const res = await this.api.put(`/api/accounts/${this.balanceAccountId}`, { balanceSYP: newBalance })
-      if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'فشل تحديث الرصيد', type: 'error' }); return }
+      const res = await this.api.post<any>(`/api/accounts/${account.id}/balance-adjustments`, {
+        currency,
+        mode,
+        amount,
+        entryDate: entryDate || undefined,
+        notes: notes || undefined,
+      })
+      if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'تعذر تعديل الرصيد', type: 'error' }); return }
+      ;(window as any).toast?.show?.({ message: 'تم تسجيل قيد تعديل الرصيد', type: 'success' })
       this.closeBalanceModal(c)
       await this.loadData(c)
     } catch (err: any) {
@@ -457,7 +489,8 @@ export class ChartOfAccountsScreen {
   private async deleteAccount(c: HTMLElement, account: AccountNode) {
     if (!confirm(`حذف الحساب "${account.nameAr}"؟`)) return
     try {
-      await this.api.delete(`/api/accounts/${account.id}`)
+      const res = await this.api.delete<any>(`/api/accounts/${account.id}`)
+      if (!res.success) { ;(window as any).toast?.show?.({ message: res.message || 'تعذر حذف الحساب', type: 'error' }); return }
       await this.loadData(c)
     } catch (err: any) {
       ;(window as any).toast?.show?.({ message: err.message || 'حدث خطأ', type: 'error' })

@@ -4,12 +4,15 @@ import { AuthRequest, authorize } from '../../shared/middlewares/auth';
 import { CreateAccountDto, UpdateAccountDto } from './types';
 import { AccountType } from '@prisma/client';
 import { Logger } from '../../infrastructure/logging/logger';
+import { AccountBalanceAdjustmentService } from './balance-adjustment.service';
 
 export class AccountController {
   private accountService: AccountService;
+  private balanceAdjustmentService: AccountBalanceAdjustmentService;
 
   constructor() {
     this.accountService = new AccountService();
+    this.balanceAdjustmentService = new AccountBalanceAdjustmentService();
   }
 
   createAccount = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -129,8 +132,9 @@ export class AccountController {
   getAccountTree = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const tenantId = req.user!.tenantId;
+      const includeInactive = req.query.includeInactive === 'true';
 
-      const tree = await this.accountService.getAccountTree(tenantId);
+      const tree = await this.accountService.getAccountTree(tenantId, includeInactive);
 
       res.status(200).json({
         success: true,
@@ -160,6 +164,28 @@ export class AccountController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get account balances',
+      });
+    }
+  };
+
+  adjustBalance = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const result = await this.balanceAdjustmentService.adjustBalance(
+        req.user!.tenantId,
+        req.params.id,
+        req.user!.id,
+        req.body
+      );
+
+      res.status(201).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      Logger.error('Adjust account balance error:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to adjust account balance',
       });
     }
   };

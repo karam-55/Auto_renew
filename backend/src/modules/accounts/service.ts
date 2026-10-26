@@ -8,6 +8,9 @@ import {
   AccountBalanceResponse,
 } from './types';
 import { AccountType } from '@prisma/client';
+import { loadLedgerTotals, LedgerTotalsMap, round2, accountBalances } from '../accounting/ledger';
+
+const BALANCE_CHANGE_MESSAGE = 'Account balances change only through a balance adjustment entry';
 
 export class AccountService {
   private async assertAccountNotMapped(tenantId: string, accountId: string): Promise<void> {
@@ -57,6 +60,10 @@ export class AccountService {
    * Validates that parent account exists and prevents circular references
    */
   async createAccount(tenantId: string, data: CreateAccountDto): Promise<Account> {
+    if (data.balanceSYP || data.balanceUSD) {
+      throw new Error(BALANCE_CHANGE_MESSAGE);
+    }
+
     // Check if account code already exists in this tenant
     const existingAccount = await prisma.account.findFirst({
       where: { tenantId, code: data.code },
@@ -91,12 +98,10 @@ export class AccountService {
         parentId: data.parentId || null,
         accountType: data.accountType,
         isActive: data.isActive ?? true,
-        balanceSYP: data.balanceSYP ?? 0,
-        balanceUSD: data.balanceUSD ?? 0,
       },
     });
 
-    return this.mapToAccountResponse(account);
+    return this.mapToAccountResponse(account, new Map());
   }
 
   /**
@@ -125,31 +130,34 @@ export class AccountService {
       ];
     }
 
-    const accounts = await prisma.account.findMany({
-      where,
-      orderBy: [{ code: 'asc' }],
-    });
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({ where, orderBy: [{ code: 'asc' }] }),
+      loadLedgerTotals(tenantId),
+    ]);
 
-    return accounts.map((acc) => this.mapToAccountResponse(acc));
+    return accounts.map((acc) => this.mapToAccountResponse(acc, totals));
   }
 
   /**
    * Get account by ID
    */
   async getAccountById(tenantId: string, accountId: string): Promise<Account | null> {
-    const account = await prisma.account.findFirst({
-      where: { id: accountId, tenantId },
-      include: {
-        parent: true,
-        children: true,
-      },
-    });
+    const [account, totals] = await Promise.all([
+      prisma.account.findFirst({
+        where: { id: accountId, tenantId },
+        include: {
+          parent: true,
+          children: true,
+        },
+      }),
+      loadLedgerTotals(tenantId),
+    ]);
 
     if (!account) {
       return null;
     }
 
-    return this.mapToAccountResponse(account);
+    return this.mapToAccountResponse(account, totals);
   }
 
   /**
@@ -161,6 +169,10 @@ export class AccountService {
     accountId: string,
     data: UpdateAccountDto
   ): Promise<Account> {
+    if (data.balanceSYP !== undefined || data.balanceUSD !== undefined) {
+      throw new Error(BALANCE_CHANGE_MESSAGE);
+    }
+
     // Check if account exists
     const existingAccount = await prisma.account.findFirst({
       where: { id: accountId, tenantId },
@@ -168,6 +180,13 @@ export class AccountService {
 
     if (!existingAccount) {
       throw new Error('Account not found');
+    }
+
+    if (data.accountType && data.accountType !== existingAccount.accountType) {
+      const postings = await prisma.journalLine.count({ where: { accountId, deletedAt: null } });
+      if (postings > 0) {
+        throw new Error('Account type cannot change after postings exist; post a reclassification entry instead');
+      }
     }
 
     if (
@@ -220,19 +239,15 @@ export class AccountService {
       ...(data.isActive !== undefined && { isActive: data.isActive }),
     };
 
-    if (data.balanceSYP !== undefined) {
-      updateData.balanceSYP = data.balanceSYP;
-    }
-    if (data.balanceUSD !== undefined) {
-      updateData.balanceUSD = data.balanceUSD;
-    }
+    const [updatedAccount, totals] = await Promise.all([
+      prisma.account.update({
+        where: { id: accountId },
+        data: updateData,
+      }),
+      loadLedgerTotals(tenantId),
+    ]);
 
-    const updatedAccount = await prisma.account.update({
-      where: { id: accountId },
-      data: updateData,
-    });
-
-    return this.mapToAccountResponse(updatedAccount);
+    return this.mapToAccountResponse(updatedAccount, totals);
   }
 
   /**
@@ -273,11 +288,14 @@ export class AccountService {
   /**
    * Get account tree (hierarchical structure)
    */
-  async getAccountTree(tenantId: string): Promise<AccountTreeResponse[]> {
-    const accounts = await prisma.account.findMany({
-      where: { tenantId, isActive: true },
-      orderBy: [{ code: 'asc' }],
-    });
+  async getAccountTree(tenantId: string, includeInactive = false): Promise<AccountTreeResponse[]> {
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({
+        where: { tenantId, deletedAt: null, ...(includeInactive ? {} : { isActive: true }) },
+        orderBy: [{ code: 'asc' }],
+      }),
+      loadLedgerTotals(tenantId),
+    ]);
 
     // Build tree structure
     const accountMap = new Map<string, AccountTreeResponse>();
@@ -285,14 +303,16 @@ export class AccountService {
 
     // First pass: create all nodes
     accounts.forEach((acc) => {
+      const balances = accountBalances(acc, totals);
       accountMap.set(acc.id, {
         id: acc.id,
+        parentId: acc.parentId,
         code: acc.code,
         name: acc.nameEn,
         nameAr: acc.nameAr,
         accountType: acc.accountType,
-        balanceSYP: Number(acc.balanceSYP),
-        balanceUSD: Number(acc.balanceUSD),
+        balanceSYP: balances.balanceSYP,
+        balanceUSD: balances.balanceUSD,
         isActive: acc.isActive,
         children: [],
         level: 0,
@@ -311,6 +331,13 @@ export class AccountService {
       }
     });
 
+    const rollUp = (node: AccountTreeResponse): void => {
+      node.children.forEach(rollUp);
+      node.balanceSYP = round2(node.balanceSYP + node.children.reduce((sum, child) => sum + child.balanceSYP, 0));
+      node.balanceUSD = round2(node.balanceUSD + node.children.reduce((sum, child) => sum + child.balanceUSD, 0));
+    };
+    rootAccounts.forEach(rollUp);
+
     return rootAccounts;
   }
 
@@ -318,19 +345,25 @@ export class AccountService {
    * Get account balances
    */
   async getAccountBalances(tenantId: string): Promise<AccountBalanceResponse[]> {
-    const accounts = await prisma.account.findMany({
-      where: { tenantId, isActive: true },
-    });
+    const [accounts, totals] = await Promise.all([
+      prisma.account.findMany({
+        where: { tenantId, isActive: true },
+      }),
+      loadLedgerTotals(tenantId),
+    ]);
 
-    return accounts.map((acc) => ({
-      accountId: acc.id,
-      accountCode: acc.code,
-      accountName: acc.nameEn,
-      accountNameAr: acc.nameAr,
-      accountType: acc.accountType,
-      balanceSYP: Number(acc.balanceSYP),
-      balanceUSD: Number(acc.balanceUSD),
-    }));
+    return accounts.map((acc) => {
+      const balances = accountBalances(acc, totals);
+      return {
+        accountId: acc.id,
+        accountCode: acc.code,
+        accountName: acc.nameEn,
+        accountNameAr: acc.nameAr,
+        accountType: acc.accountType,
+        balanceSYP: balances.balanceSYP,
+        balanceUSD: balances.balanceUSD,
+      };
+    });
   }
 
   /**
@@ -399,7 +432,8 @@ export class AccountService {
   /**
    * Map Prisma account to Account response
    */
-  private mapToAccountResponse(account: any): Account {
+  private mapToAccountResponse(account: any, totals: LedgerTotalsMap): Account {
+    const balances = accountBalances(account, totals);
     return {
       id: account.id,
       tenantId: account.tenantId,
@@ -408,13 +442,13 @@ export class AccountService {
       nameEn: account.nameEn,
       parentId: account.parentId,
       accountType: account.accountType,
-      balanceSYP: Number(account.balanceSYP),
-      balanceUSD: Number(account.balanceUSD),
+      balanceSYP: balances.balanceSYP,
+      balanceUSD: balances.balanceUSD,
       isActive: account.isActive,
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
-      children: account.children?.map((c: any) => this.mapToAccountResponse(c)),
-      parent: account.parent ? this.mapToAccountResponse(account.parent) : undefined,
+      children: account.children?.map((c: any) => this.mapToAccountResponse(c, totals)),
+      parent: account.parent ? this.mapToAccountResponse(account.parent, totals) : undefined,
     };
   }
 }

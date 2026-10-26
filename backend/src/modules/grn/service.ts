@@ -25,6 +25,9 @@ export class GRNService {
     if (!purchaseOrder) {
       throw new Error('Purchase order not found');
     }
+    if (purchaseOrder.status !== 'APPROVED') {
+      throw new Error('Purchase order must be approved before goods are received');
+    }
 
     // Use supplier from purchase order if not provided
     const supplierId = data.supplierId || purchaseOrder.supplierId;

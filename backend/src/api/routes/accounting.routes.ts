@@ -1,41 +1,45 @@
 import { Router } from 'express';
 import { AccountingController } from '../controllers/accounting/accounting.controller';
-import { AuthMiddleware } from '../middlewares/auth.middleware';
+import { authenticate, authorize } from '../../shared/middlewares/auth';
+import { AccountController } from '../../modules/accounts/controller';
 import depreciationRoutes from '../../modules/accounting/depreciation.routes';
 
 const router = Router();
 const accountingController = new AccountingController();
+const accountController = new AccountController();
+const FINANCE_ROLES = ['OWNER', 'MANAGER', 'ACCOUNTANT'];
 
+router.use(authenticate);
 router.use('/depreciation', depreciationRoutes);
 
 // GET /api/accounting - Get accounting overview
-router.get('/', AuthMiddleware.authenticate, accountingController.listAccounts.bind(accountingController));
+router.get('/', accountController.getAccounts);
 
 // Account routes
-router.post('/accounts', AuthMiddleware.authenticate, accountingController.createAccount.bind(accountingController));
-router.post('/accounts/batch', AuthMiddleware.authenticate, accountingController.createManyAccounts.bind(accountingController));
-router.get('/accounts', AuthMiddleware.authenticate, accountingController.listAccounts.bind(accountingController));
-router.get('/accounts/tree', AuthMiddleware.authenticate, accountingController.getAccountTree.bind(accountingController));
+router.post('/accounts', authorize(FINANCE_ROLES), accountController.createAccount);
+router.post('/accounts/batch', authorize(FINANCE_ROLES), accountingController.createManyAccounts.bind(accountingController));
+router.get('/accounts', accountController.getAccounts);
+router.get('/accounts/tree', accountController.getAccountTree);
 
 // Journal Entry routes
-router.post('/journal-entries', AuthMiddleware.authenticate, accountingController.createJournalEntry.bind(accountingController));
-router.get('/journal-entries', accountingController.listJournalEntries.bind(accountingController));
+router.post('/journal-entries', authorize(FINANCE_ROLES), accountingController.createJournalEntry.bind(accountingController));
+router.get('/journal-entries', authorize(FINANCE_ROLES), accountingController.listJournalEntries.bind(accountingController));
 
 // Customer Account routes
-router.get('/customers/:customerId/balance', accountingController.getCustomerBalance.bind(accountingController));
-router.get('/customers/:customerId/statement', accountingController.getCustomerStatement.bind(accountingController));
+router.get('/customers/:customerId/balance', authorize(FINANCE_ROLES), accountingController.getCustomerBalance.bind(accountingController));
+router.get('/customers/:customerId/statement', authorize(FINANCE_ROLES), accountingController.getCustomerStatement.bind(accountingController));
 
 // Supplier Account routes
-router.get('/suppliers/:supplierId/balance', accountingController.getSupplierBalance.bind(accountingController));
-router.get('/suppliers/:supplierId/statement', accountingController.getSupplierStatement.bind(accountingController));
+router.get('/suppliers/:supplierId/balance', authorize(FINANCE_ROLES), accountingController.getSupplierBalance.bind(accountingController));
+router.get('/suppliers/:supplierId/statement', authorize(FINANCE_ROLES), accountingController.getSupplierStatement.bind(accountingController));
 
 // Payment routes
-router.post('/payments', AuthMiddleware.authenticate, accountingController.createPayment.bind(accountingController));
-router.get('/payments/customer/:customerId', accountingController.listPaymentsByCustomer.bind(accountingController));
+router.post('/payments', authorize(FINANCE_ROLES), accountingController.createPayment.bind(accountingController));
+router.get('/payments/customer/:customerId', authorize(FINANCE_ROLES), accountingController.listPaymentsByCustomer.bind(accountingController));
 
 // Report routes
-router.get('/reports/trial-balance', accountingController.getTrialBalance.bind(accountingController));
-router.get('/reports/income-statement', accountingController.getIncomeStatement.bind(accountingController));
-router.get('/reports/balance-sheet', accountingController.getBalanceSheet.bind(accountingController));
+router.get('/reports/trial-balance', authorize(FINANCE_ROLES), accountingController.getTrialBalance.bind(accountingController));
+router.get('/reports/income-statement', authorize(FINANCE_ROLES), accountingController.getIncomeStatement.bind(accountingController));
+router.get('/reports/balance-sheet', authorize(FINANCE_ROLES), accountingController.getBalanceSheet.bind(accountingController));
 
 export default router;

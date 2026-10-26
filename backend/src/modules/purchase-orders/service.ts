@@ -207,6 +207,13 @@ export class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
+    if (data.status !== undefined) {
+      throw new Error('Status changes go through approve, receive, or cancel actions');
+    }
+    if (existingPurchaseOrder.status !== 'PENDING') {
+      throw new Error('Only pending purchase orders can be edited');
+    }
+
     // If updating supplier, check if new supplier exists and belongs to tenant
     if (data.supplierId && data.supplierId !== existingPurchaseOrder.supplierId) {
       const supplier = await prisma.supplier.findFirst({
@@ -225,7 +232,6 @@ export class PurchaseOrderService {
       data: {
         supplierId: data.supplierId,
         orderDate: data.orderDate,
-        status: data.status as PrismaOrderStatus,
         notes: data.notes,
       },
       include: {
@@ -532,6 +538,9 @@ export class PurchaseOrderService {
     if (purchaseOrder.status === 'RECEIVED') {
       throw new Error('Cannot cancel received purchase orders');
     }
+    if (await prisma.goodsReceiptNote.count({ where: { purchaseOrderId: id } }) > 0) {
+      throw new Error('Cannot cancel a purchase order that already has goods receipt notes');
+    }
 
     // Update purchase order status
     const updatedPurchaseOrder = await prisma.purchaseOrder.update({
@@ -572,10 +581,13 @@ export class PurchaseOrderService {
         include: { items: true },
       });
       if (!current) throw new Error('Purchase order not found');
-      if (current.status !== 'APPROVED' && current.status !== 'PENDING') {
-        throw new Error('Can only receive approved or pending purchase orders');
+      if (current.status !== 'APPROVED') {
+        throw new Error('Only approved purchase orders can be received');
       }
       if (current.items.length === 0) throw new Error('Cannot receive a purchase order without items');
+      if (await tx.goodsReceiptNote.count({ where: { purchaseOrderId: id } }) > 0) {
+        throw new Error('Purchase order already has goods receipt notes; receive the remaining quantities through them');
+      }
 
       const claim = await tx.purchaseOrder.updateMany({
         where: { id, tenantId, status: current.status },

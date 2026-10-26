@@ -9,6 +9,12 @@ import { PaymentRepository } from '../../../infrastructure/repositories/accounti
 import { ReportRepository } from '../../../infrastructure/repositories/accounting/ReportRepository';
 import prisma from '../../../config/database';
 import { Logger } from '../../../infrastructure/logging/logger';
+import { ReportService } from '../../../modules/reports/service';
+
+const endOfDay = (value: unknown): Date => {
+  const raw = String(value);
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T23:59:59.999Z` : raw);
+};
 
 export class AccountingController {
   private accountRepository: AccountRepository;
@@ -17,6 +23,7 @@ export class AccountingController {
   private supplierAccountRepository: SupplierAccountRepository;
   private paymentRepository: PaymentRepository;
   private reportRepository: ReportRepository;
+  private reportService: ReportService;
 
   constructor() {
     this.accountRepository = new AccountRepository();
@@ -25,6 +32,7 @@ export class AccountingController {
     this.supplierAccountRepository = new SupplierAccountRepository();
     this.paymentRepository = new PaymentRepository();
     this.reportRepository = new ReportRepository();
+    this.reportService = new ReportService();
   }
 
   // Account endpoints
@@ -196,37 +204,46 @@ export class AccountingController {
   }
 
   // Report endpoints
-  async getTrialBalance(req: Request, res: Response): Promise<void> {
+  async getTrialBalance(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { asOfDate } = req.query;
-      const trialBalance = await this.reportRepository.getTrialBalance(new Date(asOfDate as string));
+      const { asOfDate, currency } = req.query;
+      const report = await this.reportService.generateTrialBalance(req.user!.tenantId, {
+        fromDate: new Date(0),
+        toDate: endOfDay(asOfDate),
+        currency: currency as string,
+      });
 
-      ErrorMiddleware.success(res, trialBalance, 200);
+      ErrorMiddleware.success(res, report, 200);
     } catch (error) {
       ErrorMiddleware.error(res, 'FETCH_ERROR', 'Failed to get trial balance', 500);
     }
   }
 
-  async getIncomeStatement(req: Request, res: Response): Promise<void> {
+  async getIncomeStatement(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { startDate, endDate } = req.query;
-      const incomeStatement = await this.reportRepository.getIncomeStatement(
-        new Date(startDate as string),
-        new Date(endDate as string)
-      );
+      const { startDate, endDate, currency } = req.query;
+      const report = await this.reportService.generateProfitLoss(req.user!.tenantId, {
+        fromDate: new Date(startDate as string),
+        toDate: endOfDay(endDate),
+        currency: currency as string,
+      });
 
-      ErrorMiddleware.success(res, incomeStatement, 200);
+      ErrorMiddleware.success(res, report, 200);
     } catch (error) {
       ErrorMiddleware.error(res, 'FETCH_ERROR', 'Failed to get income statement', 500);
     }
   }
 
-  async getBalanceSheet(req: Request, res: Response): Promise<void> {
+  async getBalanceSheet(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { asOfDate } = req.query;
-      const balanceSheet = await this.reportRepository.getBalanceSheet(new Date(asOfDate as string));
+      const { asOfDate, currency } = req.query;
+      const report = await this.reportService.generateBalanceSheet(req.user!.tenantId, {
+        fromDate: new Date(0),
+        toDate: endOfDay(asOfDate),
+        currency: currency as string,
+      });
 
-      ErrorMiddleware.success(res, balanceSheet, 200);
+      ErrorMiddleware.success(res, report, 200);
     } catch (error) {
       ErrorMiddleware.error(res, 'FETCH_ERROR', 'Failed to get balance sheet', 500);
     }
@@ -240,6 +257,10 @@ export class AccountingController {
 
       if (!Array.isArray(accounts) || accounts.length === 0) {
         ErrorMiddleware.error(res, 'VALIDATION_ERROR', 'Accounts array is required', 400);
+        return;
+      }
+      if (accounts.some((acc: any) => acc.balanceSYP || acc.balanceUSD)) {
+        ErrorMiddleware.error(res, 'VALIDATION_ERROR', 'Opening balances must be posted as balance adjustments', 400);
         return;
       }
 

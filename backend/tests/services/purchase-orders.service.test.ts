@@ -44,6 +44,7 @@ describe('PurchaseOrderService', () => {
     (prisma.part.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (prisma.purchaseOrder.findUnique as jest.Mock).mockResolvedValue({ tenantId: mockTenantId });
     (prisma.purchaseOrderItem.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.goodsReceiptNote.count as jest.Mock).mockResolvedValue(0);
     (prisma.supplier.update as jest.Mock).mockResolvedValue({});
   });
 
@@ -443,6 +444,7 @@ describe('PurchaseOrderService', () => {
         id: orderId,
         tenantId: mockTenantId,
         supplierId: 'supplier-1',
+        status: 'PENDING' as OrderStatus,
       };
 
       (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(mockExistingOrder);

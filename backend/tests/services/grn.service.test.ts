@@ -28,6 +28,7 @@ jest.mock('../../src/config/database', () => ({
 }));
 jest.mock('../../src/modules/accounting/automatic-journal-entries', () => ({
   createGRNJournalEntry: jest.fn().mockResolvedValue({ id: 'journal-entry-1' }),
+  createStockRevaluationJournalEntry: jest.fn().mockResolvedValue(null),
   ensureDefaultAccounts: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../../src/services/settings.service', () => ({
@@ -153,6 +154,7 @@ describe('GRNService', () => {
       const mockPurchaseOrder = {
         id: 'po-1',
         tenantId: mockTenantId,
+        status: 'APPROVED',
       };
 
       (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(mockPurchaseOrder);
@@ -171,6 +173,7 @@ describe('GRNService', () => {
       const mockPurchaseOrder = {
         id: 'po-1',
         tenantId: mockTenantId,
+        status: 'APPROVED',
       };
 
       const mockSupplier = {

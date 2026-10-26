@@ -48,6 +48,7 @@ export interface AccountFilters {
 
 export interface AccountTreeResponse {
   id: string;
+  parentId?: string | null;
   code: string;
   name: string;
   nameAr: string;

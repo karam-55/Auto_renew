@@ -7,21 +7,41 @@
 import { ReportService } from '../../src/modules/reports/service';
 import prisma from '../../src/config/database';
 
-// Mock prisma
-jest.mock('../../src/config/database', () => ({
-  __esModule: true,
-  default: {
-    account: { findMany: jest.fn() },
-    journalLine: { findMany: jest.fn(), aggregate: jest.fn() },
-    journalEntry: { findMany: jest.fn() },
-    invoice: { findMany: jest.fn() },
-    payment: { findMany: jest.fn() },
-    customer: { findMany: jest.fn() },
-    fiscalPeriod: { findFirst: jest.fn() },
-    $disconnect: jest.fn(),
-    $use: jest.fn(),
-  },
-}));
+// Mock prisma. journalLine.groupBy aggregates the same journal lines returned by findMany,
+// the way the database would group them per account.
+jest.mock('../../src/config/database', () => {
+  const journalLine: any = { findMany: jest.fn(), aggregate: jest.fn() };
+  journalLine.groupBy = jest.fn(async () => {
+    const lines: any[] = (await journalLine.findMany()) || [];
+    const byAccount = new Map<string, any>();
+    for (const line of lines) {
+      const row = byAccount.get(line.accountId) || {
+        accountId: line.accountId,
+        _sum: { debitSYP: 0, creditSYP: 0, debitUSD: 0, creditUSD: 0 },
+      };
+      row._sum.debitSYP += Number(line.debitSYP || 0);
+      row._sum.creditSYP += Number(line.creditSYP || 0);
+      row._sum.debitUSD += Number(line.debitUSD || 0);
+      row._sum.creditUSD += Number(line.creditUSD || 0);
+      byAccount.set(line.accountId, row);
+    }
+    return Array.from(byAccount.values());
+  });
+  return {
+    __esModule: true,
+    default: {
+      account: { findMany: jest.fn() },
+      journalLine,
+      journalEntry: { findMany: jest.fn() },
+      invoice: { findMany: jest.fn() },
+      payment: { findMany: jest.fn() },
+      customer: { findMany: jest.fn() },
+      fiscalPeriod: { findFirst: jest.fn() },
+      $disconnect: jest.fn(),
+      $use: jest.fn(),
+    },
+  };
+});
 
 describe('ReportService Integration', () => {
   const service = new ReportService();
@@ -120,6 +140,34 @@ describe('ReportService Integration', () => {
       // This is expected because our test data is not internally balanced.
       // The test correctly shows isBalanced = false
       expect(result.isBalanced).toBe(false);
+    });
+
+    it('reports balanced when the ledger is balanced in the requested currency', async () => {
+      (prisma.account.findMany as jest.Mock).mockResolvedValue([
+        { id: 'cash', nameAr: 'Cash', nameEn: 'Cash', accountType: 'ASSET', code: '1110', isActive: true },
+        { id: 'capital', nameAr: 'Capital', nameEn: 'Capital', accountType: 'EQUITY', code: '3100', isActive: true },
+      ]);
+      (prisma.journalLine.findMany as jest.Mock).mockResolvedValue([
+        { accountId: 'cash', debitSYP: 0, creditSYP: 0, debitUSD: 25, creditUSD: 0 },
+        { accountId: 'capital', debitSYP: 0, creditSYP: 0, debitUSD: 0, creditUSD: 25 },
+      ]);
+
+      const usd = await service.generateBalanceSheet(tenantId, {
+        fromDate: new Date('2024-01-01'),
+        toDate: new Date('2024-12-31'),
+        currency: 'USD',
+      });
+      const syp = await service.generateBalanceSheet(tenantId, {
+        fromDate: new Date('2024-01-01'),
+        toDate: new Date('2024-12-31'),
+      });
+
+      expect(usd.currency).toBe('USD');
+      expect(usd.totalAssets).toBe(25);
+      expect(usd.totalEquity).toBe(25);
+      expect(usd.isBalanced).toBe(true);
+      expect(syp.totalAssets).toBe(0);
+      expect(syp.isBalanced).toBe(true);
     });
   });
 
@@ -242,10 +290,11 @@ describe('ReportService Integration', () => {
       expect(expenseAccount!.balance).toBe(170000);
       expect(expenseAccount!.balanceType).toBe('DEBIT');
 
-      // totalDebit = sum of all debitTotal columns = 500,000 + 0 + 200,000 + 170,000 = 870,000
-      // totalCredit = sum of all creditTotal columns = 200,000 + 700,000 + 0 + 0 = 900,000
+      // totalDebit = sum of all debitTotal columns = 500,000 + 200,000 + 170,000 = 870,000
+      // totalCredit = sum of all creditTotal columns = 200,000 + 700,000 = 900,000
       expect(result.totalDebit).toBe(870000);
       expect(result.totalCredit).toBe(900000);
+      expect(result.isBalanced).toBe(false);
     });
   });
 });

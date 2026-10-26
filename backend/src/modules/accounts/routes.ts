@@ -32,6 +32,8 @@ router.get('/:id', tenantGuard('Account'), accountController.getAccountById);
 // Update account - OWNER, MANAGER, ACCOUNTANT only
 router.put('/:id', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Account'), accountController.updateAccount);
 
+router.post('/:id/balance-adjustments', authorize(['OWNER', 'MANAGER', 'ACCOUNTANT']), tenantGuard('Account'), accountController.adjustBalance);
+
 // Delete account - OWNER, MANAGER only
 router.delete('/:id', authorize(['OWNER', 'MANAGER']), tenantGuard('Account'), accountController.deleteAccount);
 
