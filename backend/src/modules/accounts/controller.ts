@@ -6,6 +6,11 @@ import { AccountType } from '@prisma/client';
 import { Logger } from '../../infrastructure/logging/logger';
 import { AccountBalanceAdjustmentService } from './balance-adjustment.service';
 
+const BALANCE_ROLES = ['OWNER', 'MANAGER', 'ACCOUNTANT'];
+const canSeeBalances = (req: AuthRequest) => BALANCE_ROLES.includes(req.user!.role.toUpperCase());
+const withoutBalances = ({ balanceSYP, balanceUSD, children, ...rest }: any): any =>
+  children ? { ...rest, children: children.map(withoutBalances) } : rest;
+
 export class AccountController {
   private accountService: AccountService;
   private balanceAdjustmentService: AccountBalanceAdjustmentService;
@@ -49,7 +54,7 @@ export class AccountController {
 
       res.status(200).json({
         success: true,
-        data: accounts,
+        data: canSeeBalances(req) ? accounts : accounts.map(withoutBalances),
       });
     } catch (error) {
       Logger.error('Get accounts error', error);
@@ -77,7 +82,7 @@ export class AccountController {
 
       res.status(200).json({
         success: true,
-        data: account,
+        data: canSeeBalances(req) ? account : withoutBalances(account),
       });
     } catch (error) {
       Logger.error('Get account by ID error', error);
@@ -138,7 +143,7 @@ export class AccountController {
 
       res.status(200).json({
         success: true,
-        data: tree,
+        data: canSeeBalances(req) ? tree : tree.map(withoutBalances),
       });
     } catch (error) {
       Logger.error('Get account tree error:', error);
