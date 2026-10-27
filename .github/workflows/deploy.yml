@@ -116,8 +116,7 @@ jobs:
 
       - name: Deploy backend on server
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
-            ${{ secrets.SERVER_USER }}@178.105.209.59 'bash -s' <<'REMOTE'
+          DEPLOY_SCRIPT=$(base64 -w0 <<'REMOTE'
           set -eo pipefail
           cd /opt/auto-renew/deploy
 
@@ -134,7 +133,7 @@ jobs:
           docker compose -f docker-compose.prod.yml cp baseline-prisma-migrations.sql postgres:/tmp/baseline-prisma-migrations.sql
           docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
 
-          docker compose -f docker-compose.prod.yml run -T --rm --no-deps backend npx prisma migrate deploy < /dev/null
+          docker compose -f docker-compose.prod.yml run -T --rm --no-deps backend npx prisma migrate deploy
 
           docker compose -f docker-compose.prod.yml up -d backend
           docker compose -f docker-compose.prod.yml restart nginx
@@ -155,6 +154,10 @@ jobs:
           # Prune build cache so the disk never fills up (cache is regenerated each deploy)
           docker builder prune -f || true
           REMOTE
+          )
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
+            ${{ secrets.SERVER_USER }}@178.105.209.59 \
+            "echo $DEPLOY_SCRIPT | base64 -d > /tmp/deploy-backend.sh && bash /tmp/deploy-backend.sh < /dev/null"
 
       - name: Cleanup SSH key
         if: always()
