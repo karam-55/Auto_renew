@@ -17,6 +17,7 @@ import { TelegramAdminNotificationService } from '../notifications/telegram-admi
 import { PaymentService } from '../payments/service';
 import { createInvoiceJournalEntry, createStockConsumptionJournalEntry, ensureDefaultAccounts, reverseJournalEntry } from '../accounting/automatic-journal-entries';
 import { isValidQuantity } from '../../utils/quantity';
+import { buffetLinePrices, loadAttachedBuffetLines } from '../buffet/booking-lines';
 
 export class InvoiceService {
   private loyaltyService: LoyaltyService;
@@ -76,6 +77,14 @@ export class InvoiceService {
       if (!customer) {
         throw new Error('Customer not found');
       }
+    }
+
+    if (data.employeeId) {
+      const employee = await prisma.employee.findFirst({
+        where: { id: data.employeeId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!employee) throw new Error('Employee not found');
     }
 
     // Validate booking exists if provided
@@ -241,6 +250,7 @@ export class InvoiceService {
           customerId: data.customerId,
           vehicleId: data.vehicleId,
           bookingId: data.bookingId,
+          employeeId: data.employeeId ?? null,
           taxRateId: data.taxRateId,
           discountType,
           discountPercent: data.discountPercent || null,
@@ -728,6 +738,29 @@ export class InvoiceService {
       }
     }
 
+    const attachedBuffetLines = await loadAttachedBuffetLines(prisma, tenantId, invoice.bookingId);
+    if (attachedBuffetLines.length > 0) {
+      const buffetRate = await settingsService.getRequiredExchangeRate(tenantId);
+      for (const line of attachedBuffetLines) {
+        const quantity = Number(line.quantity);
+        const { priceSYP, priceUSD } = buffetLinePrices(line, buffetRate);
+        subtotalSYP += priceSYP * quantity;
+        subtotalUSD += priceUSD * quantity;
+        itemInputs.push({
+          serviceId: null,
+          bookingServiceId: null,
+          bookingServiceMaterialId: null,
+          partId: line.partId,
+          description: line.part.nameAr || line.part.name,
+          quantity,
+          priceSYP,
+          priceUSD,
+          totalSYP: priceSYP * quantity,
+          totalUSD: priceUSD * quantity,
+        });
+      }
+    }
+
     const taxSYP = Math.round(subtotalSYP * taxRate * 100) / 100;
     const taxUSD = subtotalUSD > 0 ? Math.round(subtotalUSD * taxRate * 100) / 100 : null;
     const exchangeRate = await settingsService.getRequiredExchangeRate(tenantId);
@@ -757,6 +790,13 @@ export class InvoiceService {
         where: { id: invoiceId },
         data: { subtotalSYP, subtotalUSD, taxSYP, taxUSD, discountSYP, discountUSD, totalSYP, totalUSD },
       });
+      const attachedSaleIds = Array.from(new Set(attachedBuffetLines.map((line) => line.saleId)));
+      if (attachedSaleIds.length > 0) {
+        await tx.buffetSale.updateMany({
+          where: { tenantId, id: { in: attachedSaleIds }, status: 'ATTACHED_TO_BOOKING' },
+          data: { invoiceId },
+        });
+      }
       const items = await Promise.all(
         itemInputs.map((item) => tx.invoiceItem.create({ data: { invoiceId, ...item } }))
       );
@@ -994,6 +1034,12 @@ export class InvoiceService {
         if (unpricedService) {
           throw new Error(`Set the final price for "${unpricedService.customName || unpricedService.service.name}" before finalizing the invoice`);
         }
+        const pendingBuffet = await tx.buffetSale.count({
+          where: { tenantId, bookingId: invoice.bookingId, status: 'ATTACHED_TO_BOOKING', invoiceId: null },
+        });
+        if (pendingBuffet > 0) {
+          throw new Error('Sync the draft invoice from the booking before issuing it: buffet purchases are waiting to be billed');
+        }
       }
 
       const claim = await tx.invoice.updateMany({
@@ -1002,6 +1048,10 @@ export class InvoiceService {
       });
       if (claim.count !== 1) throw new Error('Invoice status changed; reload and retry');
 
+      await tx.buffetSale.updateMany({
+        where: { tenantId, invoiceId, status: 'ATTACHED_TO_BOOKING' },
+        data: { status: 'INVOICED' },
+      });
       await ensureDefaultAccounts(tenantId, tx);
 
       const partsToConsume = new Map<string, {

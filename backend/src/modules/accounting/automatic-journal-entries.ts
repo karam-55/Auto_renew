@@ -1,6 +1,6 @@
 import { AccountType, JournalEntryStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
-import { ACCOUNT_MAPPING_DEFINITIONS, DEFAULT_ACCOUNTS, DEFAULT_ACCOUNT_CODES } from './chart-of-accounts.defaults';
+import { ACCOUNT_MAPPING_DEFINITIONS, DEFAULT_ACCOUNTS, DEFAULT_ACCOUNT_CODES, EMPLOYEE_RECEIVABLE_CODE } from './chart-of-accounts.defaults';
 
 export { DEFAULT_ACCOUNT_CODES };
 
@@ -200,6 +200,21 @@ export async function getAccountIdByRole(
     throw new Error(`Default account for ${mappingKey} is a parent account and cannot receive postings`);
   }
   return fallback.id;
+}
+
+export async function getReceivableAccountIdForInvoice(
+  tenantId: string,
+  invoice: { employeeId?: string | null },
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<string | null> {
+  if (!invoice.employeeId) return getAccountIdByRole(tenantId, 'ACCOUNTS_RECEIVABLE', db);
+  const account = await db.account.findFirst({
+    where: { tenantId, code: EMPLOYEE_RECEIVABLE_CODE, accountType: AccountType.ASSET, isActive: true, deletedAt: null },
+    select: { id: true, children: { select: { id: true } } },
+  });
+  if (!account) return null;
+  if ((account.children || []).length > 0) throw new Error('Employee receivable account is a parent account and cannot receive postings');
+  return account.id;
 }
 
 async function validateMappedAccount(
@@ -544,7 +559,7 @@ export async function createInvoiceJournalEntry(
 
   // Get account codes
   const db = client || prisma;
-  const arAccountId = await getAccountIdByRole(tenantId, 'ACCOUNTS_RECEIVABLE', db);
+  const arAccountId = await getReceivableAccountIdForInvoice(tenantId, invoice, db);
   const fallbackServiceRevenueAccountId = await getAccountIdByRole(tenantId, 'INSPECTION_REVENUE', db);
   const discountRevenueAccountId = await getAccountIdByRole(tenantId, 'DISCOUNT_REVENUE', db);
   const vatPayableAccountId = await getAccountIdByRole(tenantId, 'VAT_PAYABLE', db);
@@ -690,7 +705,10 @@ export async function createPaymentReceivedJournalEntry(
   const cashAccountId = await getAccountIdByRole(tenantId, 'CASH', db);
   const bankAccountId = await getAccountIdByRole(tenantId, 'BANK', db);
   const chequeAccountId = await getAccountIdByRole(tenantId, 'CHEQUES_RECEIVABLE', db);
-  const arAccountId = await getAccountIdByRole(tenantId, 'ACCOUNTS_RECEIVABLE', db);
+  const paymentInvoice = payment.invoice ?? (payment.invoiceId
+    ? await db.invoice.findUnique({ where: { id: payment.invoiceId }, select: { employeeId: true } })
+    : null);
+  const arAccountId = await getReceivableAccountIdForInvoice(tenantId, { employeeId: paymentInvoice?.employeeId ?? null }, db);
   const discountExpenseAccountId = await getAccountIdByRole(tenantId, 'DISCOUNT_EXPENSE', db);
 
   if (!cashAccountId || !bankAccountId || !chequeAccountId || !arAccountId) {

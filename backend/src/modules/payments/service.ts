@@ -20,7 +20,8 @@ async function normalizePaymentAmounts(
   tenantId: string,
   amountSYP?: number | null,
   amountUSD?: number | null,
-  fallback?: { amountSYP: number; amountUSD: number | null }
+  fallback?: { amountSYP: number; amountUSD: number | null },
+  exact = false
 ): Promise<{ amountSYP: number; amountUSD: number }> {
   let syp = amountSYP == null ? undefined : Number(amountSYP);
   let usd = amountUSD == null ? undefined : Number(amountUSD);
@@ -33,8 +34,10 @@ async function normalizePaymentAmounts(
   }
 
   const rate = await settingsService.getRequiredExchangeRate(tenantId);
-  if (usd != null && usd > 0) syp = Math.round(usd * rate);
-  else if (syp != null && syp > 0) usd = Math.round((syp / rate) * 100) / 100;
+  if (!exact || syp == null || usd == null) {
+    if (usd != null && usd > 0) syp = Math.round(usd * rate);
+    else if (syp != null && syp > 0) usd = Math.round((syp / rate) * 100) / 100;
+  }
   if (!Number.isFinite(syp) || !Number.isFinite(usd) || (syp as number) <= 0 || (usd as number) <= 0) {
     throw new Error('Payment amount must be greater than zero in both currencies');
   }
@@ -58,8 +61,8 @@ export class PaymentService {
    * Create a new payment
    * Updates invoice paid amount
    */
-  async createPayment(tenantId: string, userId: string, data: CreatePaymentDto): Promise<Payment> {
-    const amounts = await normalizePaymentAmounts(tenantId, data.amountSYP, data.amountUSD);
+  async createPayment(tenantId: string, userId: string, data: CreatePaymentDto, options: { exactAmounts?: boolean } = {}): Promise<Payment> {
+    const amounts = await normalizePaymentAmounts(tenantId, data.amountSYP, data.amountUSD, undefined, options.exactAmounts);
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date');
 
@@ -207,17 +210,20 @@ export class PaymentService {
             invoice: {
               include: {
                 customer: { select: { fullName: true } },
+                employee: { select: { fullNameAr: true } },
               },
             },
           },
         });
 
-        if (paymentWithDetails?.invoice) {
+        const paidInvoice = paymentWithDetails?.invoice;
+        if (paidInvoice) {
           await this.telegramAdminNotificationService.notifyPaymentReceived(
             tenantId,
-            paymentWithDetails.invoice,
-            Number(paymentWithDetails.amountSYP),
-            paymentWithDetails.invoice.customer?.fullName
+            paidInvoice,
+            Number(paymentWithDetails!.amountSYP),
+            paidInvoice.customer?.fullName ?? paidInvoice.employee?.fullNameAr ?? undefined,
+            paidInvoice.customer ? 'العميل' : 'الموظف'
           );
         }
       } catch (telegramError) {

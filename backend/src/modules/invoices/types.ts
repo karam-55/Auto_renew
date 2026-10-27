@@ -20,6 +20,7 @@ export interface Invoice {
   tenantId: string;
   customerId: string | null;
   bookingId: string | null;
+  employeeId?: string | null;
   invoiceNumber: string;
   invoiceDate: Date;
   dueDate: Date | null;
@@ -66,6 +67,7 @@ export interface CreateInvoiceDto {
   customerId?: string;
   vehicleId?: string;
   bookingId?: string;
+  employeeId?: string;
   invoiceDate: Date;
   dueDate?: Date;
   taxRateId?: string;

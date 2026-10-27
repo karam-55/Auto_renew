@@ -9,12 +9,15 @@ export interface DefaultAccount {
   category?: string;
 }
 
+export const EMPLOYEE_RECEIVABLE_CODE = '1210';
+
 export const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '1000', nameAr: 'الأصول والموجودات', nameEn: 'Assets', accountType: AccountType.ASSET },
   { code: '1100', nameAr: 'الصندوق الرئيسي', nameEn: 'Main Cash', accountType: AccountType.ASSET, parentCode: '1000' },
   { code: '1110', nameAr: 'صندوق فرعي (الكاشير)', nameEn: 'Cash Register', accountType: AccountType.ASSET, parentCode: '1100' },
   { code: '1120', nameAr: 'الحسابات المصرفية', nameEn: 'Bank Accounts', accountType: AccountType.ASSET, parentCode: '1000' },
   { code: '1200', nameAr: 'الذمم المدينة (العملاء)', nameEn: 'Accounts Receivable', accountType: AccountType.ASSET, parentCode: '1000' },
+  { code: EMPLOYEE_RECEIVABLE_CODE, nameAr: 'ذمم الموظفين', nameEn: 'Employee Receivables', accountType: AccountType.ASSET, parentCode: '1000' },
   { code: '1300', nameAr: 'مخزون الزيوت ومواد الصيانة', nameEn: 'Oils and Maintenance Materials Inventory', accountType: AccountType.ASSET, parentCode: '1000' },
   { code: '1310', nameAr: 'مخزون قطع الغيار والإكسسوارات', nameEn: 'Spare Parts and Accessories Inventory', accountType: AccountType.ASSET, parentCode: '1000' },
   { code: '1320', nameAr: 'مخزون مواد الحماية والتلميع', nameEn: 'Protection and Polishing Materials Inventory', accountType: AccountType.ASSET, parentCode: '1000' },

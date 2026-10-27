@@ -7,6 +7,8 @@ jest.mock('../../src/config/database', () => {
     invoice: { count: jest.fn(), create: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     invoiceNumberSequence: { upsert: jest.fn() },
     invoiceItem: { create: jest.fn(), deleteMany: jest.fn(), findMany: jest.fn() },
+    buffetSaleLine: { findMany: jest.fn().mockResolvedValue([]) },
+    buffetSale: { updateMany: jest.fn().mockResolvedValue({ count: 0 }), count: jest.fn().mockResolvedValue(0) },
     customer: { findFirst: jest.fn() },
     vehicle: { findFirst: jest.fn() },
     booking: { findFirst: jest.fn() },

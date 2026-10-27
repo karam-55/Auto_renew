@@ -130,16 +130,25 @@ jobs:
               docker rm -f evolution_api evolution_postgres evolution_redis 2>/dev/null || true
               docker volume rm -f deploy_evolution_instances deploy_evolution_postgres_data deploy_evolution_redis_data 2>/dev/null || true
               docker compose -f docker-compose.prod.yml build --no-cache backend
-              docker compose -f docker-compose.prod.yml up -d backend
-              docker compose -f docker-compose.prod.yml restart nginx
-
               # Baseline Prisma migrations table (safe to run repeatedly, only needed once when switching from `db push`)
               docker compose -f docker-compose.prod.yml cp baseline-prisma-migrations.sql postgres:/tmp/baseline-prisma-migrations.sql
               docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -f /tmp/baseline-prisma-migrations.sql'
 
-              # Apply pending migrations (production-safe, never drops data)
-              docker compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
-              sleep 5
+              docker compose -f docker-compose.prod.yml run -T --rm --no-deps backend npx prisma migrate deploy
+
+              docker compose -f docker-compose.prod.yml up -d backend
+              docker compose -f docker-compose.prod.yml restart nginx
+
+              for i in \$(seq 1 40); do
+                status=\$(docker inspect --format '{{.State.Health.Status}}' garage_backend 2>/dev/null || echo unknown)
+                if [ "\$status" = "healthy" ]; then echo 'Backend is healthy'; break; fi
+                if [ "\$i" -eq 40 ]; then
+                  echo "Backend not healthy (status: \$status)" >&2
+                  docker compose -f docker-compose.prod.yml logs --tail=80 backend >&2
+                  exit 1
+                fi
+                sleep 3
+              done
               echo '=== Backend status ==='
               docker compose -f docker-compose.prod.yml ps backend
 

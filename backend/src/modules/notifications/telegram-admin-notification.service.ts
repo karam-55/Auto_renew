@@ -162,7 +162,8 @@ export class TelegramAdminNotificationService {
     tenantId: string,
     invoice: any,
     amountSYP: number,
-    customerName?: string
+    customerName?: string,
+    partyLabel = 'العميل'
   ): Promise<void> {
     const invoiceNumber = invoice.invoiceNumber || invoice.id.substring(0, 8).toUpperCase();
     const amount = Number(amountSYP || 0).toLocaleString('ar-SY');
@@ -170,7 +171,7 @@ export class TelegramAdminNotificationService {
     const message =
       `💰 دفعة مستلمة\n\n` +
       `رقم الفاتورة: ${invoiceNumber}\n` +
-      `العميل: ${customerName || 'غير معروف'}\n` +
+      `${partyLabel}: ${customerName || 'غير معروف'}\n` +
       `المبلغ: ${amount} ل.س\n` +
       `الحالة الجديدة: ${invoice.status || 'PAID'}`;
 
